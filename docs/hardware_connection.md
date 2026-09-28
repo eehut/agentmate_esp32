@@ -1,6 +1,6 @@
 # AGENTMATE 硬件连接说明
 
-本文档描述 AGENTMATE V1 原型的推荐接线方式：ESP32-C3、16 颗 RGB LED 灯环和 160×160 圆形 SPI TFT 屏幕。默认屏幕驱动为 GC9A01，也适用于接口兼容的 ST7789 模块。
+本文档描述 AGENTMATE V1 原型的推荐接线方式：ESP32-C3、16 颗 RGB LED 灯环和 240×240 圆形 SPI TFT 屏幕。默认屏幕驱动为 GC9A01。
 
 > 本文档使用的是一套推荐 GPIO 分配，不代表所有 ESP32-C3 开发板的固定引脚。正式焊接前，请以所用开发板的原理图和丝印为准，并确认该板没有把推荐 GPIO 接到板载外设。
 
@@ -11,7 +11,7 @@ flowchart LR
     USB[USB-C 5V] --> P5V[5V 电源母线]
     USB --> C3[ESP32-C3]
     P5V --> LED[16 灯 RGB 环]
-    C3 -->|3.3V SPI| TFT[160x160 圆形 TFT]
+    C3 -->|3.3V SPI| TFT[240x240 圆形 TFT]
     C3 -->|3.3V 数据，经电平转换| LED
     C3 --- GND[公共 GND]
     TFT --- GND
@@ -108,7 +108,7 @@ USB GND ─────── ESP32-C3 GND ── TFT GND ── LED GND
 | 数量 | 物料 | 推荐规格 |
 |---:|---|---|
 | 1 | 主控开发板 | ESP32-C3，带原生 USB 或 USB-UART |
-| 1 | 圆形 TFT | 160×160，GC9A01 或 ST7789，3.3V 逻辑 |
+| 1 | 圆形 TFT | 240×240，GC9A01，3.3V 逻辑 |
 | 1 | RGB 灯环 | 16 灯，WS2812B 或 SK6812 |
 | 1 | 电平转换器 | 74AHCT1G125 / 74HCT125 |
 | 1 | 电解电容 | 470~1000 µF，≥10 V |
