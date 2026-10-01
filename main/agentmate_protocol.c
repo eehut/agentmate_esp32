@@ -13,7 +13,7 @@
 #
 #####################################################################################
 #
-# Description: AgentMate USB AT protocol, authentication, and state handling
+# Description: AgentMate UART AT protocol, factory diagnostics, and state handling
 # Author: Liu Chuansen <liuchuansen@outlook.com>
 #
 #####################################################################################
@@ -23,6 +23,9 @@
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
 # 2026-10-01 1.0      Liu Chuansen  Organized for project C style.
+# 2026-10-01 1.1      Codex         Added factory AT interaction and diagnostics.
+# 2026-10-01 1.2      Codex         Report the CMake project version on HELLO and INFO.
+# 2026-10-01 1.3      Codex         Use the shared product model on HELLO and INFO.
 #
 #####################################################################################
 */
@@ -39,23 +42,24 @@
 #include <sys/time.h>
 
 #include "bootloader_random.h"
-#include "driver/usb_serial_jtag.h"
+#include "driver/uart.h"
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_random.h"
 #include "esp_rom_crc.h"
 #include "esp_timer.h"
-#include "mbedtls/md.h"
+#include "esp_system.h"
 #include "nvs_flash.h"
 
 #define AM_PAIR_MAGIC 0x414d5031U
 #define AM_PAIR_VERSION 1U
-#define AM_PAIR_WINDOW_US (120LL * 1000000LL)
-#define AM_PAIR_COOLDOWN_US (300LL * 1000000LL)
 #define AM_CONNECTION_TIMEOUT_US (30LL * 1000000LL)
 
 static const char *s_tag = "agentmate_at";
 static bool s_last_command_failed;
+static bool s_log_failed;
+static char s_pending_log[160];
+static uint32_t s_log_sequence;
 
 typedef struct {
     uint32_t magic;
@@ -88,15 +92,6 @@ static void random_hex(char *out, size_t bytes)
         out[i * 2 + 1] = s_alphabet[raw[i] & 15];
     }
     out[bytes * 2] = 0;
-}
-
-static uint16_t random_pin(void)
-{
-    uint16_t value;
-    do {
-        random_bytes(&value, sizeof(value));
-    } while (value >= 60000U);
-    return value % 10000U;
 }
 
 static bool is_lower_hex(const char *value, size_t length)
@@ -151,48 +146,6 @@ static bool parse_bounded(const char *value, uint64_t maximum, uint64_t *out)
     return parse_u64(value, out) && *out <= maximum;
 }
 
-static bool decode_hex(const char *text, uint8_t *out, size_t bytes)
-{
-    if (!is_lower_hex(text, bytes * 2)) {
-        return false;
-    }
-    for (size_t i = 0; i < bytes; ++i) {
-        char hi = text[i * 2], lo = text[i * 2 + 1];
-        out[i] = (uint8_t)(((hi <= '9' ? hi - '0' : hi - 'a' + 10) << 4) | (lo <= '9' ? lo - '0' : lo - 'a' + 10));
-    }
-    return true;
-}
-
-static bool constant_equal(const uint8_t *a, const uint8_t *b, size_t length)
-{
-    uint8_t difference = 0;
-    for (size_t i = 0; i < length; ++i) {
-        difference |= a[i] ^ b[i];
-    }
-    return difference == 0;
-}
-
-static bool hmac_proof(const uint8_t key[32], const char *domain, const char *first, const char *second, const char *third, uint8_t out[32])
-{
-    char message[192];
-    int length = snprintf(message, sizeof(message), "%s%s%s%s", domain, first, second, third);
-    if (length < 0 || length >= sizeof(message)) {
-        return false;
-    }
-    const mbedtls_md_info_t *md = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
-    return md != NULL && mbedtls_md_hmac(md, key, 32, (const unsigned char *)message, (size_t)length, out) == 0;
-}
-
-static void encode_hex(const uint8_t *data, size_t length, char *out)
-{
-    static const char s_alphabet[] = "0123456789abcdef";
-    for (size_t i = 0; i < length; ++i) {
-        out[i * 2] = s_alphabet[data[i] >> 4];
-        out[i * 2 + 1] = s_alphabet[data[i] & 15];
-    }
-    out[length * 2] = 0;
-}
-
 static bool write_line(const char *format, ...)
 {
     char line[AM_LINE_BYTES + 1];
@@ -207,7 +160,7 @@ static bool write_line(const char *format, ...)
     line[length++] = '\n';
     size_t sent = 0;
     while (sent < (size_t)length) {
-        int count = usb_serial_jtag_write_bytes(line + sent, (size_t)length - sent, pdMS_TO_TICKS(100));
+        int count = uart_write_bytes(UART_NUM_0, line + sent, (size_t)length - sent);
         if (count <= 0) {
             return false;
         }
@@ -219,8 +172,29 @@ static bool write_line(const char *format, ...)
 static void send_error(const char *code)
 {
     s_last_command_failed = true;
+    s_log_failed = true;
     (void)write_line("+ERR:%s", code);
     (void)write_line("ERROR");
+}
+
+static void queue_log(const char *message)
+{
+    size_t i = 0;
+    while (message[i] && i < sizeof(s_pending_log) - 1) {
+        unsigned char ch = (unsigned char)message[i];
+        s_pending_log[i] = ch >= 0x20 && ch <= 0x7e && ch != ',' ? ch : '_';
+        ++i;
+    }
+    s_pending_log[i] = 0;
+}
+
+static void flush_log(am_app_t *app)
+{
+    if (s_pending_log[0] && app->log_enabled) {
+        (void)write_line("+LOG:%" PRIu32 ",%s,agentmate,%s", ++s_log_sequence, s_log_failed ? "ERROR" : "INFO", s_pending_log);
+    }
+    s_pending_log[0] = 0;
+    s_log_failed = false;
 }
 
 static int split_csv(char *text, char *fields[], int capacity)
@@ -240,24 +214,6 @@ static int split_csv(char *text, char *fields[], int capacity)
         }
     }
     return count;
-}
-
-static esp_err_t save_pair(am_app_t *app, const char *server_id, const uint8_t key[32])
-{
-    am_pair_blob_t blob = {.magic = AM_PAIR_MAGIC, .version = AM_PAIR_VERSION};
-    memcpy(blob.server_id, server_id, 33);
-    memcpy(blob.key, key, 32);
-    blob.crc = esp_rom_crc32_le(0, (const uint8_t *)&blob, offsetof(am_pair_blob_t, crc));
-    esp_err_t err = nvs_set_blob(app->nvs, "pair", &blob, sizeof(blob));
-    if (err == ESP_OK) {
-        err = nvs_commit(app->nvs);
-    }
-    if (err == ESP_OK) {
-        memcpy(app->owner_server_id, blob.server_id, 33);
-        memcpy(app->device_key, blob.key, 32);
-        app->paired = true;
-    }
-    return err;
 }
 
 static esp_err_t save_setting(am_app_t *app, const char *key, uint8_t value)
@@ -296,14 +252,26 @@ esp_err_t am_app_init(am_app_t *app)
     }
     ESP_RETURN_ON_ERROR(nvs_flash_init(), s_tag, "NVS initialization failed");
     ESP_RETURN_ON_ERROR(nvs_open("agentmate", NVS_READWRITE, &app->nvs), s_tag, "NVS open failed");
+    uint8_t factory = 0;
+    esp_err_t mode_error = nvs_get_u8(app->nvs, "factory_mode", &factory);
+    if (mode_error != ESP_OK && mode_error != ESP_ERR_NVS_NOT_FOUND) {
+        return mode_error;
+    }
+    if (mode_error == ESP_OK && factory > 1) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    bool mode_saved = mode_error == ESP_OK;
     size_t id_length = sizeof(app->device_id);
     esp_err_t err = nvs_get_str(app->nvs, "device_id", app->device_id, &id_length);
     if (err == ESP_ERR_NVS_NOT_FOUND) {
+        app->model.factory_mode = !mode_saved || factory != 0;
         random_hex(app->device_id, 16);
         ESP_RETURN_ON_ERROR(nvs_set_str(app->nvs, "device_id", app->device_id), s_tag, "device ID save failed");
         ESP_RETURN_ON_ERROR(nvs_commit(app->nvs), s_tag, "device ID commit failed");
     } else if (err != ESP_OK || !is_lower_hex(app->device_id, 32)) {
         return ESP_ERR_INVALID_STATE;
+    } else {
+        app->model.factory_mode = mode_saved && factory != 0;
     }
     am_pair_blob_t blob;
     size_t pair_length = sizeof(blob);
@@ -329,6 +297,9 @@ esp_err_t am_app_init(am_app_t *app)
         app->rotation = (uint16_t)value * 90U;
     }
     app->model.link = AM_LINK_WAIT_HOST;
+    app->model.test = AM_TEST_PAGE;
+    app->echo_enabled = app->model.factory_mode;
+    app->log_enabled = app->model.factory_mode;
     return ESP_OK;
 }
 
@@ -407,134 +378,19 @@ static bool valid_nonce(const char *value)
 
 static void handle_hello(am_app_t *app, char *argument)
 {
-    char *f[3];
-    if (split_csv(argument, f, 3) != 3 || strcmp(f[0], "1") != 0 || !is_lower_hex(f[1], 32) || !is_lower_hex(f[2], 32)) {
-        send_error(strcmp(f[0], "1") == 0 ? "INVALID_ARG" : "UNSUPPORTED_VERSION");
+    char *f[2];
+    if (split_csv(argument, f, 2) != 2 || strcmp(f[0], AM_PROTOCOL_VERSION_TEXT) != 0 || !is_lower_hex(f[1], 32)) {
+        send_error(strcmp(f[0], AM_PROTOCOL_VERSION_TEXT) == 0 ? "INVALID_ARG" : "UNSUPPORTED_VERSION");
         return;
     }
-    app->authenticated = false;
-    app->hello_valid = true;
-    memcpy(app->server_nonce, f[1], 33);
-    memcpy(app->server_id, f[2], 33);
-    random_hex(app->device_nonce, 16);
-    app->pair_id[0] = 0;
-    app->model.pair_pin[0] = 0;
-    app->model.pair_deadline_us = 0;
-    clear_remote(app);
-    app->model.link = AM_LINK_HANDSHAKE;
-    uint8_t digest[32];
-    char proof[65] = "-";
-    if (app->paired && strcmp(app->server_id, app->owner_server_id) == 0 &&
-        hmac_proof(app->device_key, "agentmate-v1/device/", app->server_nonce, app->device_nonce, app->device_id, digest)) {
-        encode_hex(digest, sizeof(digest), proof);
+    if (!app->model.factory_mode) {
+        clear_remote(app);
+        app->model.link = AM_LINK_HANDSHAKE;
     }
-    (void)write_line("+HELLO:1,agentmate,%s,%s,%s,agentmate_esp32c3,fw1.0,%d,%d,%s", app->server_nonce, app->device_id, app->device_nonce, AM_MAX_SESSIONS,
-                     AM_MAX_USAGE_ENTRIES, proof);
+    (void)write_line("+HELLO:%s,agentmate,%s,%s,%s,%s,%d,%d,%s", AM_PROTOCOL_VERSION_TEXT, f[1], app->device_id, AM_PRODUCT_MODEL,
+                     AM_SOFTWARE_VERSION, AM_MAX_SESSIONS, AM_MAX_USAGE_ENTRIES, app->model.factory_mode ? "FACTORY" : "NORMAL");
     (void)write_line("OK");
-}
-
-static void handle_pair_begin(am_app_t *app)
-{
-    int64_t now = now_us();
-    if (!app->hello_valid || app->authenticated) {
-        send_error("BAD_STATE");
-        return;
-    }
-    if (now < app->model.pair_cooldown_us) {
-        send_error("PAIR_LOCKED");
-        return;
-    }
-    if (app->model.pair_deadline_us <= now) {
-        random_hex(app->pair_id, 16);
-        uint16_t pin = random_pin();
-        app->model.pair_pin[0] = '0' + pin / 1000;
-        app->model.pair_pin[1] = '0' + (pin / 100) % 10;
-        app->model.pair_pin[2] = '0' + (pin / 10) % 10;
-        app->model.pair_pin[3] = '0' + pin % 10;
-        app->model.pair_pin[4] = 0;
-        app->model.pair_deadline_us = now + AM_PAIR_WINDOW_US;
-        app->pair_attempts = 0;
-        app->model.link = AM_LINK_PAIRING;
-        app->model.revision++;
-    }
-    unsigned long long remaining = (unsigned long long)((app->model.pair_deadline_us - now + 999999) / 1000000);
-    (void)write_line("+PAIR:%s,%llu", app->pair_id, remaining);
-    (void)write_line("OK");
-}
-
-static void handle_pair_commit(am_app_t *app, char *argument)
-{
-    char *f[3];
-    uint8_t key[32];
-    if (split_csv(argument, f, 3) != 3 || !is_lower_hex(f[0], 32) || strlen(f[1]) != 4 || !parse_bounded(f[1], 9999, &(uint64_t){0}) ||
-        !decode_hex(f[2], key, 32)) {
-        send_error("INVALID_ARG");
-        return;
-    }
-    int64_t now = now_us();
-    if (now < app->model.pair_cooldown_us) {
-        send_error("PAIR_LOCKED");
-        return;
-    }
-    if (!app->hello_valid || app->authenticated || app->pair_id[0] == 0) {
-        send_error("BAD_STATE");
-        return;
-    }
-    if (now >= app->model.pair_deadline_us) {
-        app->model.pair_pin[0] = 0;
-        app->model.link = AM_LINK_UNPAIRED;
-        app->model.revision++;
-        send_error("PAIR_EXPIRED");
-        return;
-    }
-    if (strcmp(f[0], app->pair_id) != 0) {
-        send_error("BAD_STATE");
-        return;
-    }
-    if (!constant_equal((const uint8_t *)f[1], (const uint8_t *)app->model.pair_pin, 4)) {
-        if (++app->pair_attempts >= 3) {
-            app->model.pair_cooldown_us = now + AM_PAIR_COOLDOWN_US;
-            app->model.pair_deadline_us = 0;
-            app->model.pair_pin[0] = 0;
-            app->model.link = AM_LINK_UNPAIRED;
-            app->model.revision++;
-            send_error("PAIR_LOCKED");
-        } else {
-            send_error("PAIR_MISMATCH");
-        }
-        return;
-    }
-    if (save_pair(app, app->server_id, key) != ESP_OK) {
-        send_error("STORAGE_ERROR");
-        return;
-    }
-    app->model.pair_pin[0] = 0;
-    app->model.pair_deadline_us = 0;
-    app->pair_id[0] = 0;
-    app->hello_valid = false;
-    clear_remote(app);
-    app->model.link = AM_LINK_HANDSHAKE;
-    (void)write_line("OK");
-}
-
-static void handle_auth(am_app_t *app, char *argument)
-{
-    uint8_t supplied[32], expected[32];
-    if (!decode_hex(argument, supplied, 32)) {
-        send_error("INVALID_ARG");
-        return;
-    }
-    if (!app->hello_valid || !app->paired || strcmp(app->server_id, app->owner_server_id) != 0 ||
-        !hmac_proof(app->device_key, "agentmate-v1/host/", app->server_nonce, app->device_nonce, app->server_id, expected) ||
-        !constant_equal(supplied, expected, 32)) {
-        send_error("UNAUTHORIZED");
-        return;
-    }
-    app->authenticated = true;
-    app->last_valid_command_us = now_us();
-    app->model.link = AM_LINK_SYNCING;
-    app->model.revision++;
-    (void)write_line("OK");
+    queue_log("hello accepted");
 }
 
 static void handle_sync_begin(am_app_t *app, char *argument)
@@ -913,9 +769,112 @@ static void handle_setting(am_app_t *app, char *argument, const char *name)
     }
 }
 
+static void handle_mode(am_app_t *app, char *argument)
+{
+    bool factory;
+    if (strcmp(argument, "FACTORY") == 0) {
+        factory = true;
+    } else if (strcmp(argument, "NORMAL") == 0) {
+        factory = false;
+    } else {
+        send_error("INVALID_ARG");
+        return;
+    }
+    if (factory == app->model.factory_mode) {
+        (void)write_line("OK");
+        return;
+    }
+    if (save_setting(app, "factory_mode", factory) != ESP_OK) {
+        send_error("STORAGE_ERROR");
+        return;
+    }
+    (void)write_line("OK");
+    app->restart_pending = true;
+}
+
+static void handle_test(am_app_t *app, const char *command, char *argument)
+{
+    if (!app->model.factory_mode) {
+        send_error("UNSUPPORTED_FEATURE");
+        return;
+    }
+    if (strcmp(command, "TESTLED") == 0) {
+        char *f[5];
+        uint64_t index, red, green, blue, brightness;
+        if (split_csv(argument, f, 5) != 5 ||
+            (strcmp(f[0], "ALL") != 0 && (!parse_bounded(f[0], 15, &index))) ||
+            !parse_bounded(f[1], 255, &red) || !parse_bounded(f[2], 255, &green) ||
+            !parse_bounded(f[3], 255, &blue) || !parse_bounded(f[4], 255, &brightness)) {
+            send_error("INVALID_ARG");
+            return;
+        }
+        app->model.test_led_index = strcmp(f[0], "ALL") == 0 ? 16 : (uint8_t)index;
+        app->model.test_led_color = (rgb_led_color_t){.r = red, .g = green, .b = blue};
+        app->model.test_led_brightness = brightness;
+        app->model.test = AM_TEST_LED;
+    } else if (strcmp(command, "TESTTFT") == 0) {
+        static const char *const s_names[] = {"BLACK", "WHITE", "RED", "GREEN", "BLUE", "GRAY"};
+        static const uint16_t s_colors[] = {TFT_COLOR_BLACK, TFT_COLOR_WHITE, TFT_COLOR_RED, TFT_COLOR_GREEN, TFT_COLOR_BLUE,
+                                            TFT_RGB565(128, 128, 128)};
+        bool found = false;
+        for (size_t i = 0; i < sizeof(s_names) / sizeof(s_names[0]); ++i) {
+            if (strcmp(argument, s_names[i]) == 0) {
+                app->model.test_color = s_colors[i];
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            send_error("INVALID_ARG");
+            return;
+        }
+        app->model.test = AM_TEST_COLOR;
+    } else if (strcmp(command, "TESTBACKLIGHT") == 0) {
+        uint64_t brightness;
+        if (!parse_bounded(argument, 255, &brightness)) {
+            send_error("INVALID_ARG");
+            return;
+        }
+        app->model.test_backlight = brightness;
+        app->model.test = AM_TEST_BACKLIGHT;
+    } else if (strcmp(command, "TESTFONT") == 0) {
+        static const char *const s_names[] = {"8x8", "8x16", "10x18", "12x22", "16x32"};
+        bool found = false;
+        for (size_t i = 0; i < sizeof(s_names) / sizeof(s_names[0]); ++i) {
+            if (strcmp(argument, s_names[i]) == 0) {
+                app->model.test_font = i;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            send_error("INVALID_ARG");
+            return;
+        }
+        app->model.test = AM_TEST_FONT;
+    } else if (strcmp(command, "TESTAUTO") == 0) {
+        if (strcmp(argument, "1") == 0) {
+            app->model.test = AM_TEST_AUTO;
+        } else if (strcmp(argument, "0") == 0) {
+            app->model.test = AM_TEST_PAGE;
+        } else {
+            send_error("INVALID_ARG");
+            return;
+        }
+    } else {
+        send_error("UNKNOWN_COMMAND");
+        return;
+    }
+    app->model.test_started_us = now_us();
+    app->model.revision++;
+    (void)write_line("OK");
+    queue_log("factory test changed");
+}
+
 static void dispatch(am_app_t *app, char *line)
 {
     s_last_command_failed = false;
+    s_log_failed = false;
     if (strncmp(line, "AT+", 3) != 0) {
         send_error("UNKNOWN_COMMAND");
         return;
@@ -932,29 +891,61 @@ static void dispatch(am_app_t *app, char *line)
             query = true;
         }
     }
+    queue_log(command);
     if (strcmp(command, "HELLO") == 0 && argument && !query) {
         handle_hello(app, argument);
         return;
     }
     if (strcmp(command, "INFO") == 0 && query) {
-        (void)write_line("+INFO:%s,agentmate_esp32c3,fw1.0,1,%d", app->device_id, AM_MAX_SESSIONS);
+        (void)write_line("+INFO:%s,%s,%s,%s,%d", app->device_id, AM_PRODUCT_MODEL, AM_SOFTWARE_VERSION, AM_PROTOCOL_VERSION_TEXT,
+                         AM_MAX_SESSIONS);
         (void)write_line("OK");
         return;
     }
+    if (strcmp(command, "MODE") == 0 && query) {
+        (void)write_line("+MODE:%s", app->model.factory_mode ? "FACTORY" : "NORMAL");
+        (void)write_line("OK");
+        return;
+    }
+    if (strcmp(command, "MODE") == 0 && argument) {
+        handle_mode(app, argument);
+        return;
+    }
+    if (strcmp(command, "ECHO") == 0 || strcmp(command, "LOG") == 0) {
+        bool *enabled = strcmp(command, "ECHO") == 0 ? &app->echo_enabled : &app->log_enabled;
+        if (query) {
+            (void)write_line("+%s:%d", command, *enabled);
+            (void)write_line("OK");
+        } else if (argument && (strcmp(argument, "0") == 0 || strcmp(argument, "1") == 0)) {
+            *enabled = strcmp(argument, "1") == 0;
+            (void)write_line("OK");
+        } else {
+            send_error("INVALID_ARG");
+        }
+        return;
+    }
+    if (strncmp(command, "TEST", 4) == 0) {
+        if (argument && !query) {
+            handle_test(app, command, argument);
+        } else {
+            send_error("INVALID_ARG");
+        }
+        return;
+    }
     if (strcmp(command, "PAIRBEGIN") == 0 && !argument && !query) {
-        handle_pair_begin(app);
+        send_error("UNSUPPORTED_FEATURE");
         return;
     }
     if (strcmp(command, "PAIRCOMMIT") == 0 && argument) {
-        handle_pair_commit(app, argument);
+        send_error("UNSUPPORTED_FEATURE");
         return;
     }
     if (strcmp(command, "AUTH") == 0 && argument) {
-        handle_auth(app, argument);
+        send_error("UNSUPPORTED_FEATURE");
         return;
     }
-    if (!app->authenticated) {
-        send_error("UNAUTHORIZED");
+    if (app->model.factory_mode) {
+        send_error("UNSUPPORTED_FEATURE");
         return;
     }
     if (strcmp(command, "SYNCBEGIN") == 0 && argument) {
@@ -1005,72 +996,83 @@ static void dispatch(am_app_t *app, char *line)
 
 void am_protocol_run(am_app_t *app)
 {
-    usb_serial_jtag_driver_config_t config = {
-        .tx_buffer_size = 512,
-        .rx_buffer_size = 512,
+    uart_config_t config = {
+        .baud_rate = 115200,
+        .data_bits = UART_DATA_8_BITS,
+        .parity = UART_PARITY_DISABLE,
+        .stop_bits = UART_STOP_BITS_1,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+        .source_clk = UART_SCLK_DEFAULT,
     };
-    ESP_ERROR_CHECK(usb_serial_jtag_driver_install(&config));
+    ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0, 1024, 1024, 0, NULL, 0));
+    ESP_ERROR_CHECK(uart_param_config(UART_NUM_0, &config));
+    ESP_ERROR_CHECK(uart_set_pin(UART_NUM_0, GPIO_NUM_21, GPIO_NUM_20, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
     char line[AM_LINE_BYTES + 1];
     size_t length = 0;
     bool overflow = false;
-    bool was_connected = false;
+    bool skip_lf = false;
     for (;;) {
-        bool connected = usb_serial_jtag_is_connected();
         int64_t now = now_us();
         xSemaphoreTake(app->model_lock, portMAX_DELAY);
-        if (was_connected && !connected) {
-            app->authenticated = false;
-            app->hello_valid = false;
-            app->model.pair_pin[0] = 0;
-            app->model.pair_deadline_us = 0;
+        if (!app->model.factory_mode && app->last_valid_command_us > 0 && now - app->last_valid_command_us > AM_CONNECTION_TIMEOUT_US &&
+            app->model.link != AM_LINK_WAIT_HOST) {
             clear_remote(app);
             app->model.link = AM_LINK_WAIT_HOST;
-            length = 0;
-            overflow = false;
-        }
-        if (app->model.pair_pin[0] && now >= app->model.pair_deadline_us) {
-            app->model.pair_pin[0] = 0;
-            app->model.link = AM_LINK_UNPAIRED;
-            app->model.revision++;
-        }
-        if (app->authenticated && now - app->last_valid_command_us > AM_CONNECTION_TIMEOUT_US) {
-            app->authenticated = false;
-            app->hello_valid = false;
-            clear_remote(app);
-            app->model.link = AM_LINK_WAIT_HOST;
+            app->last_valid_command_us = 0;
+            queue_log("host timeout");
         }
         xSemaphoreGive(app->model_lock);
-        was_connected = connected;
         uint8_t data[64];
-        int received = usb_serial_jtag_read_bytes(data, sizeof(data), pdMS_TO_TICKS(100));
+        int received = uart_read_bytes(UART_NUM_0, data, sizeof(data), pdMS_TO_TICKS(100));
         for (int i = 0; i < received; ++i) {
             char ch = (char)data[i];
-            if (ch == '\n') {
+            if (ch == '\n' && skip_lf) {
+                skip_lf = false;
+                continue;
+            }
+            skip_lf = ch == '\r';
+            if (ch == '\r' || ch == '\n') {
+                if (app->echo_enabled) {
+                    (void)uart_write_bytes(UART_NUM_0, "\r\n", 2);
+                }
                 if (overflow) {
                     send_error("LINE_TOO_LONG");
                 } else {
-                    if (length && line[length - 1] == '\r') {
-                        --length;
-                    }
                     line[length] = 0;
                     if (length) {
                         xSemaphoreTake(app->model_lock, portMAX_DELAY);
                         dispatch(app, line);
-                        if (app->authenticated && !s_last_command_failed) {
+                        if (!app->model.factory_mode && !s_last_command_failed) {
                             app->last_valid_command_us = now_us();
                         }
                         xSemaphoreGive(app->model_lock);
+                        flush_log(app);
+                        if (app->restart_pending) {
+                            (void)uart_wait_tx_done(UART_NUM_0, pdMS_TO_TICKS(500));
+                            esp_restart();
+                        }
                     }
                 }
                 length = 0;
                 overflow = false;
+            } else if (ch == '\b' || ch == 0x7f) {
+                if (length > 0 && !overflow) {
+                    --length;
+                    if (app->echo_enabled) {
+                        (void)uart_write_bytes(UART_NUM_0, "\b \b", 3);
+                    }
+                }
             } else if (!overflow) {
                 if (length >= AM_LINE_BYTES - 2) {
                     overflow = true;
                 } else {
                     line[length++] = ch;
+                    if (app->echo_enabled) {
+                        (void)uart_write_bytes(UART_NUM_0, &ch, 1);
+                    }
                 }
             }
         }
+        flush_log(app);
     }
 }

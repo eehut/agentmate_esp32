@@ -1,110 +1,91 @@
 # AgentMate AT 指令指南
 
-文档版本：**1.2**  
+文档版本：**1.3**
 协议主版本：**1**  
-状态：ESP32 基础版固件已实现；服务端对接待完成  
-适用连接：首版为 USB 串口，`115200 8N1`
+状态：ESP32 固件已实现；电脑端服务适配待完成
+适用连接：ESP32-C3 UART0 经 CH340 USB-UART 桥，`115200 8N1`
 
-本文是 [AgentMate 服务端与 ESP32 通信技术方案](agentmate_communication_plan.md) 的指令参考。服务端发送命令，设备返回数据行及最终结果；串口终端也可用于手工调试。
+## 1. 命令与模式
 
-## 1. 支持的命令总览
+正常模式通过 `AT+HELLO=1,<nonce>` 发现设备后直接同步业务数据；一期不进行配对和身份认证。产测模式只接受发现、信息、模式、回显、日志和产测命令。`PAIRBEGIN`、`PAIRCOMMIT`、`AUTH` 在本版返回 `UNSUPPORTED_FEATURE`，配对认证规划为二期。
 
-| 命令 | 功能 | 主要响应 |
-|---|---|---|
-| `AT+HELLO=<version>,<server_nonce>,<server_id>` | 发现设备、协商版本、发起身份挑战 | `+HELLO:...`、`OK` |
-| `AT+PAIRBEGIN` | 开启四位码配对窗口 | `+PAIR:<pair_id>,<remaining_s>`、`OK` |
-| `AT+PAIRCOMMIT=<pair_id>,<pin>,<key_hex>` | 校验屏幕四位码并保存新配对密钥 | `OK` |
-| `AT+AUTH=<host_proof>` | 服务端完成双向认证 | `OK` |
-| `AT+SYNCBEGIN=<epoch>,<sync_id>` | 开始逐条会话同步 | `OK` |
-| `AT+SESSION=<epoch>,<key>,<rev>,<provider>,<state>,<last_task>,<finished_at>,<task_seconds>,<ctx_used>,<ctx_window>,<ctx_pct_bp>,<ctx_updated_at>` | 新增或更新一条会话 | `OK` |
-| `AT+DELETE=<epoch>,<key>` | 删除一条会话 | `OK` |
-| `AT+SYNCEND=<epoch>,<sync_id>` | 结束同步并删除未出现的旧会话 | `OK` |
-| `AT+LIST?` | 查询设备上的全部会话键及版本 | `+LIST:...`、`+ITEM:...`、`OK` |
-| `AT+GET=<key>` | 查询一条会话的完整协议字段 | `+SESSION:...`、`OK` |
-| `AT+USAGE=<epoch>,<provider>,<metric_key>,<window_key>,<used_bp>,<reset_at>,<window_seconds>,<updated_at>` | 同步一个 provider 的用量窗口 | `OK` |
-| `AT+USAGECLEAR=<epoch>,<provider>` | 清除指定 provider 的用量记录 | `OK` |
-| `AT+EVENT=<epoch>,<event_id>,<key>,<provider>,<kind>,<occurred_at>` | 发送一次性任务提醒 | `OK` |
-| `AT+PING=<nonce>` | 检查设备活动状态 | `+PONG:...`、`OK` |
-| `AT+TIME=<unix_ms>` | 按服务端 UTC 时间校准设备时钟 | `+TIME:...`、`OK` |
-| `AT+TIME?` | 查询设备 UTC 时间和校时状态 | `+TIME:...`、`OK` |
-| `AT+INFO?` | 查询设备信息及会话容量 | `+INFO:...`、`OK` |
-| `AT+TFTBRIGHT=<value>` | 设置并保存 TFT 背光亮度 | `OK` |
-| `AT+TFTBRIGHT?` | 查询 TFT 背光亮度 | `+TFTBRIGHT:<value>`、`OK` |
-| `AT+LEDBRIGHT=<value>` | 设置并保存 LED 灯环全局亮度 | `OK` |
-| `AT+LEDBRIGHT?` | 查询 LED 灯环全局亮度 | `+LEDBRIGHT:<value>`、`OK` |
-| `AT+TFTROTATE=<angle>` | 设置并保存 TFT 界面旋转角度 | `OK` |
-| `AT+TFTROTATE?` | 查询 TFT 界面旋转角度 | `+TFTROTATE:<angle>`、`OK` |
+| 命令 | 功能 | 主要响应 | 产测 | 正常 |
+|---|---|---|:---:|:---:|
+| `AT+HELLO=1,<nonce>` | 发现设备、查询容量和当前模式 | `+HELLO:...`、`OK` | ✅ | ✅ |
+| `AT+INFO?` | 查询设备信息及会话容量 | `+INFO:...`、`OK` | ✅ | ✅ |
+| `AT+MODE?` | 查询当前模式 | `+MODE:<FACTORY或NORMAL>`、`OK` | ✅ | ✅ |
+| `AT+MODE=FACTORY` / `AT+MODE=NORMAL` | 保存模式并重启 | `OK` | ✅ | ✅ |
+| `AT+ECHO?` / `AT+ECHO=<0或1>` | 查询或控制输入回显 | `+ECHO:<0或1>`、`OK`；设置返回 `OK` | ✅ | ✅ |
+| `AT+LOG?` / `AT+LOG=<0或1>` | 查询或控制应用日志 | `+LOG:<0或1>`、`OK`；设置返回 `OK` | ✅ | ✅ |
+| `AT+TESTLED=<index或ALL>,<r>,<g>,<b>,<brightness>` | 指定单颗或全部 LED 的颜色与亮度 | `OK` | ✅ | |
+| `AT+TESTTFT=<BLACK或WHITE或RED或GREEN或BLUE或GRAY>` | TFT 纯色显示 | `OK` | ✅ | |
+| `AT+TESTBACKLIGHT=<0..255>` | TFT 背光测试 | `OK` | ✅ | |
+| `AT+TESTFONT=<8x8或8x16或10x18或12x22或16x32>` | ASCII 字体样张 | `OK` | ✅ | |
+| `AT+TESTAUTO=<0或1>` | 停止或启动自动轮播 | `OK` | ✅ | |
+| `AT+SYNCBEGIN=<epoch>,<sync_id>` | 开始逐条会话同步 | `OK` | | ✅ |
+| `AT+SESSION=<epoch>,<key>,<rev>,<provider>,<state>,<last_task>,<finished_at>,<task_seconds>,<ctx_used>,<ctx_window>,<ctx_pct_bp>,<ctx_updated_at>` | 新增或更新一条会话 | `OK` | | ✅ |
+| `AT+DELETE=<epoch>,<key>` | 删除一条会话 | `OK` | | ✅ |
+| `AT+SYNCEND=<epoch>,<sync_id>` | 结束同步并删除未出现的旧会话 | `OK` | | ✅ |
+| `AT+LIST?` | 查询全部会话键及版本 | `+LIST:...`、`+ITEM:...`、`OK` | | ✅ |
+| `AT+GET=<key>` | 查询一条会话的完整字段 | `+SESSION:...`、`OK` | | ✅ |
+| `AT+USAGE=<epoch>,<provider>,<metric_key>,<window_key>,<used_bp>,<reset_at>,<window_seconds>,<updated_at>` | 同步一条 provider 用量窗口 | `OK` | | ✅ |
+| `AT+USAGECLEAR=<epoch>,<provider>` | 清除指定 provider 的用量记录 | `OK` | | ✅ |
+| `AT+EVENT=<epoch>,<event_id>,<key>,<provider>,<kind>,<occurred_at>` | 发送一次性任务提醒 | `OK` | | ✅ |
+| `AT+PING=<nonce>` | 检查设备活动状态 | `+PONG:...`、`OK` | | ✅ |
+| `AT+TIME=<unix_ms>` | 按服务端 UTC 时间校准设备时钟 | `+TIME:...`、`OK` | | ✅ |
+| `AT+TIME?` | 查询设备 UTC 时间和校时状态 | `+TIME:...`、`OK` | | ✅ |
+| `AT+TFTBRIGHT=<value>` | 设置并保存 TFT 背光亮度 | `OK` | | ✅ |
+| `AT+TFTBRIGHT?` | 查询 TFT 背光亮度 | `+TFTBRIGHT:<value>`、`OK` | | ✅ |
+| `AT+LEDBRIGHT=<value>` | 设置并保存 LED 灯环亮度 | `OK` | | ✅ |
+| `AT+LEDBRIGHT?` | 查询 LED 灯环亮度 | `+LEDBRIGHT:<value>`、`OK` | | ✅ |
+| `AT+TFTROTATE=<angle>` | 设置并保存 TFT 界面旋转角度 | `OK` | | ✅ |
+| `AT+TFTROTATE?` | 查询 TFT 界面旋转角度 | `+TFTROTATE:<angle>`、`OK` | | ✅ |
 
-所有命令都以单独的 `OK` 或 `ERROR` 行结束。失败时设备可先返回 `+ERR:<code>`。`+HELLO:`、`+PAIR:`、`+LIST:`、`+ITEM:`、`+SESSION:`、`+PONG:`、`+TIME:`、`+INFO:` 和亮度查询结果是**响应行**，不能由服务端当作命令发送。
+`AT+PAIRBEGIN`、`AT+PAIRCOMMIT=...` 和 `AT+AUTH=...` 属于二期规划；当前固件收到这些命令会返回 `+ERR:UNSUPPORTED_FEATURE`、`ERROR`。
 
-## 2. 通用约定
+## 2. 行格式与日志
 
-- 命令与响应均为 ASCII，一行以 `\r\n` 结束；接收端兼容 `\n`。每行最多 256 字节，**包括行尾**。示例为方便阅读省略行尾字节。
-- 服务端同一时刻只发送一条尚未收到最终结果的命令。设备可以先返回一条或多条 `+...:` 数据行，最后返回 `OK` 或 `ERROR`。调试日志不得写进协议串口。
-- 参数严格按表中顺序以英文逗号分隔；不接受多余字段、空格、引号或自动转义。只有明确允许的字段可为空或写 `?`。解析器必须保留连续逗号形成的空字段。
-- `device_id`、`server_id`、`epoch`、握手用 nonce、`pair_id` 和 `event_id` 为 32 个小写十六进制字符；`key`、`metric_key` 和 `window_key` 为 1～8 位小写字母或数字；`provider` 为 1～16 位小写字母或数字。其他短标识只能使用 `[A-Za-z0-9_.-]`。非负整数用十进制且没有前导 `+`；四位 `pin` 是例外，必须保留前导零。
-- `server_id` 在同一台电脑的 AgentMate 安装期间持久不变，与每次服务端启动生成的 `epoch` 不同。设备只保存一台电脑的 `server_id` 和随机长期密钥；新电脑完成四位码配对后替换旧配对。
-- `epoch` 是服务端本次启动生成的随机 ID；新的 epoch 使旧会话 key 和旧用量失效。`rev` 是同一 epoch 内、同一会话的递增 64 位版本。`sync_id` 是同一 epoch 内递增的正整数。
-- `HELLO`、`INFO?`、`PAIRBEGIN`、`PAIRCOMMIT` 和 `AUTH` 可在认证前使用；配对命令只能在有效 `HELLO` 后、按下文的配对窗口规则执行。其他命令均须在认证后使用。显式启用的未配对开发调试模式可跳过正式密钥认证；该模式不提供可信身份保证。手工调试业务命令时，应先完成握手与认证，或启动此调试模式。
-- 正常命令建议在 2 秒内取得最终结果，`PING` 可等待 5 秒。设备在 30 秒内没有收到有效命令时清除远端会话和用量；亮度配置为本地持久设置，不因断线而清除。
+- 命令与响应均为 ASCII，每行最多 256 字节（包括行尾）。设备接收 CR、LF 或 CRLF，响应以 CRLF 结束；退格和 DEL 删除当前行末字符。打开回显时，设备回显输入字符，回车后先输出 CRLF 再输出响应。空行不执行命令。
+- 每条命令最终以独立的 `OK` 或 `ERROR` 行结束；错误前可有 `+ERR:<code>`。服务端同一时刻只发送一条未完成的命令。参数以逗号分隔，保留空字段，不接受额外字段。
+- 应用日志开启后以 `+LOG:<seq>,<INFO|ERROR>,agentmate,<message>` 单独上报，位于完整命令响应之后。服务端须将 `+LOG:` 与命令响应分开处理；运行期普通 ESP-IDF 日志和 bootloader 日志已关闭。ROM 在复位瞬间仍可能输出启动字节，服务端打开端口后应等待设备启动并清空旧输入再发送 `HELLO`。固件只记录命令名称和状态，不记录参数原文。
+- 产测模式的回显与应用日志默认开启，正常模式默认关闭。`ECHO`、`LOG` 开关只对本次运行有效，重启后恢复模式默认值。模式切换先保存 NVS、回复 `OK`，然后重启。
+- 新 NVS 首次启动默认为产测；已有 `device_id` 且无模式标志的设备默认为正常，以兼容固件升级。产测测试亮度不保存，停止自动轮播或切换测试项目后恢复普通亮度。产测完成由工位判定，`AT+MODE=NORMAL` 不记录通过/失败结论。
 
-## 3. `AT+HELLO`：发现与设备能力
+## 3. 设备发现
 
-**格式**：`AT+HELLO=<version>,<server_nonce>,<server_id>`
+`AT+HELLO=1,<nonce>` 中的 nonce 为 32 位小写十六进制字符。响应格式为 `+HELLO:<protocol_version>,<protocol>,<nonce>,<device_id>,<model>,<software_version>,<max_sessions>,<max_usage_entries>,<mode>`，随后 `OK`。服务端检查协议标识、nonce 回显、设备 ID、容量和模式；只有 `NORMAL` 才开始同步。这些字段用于识别协议兼容设备，不提供加密身份保证。`AT+INFO?` 的字段定义见第 18 节。
 
-| 参数 | 说明 |
+| 字段 | 格式和含义 |
 |---|---|
-| `version` | 协议主版本，本文固定为 `1` |
-| `server_nonce` | 服务端为此次握手生成的随机 128 位值，32 位小写十六进制 |
-| `server_id` | 本机 AgentMate 安装标识，32 位小写十六进制，跨 daemon 重启保持不变 |
-
-**响应**：`+HELLO:<version>,agentmate,<server_nonce>,<device_id>,<device_nonce>,<model>,<firmware>,<max_sessions>,<max_usage_entries>,<proof>`，随后 `OK`。设备回显 `server_nonce`，另生成新的 `device_nonce`。`model` 与 `firmware` 是不含逗号的短标识。`max_sessions` 为设备的**总会话槽数**，取值 `1–16`；`max_usage_entries` 为所有 provider 合计可存储的用量窗口槽数，可以是 `0`。服务端按这两个实际容量决定下发数量。
-
-`proof` 是 64 位小写十六进制 HMAC：`HMAC-SHA256(device_key, "agentmate-v1/device/" || server_nonce || device_nonce || device_id)`。拼接的是各字段的 ASCII 原文。**只有请求中的 `server_id` 与设备保存的配对 ID 相同**，设备才用对应密钥生成 proof；尚未配对或请求来自另一台电脑时返回 `-`。`-` 表示“尚未与本服务端认证”，不表示已经证明设备身份；服务端可据此进入四位码配对。nonce 回显、协议标识、版本或字段格式错误时，服务端关闭该候选串口。设备遇到不支持的主版本返回 `UNSUPPORTED_VERSION`。
+| `protocol_version` | 协议主版本，一位十进制数字，当前固定为 `1`；其他值返回 `UNSUPPORTED_VERSION` |
+| `protocol` | 协议标识，固定为 `agentmate` |
+| `nonce` | 原样回显请求中的 32 位小写十六进制字符 |
+| `device_id` | 设备 ID，32 位小写十六进制字符；首次启动生成并写入 NVS，之后保持不变 |
+| `model` | 设备型号，当前为 `agentmate_esp32c3` |
+| `software_version` | 软件版本，格式为 `v<主版本>.<次版本>`，取自根目录 `CMakeLists.txt` 的 `project()` `VERSION` 并在编译时写入；当前为 `v1.0` |
+| `max_sessions` | 会话槽上限，当前为 `4`；`SESSION` 超出时返回 `CAPACITY` |
+| `max_usage_entries` | 用量记录上限，当前为 `8`；`USAGE` 超出时返回 `CAPACITY` |
+| `mode` | 当前模式，`FACTORY` 或 `NORMAL` |
 
 ```text
-AT+HELLO=1,fe6d7e13d354eb1f8d45968587589c65,1337a242cd1845299b397e8222293984
-+HELLO:1,agentmate,fe6d7e13d354eb1f8d45968587589c65,8d2b47e0a99347c7a976d386dc194fa2,d8c4b78b9c63195dd337cbcb3f88b914,agentmate_esp32c3,fw1.0,4,8,<proof>
+AT+HELLO=1,fe6d7e13d354eb1f8d45968587589c65
++HELLO:1,agentmate,fe6d7e13d354eb1f8d45968587589c65,8d2b47e0a99347c7a976d386dc194fa2,agentmate_esp32c3,v1.0,4,8,NORMAL
 OK
 ```
 
-示例中的 `<proof>` 是占位符，实际线路上必须替换为 64 位十六进制值或未与本服务端配对时的 `-`。
+## 4. 产测命令
 
-## 4. `AT+PAIRBEGIN`：开启四位码配对
+`TESTLED` 的 index 为 `0–15` 或 `ALL`，RGB 与 brightness 均为 `0–255`。`TESTTFT` 显示整屏纯色；`TESTBACKLIGHT` 设置临时背光亮度；`TESTFONT` 按大小绘制可打印 ASCII 样张，多页每两秒切换。每条单项测试命令停止自动轮播。`TESTAUTO=1` 每两秒切换测试阶段，依次覆盖屏幕纯色、灯环整体颜色、逐灯点亮、背光三个档位和五种字体；`TESTAUTO=0` 返回产测首页并恢复持久亮度。产测命令通过校验并更新测试状态后回复 `OK`，实际绘制由 UI 任务随后执行。
 
-**格式**：`AT+PAIRBEGIN`。只有在本串口已完成有效 `HELLO`、尚未通过 `AUTH` 时可调用。设备使用加密随机数生成 32 位十六进制 `pair_id` 与均匀分布的四位十进制 `pin`（`0000–9999`），屏幕同时显示 `pin`、设备 ID 后八位和剩余时间。设备回复 `+PAIR:<pair_id>,<remaining_s>`、`OK`，**绝不通过串口或 Web API 返回 pin**。窗口从生成时起持续 120 秒，按单调时钟计时；窗口内重复 `PAIRBEGIN` 返回同一 `pair_id` 和剩余秒数，不更换屏幕数字。
+## 5. 正常模式业务命令
 
-设备允许旧配对存在时开启新配对窗口；只有新配对真正成功才替换旧密钥。窗口超时后隐藏 pin；服务端不会自动反复开启窗口，用户可在本机网页中请求重试。连续三次错误输入立即关闭窗口，并从第三次失败起冷却 300 秒；冷却期间 `PAIRBEGIN` 返回 `PAIR_LOCKED`。USB 断开或新 `HELLO` 使尚未完成的窗口失效，不改变旧配对。
+原有业务命令的参数、响应和状态同步语义见下文。正常模式不以 `HELLO` 或认证作为逐条命令的访问门槛，但服务端应先通过 `HELLO` 发现设备并按返回容量同步。连续 30 秒没有有效命令时，设备清空远端会话和用量并显示等待主机状态；本地亮度配置保留。
 
-```text
-AT+PAIRBEGIN
-+PAIR:6ac9d42b7b984ce7a33a328f0df13b51,120
-OK
-```
+## 6. 一期连接顺序
 
-## 5. `AT+PAIRCOMMIT`：校验四位码并保存配对
+`HELLO → TIME → LIST? → SYNCBEGIN → 每条会话一条 SESSION → SYNCEND → LIST? → USAGECLEAR → USAGE`。若已有会话表满，先使用 `DELETE` 腾出槽位。服务端进程和固件重启后重新发现并完整同步。
 
-**格式**：`AT+PAIRCOMMIT=<pair_id>,<pin>,<key_hex>`。`pair_id` 必须是当前窗口的 ID；`pin` 必须是恰好四个 ASCII 数字，包含可能的前导零；`key_hex` 是服务端用加密随机数生成的 256 位长期密钥，写成 64 个小写十六进制字符。设备常量时间比较 pin，并把当前 `HELLO` 的 `server_id` 与新密钥作为一个完整配对记录写入 NVS。保存成功才返回 `OK`、清除 pin 和旧配对；保存失败返回 `STORAGE_ERROR`，旧记录仍有效。错误 pin 返回 `PAIR_MISMATCH`，过期窗口返回 `PAIR_EXPIRED`，第三次错误及冷却期间返回 `PAIR_LOCKED`，错误 pair ID 返回 `BAD_STATE`。
-
-服务端在发送命令**之前**以仅本机用户可读的权限持久保存待确认密钥；收到 `OK` 后重新执行 `HELLO → AUTH`，验证新密钥后才标记为已配对并同步业务数据。若 `OK` 丢失或服务端在提交后退出，重启时先尝试以待确认密钥完成 HMAC 认证；失败再重新打开配对窗口。设备不会在后续认证中显示 pin。四位码只确认用户正在看设备，不作为长期密钥；首次密钥经本机 USB 串口传输。
-
-```text
-AT+PAIRCOMMIT=6ac9d42b7b984ce7a33a328f0df13b51,0042,<64位key_hex>
-OK
-```
-
-示例中的 `<64位key_hex>` 是占位符，实际线路上必须是完整的 64 位小写十六进制密钥。
-
-## 6. `AT+AUTH`：服务端认证
-
-**格式**：`AT+AUTH=<host_proof>`。`host_proof` 是 64 位小写十六进制值：`HMAC-SHA256(device_key, "agentmate-v1/host/" || server_nonce || device_nonce || server_id)`。设备校验通过后返回 `OK`，并允许后续状态和配置命令。没有先成功执行 `HELLO`、`server_id` 不是当前配对对象、proof 不匹配或 nonce 已失效时返回 `UNAUTHORIZED`。完成 `PAIRCOMMIT` 后须重新 `HELLO`，不能沿用配对前的挑战值。
-
-在显式启用的未配对开发调试模式下，可使用 `AT+AUTH=-` 进入调试会话；正式模式必须拒绝 `-`。每次重新连接都要重新握手，不能复用上次的 proof。
-
-```text
-AT+AUTH=<host_proof>
-OK
-```
+可使用 `python tools/test_at_serial.py /dev/cu.usbserial-1420` 执行实机 AT 交互检查。脚本验证行结束、退格、回显、日志、模式及产测命令响应；画面和灯珠仍需目视确认。端口名称以实际系统枚举结果为准。
 
 ## 7. `AT+SYNCBEGIN`：开始会话同步
 
@@ -249,7 +230,7 @@ OK
 
 ## 17. `AT+TIME`：设置或查询设备时间
 
-服务端是 UTC 时间源。设备重启后必须重新校时；串口链路建立并完成认证后，服务端立即发送一次 `TIME`，随后每 30 分钟校准一次。session 和用量中的时间戳仍使用 Unix 秒；本命令使用 Unix 毫秒，以减少同步误差。
+服务端是 UTC 时间源。设备重启后必须重新校时；串口链路建立后，服务端立即发送一次 `TIME`，随后每 30 分钟校准一次。session 和用量中的时间戳仍使用 Unix 秒；本命令使用 Unix 毫秒，以减少同步误差。
 
 **设置格式**：`AT+TIME=<unix_ms>`。参数为自 `1970-01-01T00:00:00Z` 起的 UTC 毫秒数，正整数。设备设置系统 UTC 时钟后，返回 `+TIME:<device_unix_ms>,<uptime_ms>`、`OK`。`device_unix_ms` 是设备生成响应时读取的当前时间；`uptime_ms` 是设备启动后的单调运行时间。设备设置失败返回 `TIME_ERROR`。
 
@@ -268,11 +249,19 @@ OK
 
 ## 18. `AT+INFO?`：设备信息
 
-**格式**：`AT+INFO?`。回复 `+INFO:<device_id>,<model>,<firmware>,<version>,<max_sessions>`、`OK`。该只读命令允许在认证前使用，便于人工确认设备，但不能代替 `HELLO` 的 nonce 检查与 HMAC 身份认证。设备的 `max_usage_entries` 仍以 `HELLO` 的响应为准。
+**格式**：`AT+INFO?`。回复 `+INFO:<device_id>,<model>,<software_version>,<protocol_version>,<max_sessions>`、`OK`。该只读命令可在两种模式使用；服务端仍应使用 `HELLO` 检查 nonce 回显和模式。设备的 `max_usage_entries` 仍以 `HELLO` 的响应为准。
+
+| 字段 | 格式和含义 |
+|---|---|
+| `device_id` | 设备 ID，32 位小写十六进制字符；与 `HELLO` 返回的同一值 |
+| `model` | 设备型号，当前为 `agentmate_esp32c3` |
+| `software_version` | 软件版本，格式为 `v<主版本>.<次版本>`，与 `HELLO` 返回的同一值；当前为 `v1.0` |
+| `protocol_version` | 协议主版本，一位十进制数字，当前固定为 `1` |
+| `max_sessions` | 会话槽上限，当前为 `4` |
 
 ```text
 AT+INFO?
-+INFO:8d2b47e0a99347c7a976d386dc194fa2,agentmate_esp32c3,fw1.0,1,4
++INFO:8d2b47e0a99347c7a976d386dc194fa2,agentmate_esp32c3,v1.0,1,4
 OK
 ```
 
@@ -306,9 +295,9 @@ OK
 
 ## 21. AT+TFTROTATE：TFT 界面旋转
 
-设置格式：`AT+TFTROTATE=<angle>`，角度只能是 0、90、180 或 270。设备旋转整个界面的绘制方向，保存到 NVS 后返回 `OK`。设置跨重启保留，默认 0；非法角度返回 `INVALID_ARG`，屏幕驱动失败返回 `INTERNAL_ERROR`，保存失败返回 `STORAGE_ERROR`。改变角度后界面完整重绘。此命令需要认证。
+设置格式：`AT+TFTROTATE=<angle>`，角度只能是 0、90、180 或 270。设备旋转整个界面的绘制方向，保存到 NVS 后返回 `OK`。设置跨重启保留，默认 0；非法角度返回 `INVALID_ARG`，屏幕驱动失败返回 `INTERNAL_ERROR`，保存失败返回 `STORAGE_ERROR`。改变角度后界面完整重绘。此命令仅在正常模式可用。
 
-查询格式：`AT+TFTROTATE?` 返回 `+TFTROTATE:<angle>`、`OK`，其中角度是当前生效值。此命令需要认证。
+查询格式：`AT+TFTROTATE?` 返回 `+TFTROTATE:<angle>`、`OK`，其中角度是当前生效值。此命令仅在正常模式可用。
 
 ~~~text
 AT+TFTROTATE=90
@@ -320,30 +309,16 @@ OK
 
 ## 22. 错误响应与典型同步顺序
 
-错误格式固定为两行：
-
-```text
-+ERR:CAPACITY
-ERROR
-```
-
 | 错误码 | 含义 |
 |---|---|
-| `INVALID_ARG` | 参数个数、字符、格式、范围或字段组合不正确 |
-| `UNKNOWN_COMMAND` | 不认识的命令 |
-| `UNSUPPORTED_VERSION` | 不支持所请求的协议主版本 |
-| `UNAUTHORIZED` | 尚未认证、认证失败或调试模式未开启 |
-| `CAPACITY` | 新会话或 provider 用量记录超出设备报告的容量 |
-| `NOT_FOUND` | `GET` 指定的 key 不存在 |
-| `BAD_STATE` | epoch、同步阶段或命令执行顺序不正确 |
-| `STALE_REV` | 会话版本小于设备已保存版本 |
-| `LINE_TOO_LONG` | 收到超过 256 字节的行 |
-| `UNSUPPORTED_FEATURE` | 当前硬件或固件不具备请求的功能，例如不可调 TFT 背光 |
-| `STORAGE_ERROR` | 配对记录或亮度配置写入 NVS 失败 |
-| `INTERNAL_ERROR` | 硬件驱动或其他内部操作失败 |
-| `TIME_ERROR` | 系统时钟设置或读取失败 |
-| `PAIR_MISMATCH` | 四位码错误，且配对窗口还有剩余尝试次数 |
-| `PAIR_EXPIRED` | 四位码配对窗口已过期 |
-| `PAIR_LOCKED` | 错误次数达到上限，配对进入冷却期 |
+| `UNKNOWN_COMMAND` | 未知命令 |
+| `INVALID_ARG` | 参数格式或范围错误 |
+| `UNSUPPORTED_VERSION` | 不支持的协议主版本 |
+| `UNSUPPORTED_FEATURE` | 命令在当前模式不可用或留待二期 |
+| `BAD_STATE` | 命令与当前同步状态冲突 |
+| `LINE_TOO_LONG` | 命令行超出长度限制 |
+| `STORAGE_ERROR` | NVS 持久化失败 |
+| `INTERNAL_ERROR` | 驱动或内部处理失败 |
+| `CAPACITY`、`STALE_REV` | 会话表容量或版本冲突 |
 
-已配对设备：`HELLO → AUTH → TIME → LIST? → SYNCBEGIN → 每条会话一条 SESSION → SYNCEND → LIST? → 对每个 provider 执行 USAGECLEAR → 逐条发送该 provider 的 USAGE`。未与本服务端配对时：`HELLO → PAIRBEGIN → 用户在本机网页输入 pin → PAIRCOMMIT → 重新 HELLO → AUTH → 上述同步流程`。如果 LIST 发现同一 epoch 的旧表已占满，先用 `DELETE` 腾出槽位。之后只同步变化的 session；某 provider 用量变化时，只清除并重发该 provider 的记录。时间每 30 分钟重校一次。
+连接顺序见第 6 节。普通业务命令及查询仅在正常模式使用；产测设备先以 `AT+MODE=NORMAL` 完成产测并重启。

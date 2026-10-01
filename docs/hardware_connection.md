@@ -20,7 +20,7 @@ flowchart LR
 
 设计原则：
 
-1. USB-C 同时提供供电和 USB 串口通信。
+1. 当前原型板的 USB-C 经 CH340 桥接 UART0（GPIO20/21），同时提供供电和 AT 串口通信。
 2. LED 灯环使用 USB 的 5V；ESP32-C3 和 TFT 使用 3.3V。
 3. TFT 与 LED 共用地线。
 4. 复杂的 Agent 逻辑放在电脑端，ESP32-C3 只负责通信、显示和灯效。
@@ -40,7 +40,7 @@ flowchart LR
 | 电源 | USB 5V | LED 5V/VCC | 不要把 5V 接到 ESP32-C3 的 3V3 引脚 |
 | 地 | GND | TFT GND、LED GND | 必须共地 |
 
-GPIO18/19 建议保留给 ESP32-C3 原生 USB。GPIO2、GPIO8、GPIO9 等启动相关引脚也不建议用于带强上拉/下拉的外设。
+GPIO18/19 保留给 ESP32-C3 原生 USB，但当前原型板没有将其引出为主机串口。GPIO2、GPIO8、GPIO9 等启动相关引脚也不建议用于带强上拉/下拉的外设。
 
 ## 3. RGB 灯环接线
 

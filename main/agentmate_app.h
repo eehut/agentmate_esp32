@@ -23,6 +23,8 @@
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
 # 2026-10-01 1.0      Liu Chuansen  Organized for project C style.
+# 2026-10-01 1.1      Codex         Added the protocol version constant.
+# 2026-10-01 1.2      Codex         Defined the product model.
 #
 #####################################################################################
 */
@@ -43,6 +45,12 @@
 #define AM_MAX_USAGE_ENTRIES 8
 #define AM_EVENT_CACHE_SIZE 32
 #define AM_LINE_BYTES 256
+#define AM_PROTOCOL_VERSION_TEXT "1"
+#define AM_PRODUCT_MODEL "agentmate_esp32c3"
+
+#ifndef AM_SOFTWARE_VERSION
+#error "AM_SOFTWARE_VERSION must be provided by the project version at build time"
+#endif
 
 typedef enum {
     AM_LINK_WAIT_HOST,
@@ -53,6 +61,15 @@ typedef enum {
     AM_LINK_ONLINE,
     AM_LINK_DEGRADED,
 } am_link_t;
+
+typedef enum {
+    AM_TEST_PAGE,
+    AM_TEST_LED,
+    AM_TEST_COLOR,
+    AM_TEST_BACKLIGHT,
+    AM_TEST_FONT,
+    AM_TEST_AUTO,
+} am_test_t;
 
 typedef struct {
     bool used;
@@ -85,6 +102,15 @@ typedef struct {
 } am_usage_t;
 
 typedef struct {
+    bool factory_mode;
+    am_test_t test;
+    uint8_t test_led_index;
+    rgb_led_color_t test_led_color;
+    uint8_t test_led_brightness;
+    uint8_t test_backlight;
+    uint16_t test_color;
+    uint8_t test_font;
+    int64_t test_started_us;
     am_link_t link;
     char epoch[33];
     bool sync_active;
@@ -129,6 +155,9 @@ typedef struct {
     uint8_t tft_brightness;
     uint8_t led_brightness;
     uint16_t rotation;
+    bool echo_enabled;
+    bool log_enabled;
+    bool restart_pending;
     am_model_t model;
 } am_app_t;
 

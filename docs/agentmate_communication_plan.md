@@ -1,5 +1,8 @@
 # AgentMate 服务端与 ESP32 通信技术方案
 
+> **一期实现更新（2026-10-01）**：当前固件首次烧录进入产测模式，产测完成后经 `AT+MODE=NORMAL` 进入正常模式。正常模式经 `AT+HELLO=1,<nonce>` 发现后直接接收业务命令；配对、四位码和 HMAC 认证调整为二期规划。本文旧版配对/认证流程章节仅保留为二期设计参考；一期线格式及命令可用性以 [AT 指令指南](agentmate_at_command_guide.md) 为准。当前原型的 AT 通道为 CH340 桥接的 UART0（115200 8N1）；运行期和 bootloader 常规日志关闭，应用日志仅使用可开关的 `+LOG:` 行，ROM 复位字节在发现前丢弃。
+
+
 状态：ESP32 基础版固件已实现；服务端对接待完成  
 方案版本：**V0.3，2026-10-01**  
 范围：设备发现、识别、活动检测、多设备、会话与 provider 用量同步；不定义屏幕和灯环如何显示。
@@ -29,7 +32,7 @@ flowchart LR
 - 首版设备不接收原始工作目录、session ID、PID、hook payload、完整任务内容或账号信息。服务端为投影中的会话分配短 `session_key`，其在一次服务端启动期间稳定。`server_epoch` 改变后，旧 key 全部失效。
 - Claude 会话的 `context_usage` 可在会话指令里发送；Codex 会话在设备协议中的 context 字段**留空，表示该字段不支持**。这只是设备协议的取舍：服务端自身可能有 Codex context 数据。Claude 暂时没有读数时使用 `?` 表示“支持但当前未知”，与空字段区分。
 
-## 3. 设备发现、身份识别与配对
+## 3. 二期规划：设备身份识别与配对
 
 1. 服务端启动时枚举串口，之后监听系统插拔事件；无法得到事件的平台每 3 秒扫描。VID/PID、产品名、接口类型和用户指定端口只用于筛选候选端口，不能单凭这些属性认定为 AgentMate。
 2. 以 `115200 8N1` 打开候选端口，等待设备启动稳定，发送 `AT+HELLO`。只有协议标识为 `agentmate`、主版本兼容、nonce 回显正确、`device_id` 与设备容量字段合法的回应，才算协议兼容。探测超时 2 秒即关闭端口并退避，避免长期占用其他串口设备。
@@ -57,8 +60,8 @@ OK
 
 | 命令/响应 | 方向 | 用途 |
 |---|---|---|
-| `AT+HELLO=<version>,<server_nonce>,<server_id>` | 服务端 → 设备 | 探测、版本协商与身份挑战 |
-| `+HELLO:<version>,agentmate,<server_nonce>,<device_id>,<device_nonce>,<model>,<firmware>,<max_sessions>,<max_usage_entries>,<proof>` | 设备 → 服务端 | 回显 nonce，报告身份和容量；后接 `OK` |
+| `AT+HELLO=<protocol_version>,<server_nonce>,<server_id>` | 服务端 → 设备 | 探测、版本协商与身份挑战 |
+| `+HELLO:<protocol_version>,agentmate,<server_nonce>,<device_id>,<device_nonce>,<model>,<software_version>,<max_sessions>,<max_usage_entries>,<proof>` | 设备 → 服务端 | 回显 nonce，报告身份和容量；后接 `OK` |
 | `AT+PAIRBEGIN` / `+PAIR:<pair_id>,<remaining_s>` | 服务端 / 设备 | 开启或查询当前四位码窗口；后接 `OK`，不传 pin |
 | `AT+PAIRCOMMIT=<pair_id>,<pin>,<key_hex>` | 服务端 → 设备 | 校验屏幕四位码并保存新配对；成功后 `OK` |
 | `AT+AUTH=<host_proof>` | 服务端 → 设备 | 服务端证明持有配对密钥；成功后 `OK` |
@@ -74,7 +77,7 @@ OK
 | `AT+PING=<nonce>` / `+PONG:<nonce>,<uptime_ms>` | 服务端 / 设备 | 心跳；回应后还有 `OK` |
 | `AT+TIME=<unix_ms>` / `+TIME:<device_unix_ms>,<uptime_ms>` | 服务端 / 设备 | 按服务端 UTC 时间校准设备时钟 |
 | `AT+TIME?` / `+TIME:<device_unix_ms>,<uptime_ms>,<sync_age_ms>` | 服务端 / 设备 | 查询设备当前时间和最近校时状态 |
-| `AT+INFO?` / `+INFO:<device_id>,<model>,<firmware>,<version>,<max_sessions>` | 服务端 / 设备 | 只读诊断；回应后 `OK` |
+| `AT+INFO?` / `+INFO:<device_id>,<model>,<software_version>,<protocol_version>,<max_sessions>` | 服务端 / 设备 | 只读诊断；回应后 `OK` |
 | `AT+TFTBRIGHT=<value>` / `AT+TFTBRIGHT?` | 服务端 / 设备 | 设置或查询 TFT 背光亮度，设置值保存到 NVS |
 | `AT+LEDBRIGHT=<value>` / `AT+LEDBRIGHT?` | 服务端 / 设备 | 设置或查询 LED 灯环亮度，设置值保存到 NVS |
 | `AT+TFTROTATE=<angle>` / `AT+TFTROTATE?` | 服务端 / 设备 | 设置或查询 0/90/180/270 度界面旋转，设置值保存到 NVS |
@@ -84,11 +87,11 @@ OK
 
 设备支持 `LIST?` 和 `GET`，既方便串口终端调试，也供服务端校对当前状态。`GET` 查询不存在的 key 返回 `+ERR:NOT_FOUND`、`ERROR`。`SESSION` 若容量已满且 key 不存在，返回 `+ERR:CAPACITY`、`ERROR`；服务端先删除不再入选的旧 key，再添加新 key。
 
-### 5.1 握手与认证
+### 5.1 二期规划：握手与认证
 
 ```text
 AT+HELLO=1,fe6d7e13d354eb1f8d45968587589c65,1337a242cd1845299b397e8222293984
-+HELLO:1,agentmate,fe6d7e13d354eb1f8d45968587589c65,8d2b47e0a99347c7a976d386dc194fa2,d8c4b78b9c63195dd337cbcb3f88b914,agentmate_esp32c3,fw1.0,4,8,<proof>
++HELLO:1,agentmate,fe6d7e13d354eb1f8d45968587589c65,8d2b47e0a99347c7a976d386dc194fa2,d8c4b78b9c63195dd337cbcb3f88b914,agentmate_esp32c3,v1.0,4,8,<proof>
 OK
 AT+AUTH=<host_proof>
 OK
@@ -100,7 +103,7 @@ OK
 
 ```text
 AT+HELLO=1,fe6d7e13d354eb1f8d45968587589c65,1337a242cd1845299b397e8222293984
-+HELLO:1,agentmate,fe6d7e13d354eb1f8d45968587589c65,8d2b47e0a99347c7a976d386dc194fa2,d8c4b78b9c63195dd337cbcb3f88b914,agentmate_esp32c3,fw1.0,4,8,-
++HELLO:1,agentmate,fe6d7e13d354eb1f8d45968587589c65,8d2b47e0a99347c7a976d386dc194fa2,d8c4b78b9c63195dd337cbcb3f88b914,agentmate_esp32c3,v1.0,4,8,-
 OK
 AT+PAIRBEGIN
 +PAIR:6ac9d42b7b984ce7a33a328f0df13b51,120
