@@ -20,7 +20,7 @@ flowchart LR
 
 设计原则：
 
-1. USB-C 同时提供供电和 USB CDC 通信。
+1. USB-C 同时提供供电和 USB 串口通信。
 2. LED 灯环使用 USB 的 5V；ESP32-C3 和 TFT 使用 3.3V。
 3. TFT 与 LED 共用地线。
 4. 复杂的 Agent 逻辑放在电脑端，ESP32-C3 只负责通信、显示和灯效。
@@ -121,7 +121,7 @@ USB GND ─────── ESP32-C3 GND ── TFT GND ── LED GND
 2. 连接 TFT，先运行纯色填充和文字显示测试，确认 SPI 引脚、驱动型号和屏幕方向。
 3. 断电后连接灯环，先将亮度限制为 5%~10%，只点亮第一颗灯珠。
 4. 检查灯环 5V 电压、ESP32-C3 3.3V 电压和公共地线，再逐步增加灯珠数量与亮度。
-5. 最后接入 AGENTMATE Desktop，验证 USB CDC、JSON Lines 状态切换、屏幕刷新和灯效同步。
+5. 最后接入 AGENTMATE Desktop，验证 USB 串口 AT 指令、会话同步、屏幕刷新和灯效同步。
 
 ## 8. 常见故障
 
@@ -132,7 +132,7 @@ USB GND ─────── ESP32-C3 GND ── TFT GND ── LED GND
 | 灯环随机闪烁或 ESP32 重启 | USB 供电不足、没有大电容、地线过细或接触不良 |
 | 屏幕白屏 | VCC 电压、RST/DC/CS 接线、SPI 驱动型号 |
 | 屏幕有背光但无图像 | SPI 时钟/数据线、屏幕初始化参数、CS 和 DC |
-| 电脑无法识别设备 | USB 数据线、GPIO18/19 是否被外设占用、USB CDC 配置 |
+| 电脑无法识别设备 | USB 数据线、GPIO18/19 是否被外设占用、USB 串口配置 |
 
 ## 9. 原型阶段结论
 
