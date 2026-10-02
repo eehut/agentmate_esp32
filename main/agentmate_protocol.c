@@ -26,6 +26,7 @@
 # 2026-10-01 1.1      Codex         Added factory AT interaction and diagnostics.
 # 2026-10-01 1.2      Codex         Report the CMake project version on HELLO and INFO.
 # 2026-10-01 1.3      Codex         Use the shared product model on HELLO and INFO.
+# 2026-10-02 1.4      Codex         Accept transient task display states.
 #
 #####################################################################################
 */
@@ -327,7 +328,8 @@ static am_usage_t *find_usage(am_app_t *app, const char *provider, const char *m
 static bool valid_session_state(const char *value)
 {
     static const char *const s_allowed[] = {
-        "initializing", "ready", "working", "waiting_for_input", "permission_required", "stale", "ended", "offline",
+        "initializing", "ready", "working", "thinking", "waiting_for_input", "permission_required", "task_success", "task_canceled",
+        "task_failed", "stale", "ended", "offline",
     };
     for (size_t i = 0; i < sizeof(s_allowed) / sizeof(s_allowed[0]); ++i) {
         if (strcmp(value, s_allowed[i]) == 0) {

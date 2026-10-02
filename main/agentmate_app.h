@@ -46,7 +46,7 @@
 #define AM_EVENT_CACHE_SIZE 32
 #define AM_LINE_BYTES 256
 #define AM_PROTOCOL_VERSION_TEXT "1"
-#define AM_PRODUCT_MODEL "agentmate_esp32c3"
+#define AM_PRODUCT_MODEL "AGM-C3"
 
 #ifndef AM_SOFTWARE_VERSION
 #error "AM_SOFTWARE_VERSION must be provided by the project version at build time"

@@ -25,6 +25,7 @@
 # 2026-10-01 1.0      Liu Chuansen  Organized for project C style.
 # 2026-10-01 1.1      Liu Chuansen  Added circle-aware partial screen updates.
 # 2026-10-01 1.2      Codex         Added factory display and font diagnostics.
+# 2026-10-02 1.3      Codex         Display transient task states and thinking.
 #
 #####################################################################################
 */
@@ -165,7 +166,30 @@ static void clock_text(const am_model_t *model, char *out, size_t capacity)
 
 static bool advancing(const char *state)
 {
-    return strcmp(state, "working") == 0 || strcmp(state, "waiting_for_input") == 0 || strcmp(state, "permission_required") == 0;
+    return strcmp(state, "working") == 0 || strcmp(state, "thinking") == 0 || strcmp(state, "waiting_for_input") == 0 ||
+           strcmp(state, "permission_required") == 0;
+}
+
+static bool task_result_state(const char *state)
+{
+    return strcmp(state, "task_success") == 0 || strcmp(state, "task_canceled") == 0 || strcmp(state, "task_failed") == 0;
+}
+
+static const char *session_state_text(const char *state)
+{
+    if (strcmp(state, "thinking") == 0) {
+        return "THINKING";
+    }
+    if (strcmp(state, "task_success") == 0) {
+        return "TASK SUCCESS";
+    }
+    if (strcmp(state, "task_canceled") == 0) {
+        return "TASK CANCELED";
+    }
+    if (strcmp(state, "task_failed") == 0) {
+        return "TASK FAILED";
+    }
+    return state;
 }
 
 static void session_page(const am_session_t *session, const char *clock, int page, int total)
@@ -184,10 +208,12 @@ static void session_page(const am_session_t *session, const char *clock, int pag
     label(77, 68, buffer, FG);
     snprintf(buffer, sizeof(buffer), "SESSION %s", session->key);
     label(77, 89, buffer, MUTED);
-    label(UI_CENTERED_X, 125, session->state,
-          strcmp(session->state, "permission_required") == 0 ? WARNING
-          : strcmp(session->state, "working") == 0           ? ACCENT
-                                                             : FG);
+    label(UI_CENTERED_X, 125, session_state_text(session->state),
+          strcmp(session->state, "permission_required") == 0 || strcmp(session->state, "task_failed") == 0 ? DANGER
+          : strcmp(session->state, "task_canceled") == 0 || strcmp(session->state, "waiting_for_input") == 0 ? WARNING
+          : strcmp(session->state, "working") == 0 || strcmp(session->state, "thinking") == 0 ||
+                  strcmp(session->state, "task_success") == 0 ? ACCENT
+                                                               : FG);
     uint64_t duration = session->task_seconds;
     if (advancing(session->state) && session->task_base_us > 0) {
         duration += (esp_timer_get_time() - session->task_base_us) / 1000000;
@@ -204,7 +230,7 @@ static void session_page(const am_session_t *session, const char *clock, int pag
     } else {
         label(UI_CENTERED_X, 169, "CTX N/A", MUTED);
     }
-    if (session->context_mode != 2 && strcmp(session->last_task, "-") != 0) {
+    if (session->context_mode != 2 && !task_result_state(session->state) && strcmp(session->last_task, "-") != 0) {
         snprintf(buffer, sizeof(buffer), "LAST %s", session->last_task);
         label(UI_CENTERED_X, 190, buffer, MUTED);
     }
@@ -286,7 +312,27 @@ static rgb_led_color_t led_color(const am_model_t *model)
         }
     }
     for (int i = 0; i < AM_MAX_SESSIONS; ++i) {
-        if (model->sessions[i].used && strcmp(model->sessions[i].state, "working") == 0) {
+        if (model->sessions[i].used && strcmp(model->sessions[i].state, "waiting_for_input") == 0) {
+            return (rgb_led_color_t){.r = 255, .g = 185, .b = 0};
+        }
+    }
+    for (int i = 0; i < AM_MAX_SESSIONS; ++i) {
+        if (model->sessions[i].used && (strcmp(model->sessions[i].state, "working") == 0 || strcmp(model->sessions[i].state, "thinking") == 0)) {
+            return RGB_LED_COLOR_GREEN;
+        }
+    }
+    for (int i = 0; i < AM_MAX_SESSIONS; ++i) {
+        if (model->sessions[i].used && strcmp(model->sessions[i].state, "task_failed") == 0) {
+            return RGB_LED_COLOR_RED;
+        }
+    }
+    for (int i = 0; i < AM_MAX_SESSIONS; ++i) {
+        if (model->sessions[i].used && strcmp(model->sessions[i].state, "task_canceled") == 0) {
+            return (rgb_led_color_t){.r = 255, .g = 185, .b = 0};
+        }
+    }
+    for (int i = 0; i < AM_MAX_SESSIONS; ++i) {
+        if (model->sessions[i].used && strcmp(model->sessions[i].state, "task_success") == 0) {
             return RGB_LED_COLOR_GREEN;
         }
     }

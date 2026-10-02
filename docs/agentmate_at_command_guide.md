@@ -1,6 +1,6 @@
 # AgentMate AT 指令指南
 
-文档版本：**1.3**
+文档版本：**1.4**
 协议主版本：**1**  
 状态：ESP32 固件已实现；电脑端服务适配待完成
 适用连接：ESP32-C3 UART0 经 CH340 USB-UART 桥，`115200 8N1`
@@ -61,15 +61,15 @@
 | `protocol` | 协议标识，固定为 `agentmate` |
 | `nonce` | 原样回显请求中的 32 位小写十六进制字符 |
 | `device_id` | 设备 ID，32 位小写十六进制字符；首次启动生成并写入 NVS，之后保持不变 |
-| `model` | 设备型号，当前为 `agentmate_esp32c3` |
-| `software_version` | 软件版本，格式为 `v<主版本>.<次版本>`，取自根目录 `CMakeLists.txt` 的 `project()` `VERSION` 并在编译时写入；当前为 `v1.0` |
+| `model` | 设备型号，当前为 `AGM-C3` |
+| `software_version` | 软件版本，格式为 `v<主版本>.<次版本>`，取自根目录 `CMakeLists.txt` 的 `project()` `VERSION` 并在编译时写入；当前为 `v1.1` |
 | `max_sessions` | 会话槽上限，当前为 `4`；`SESSION` 超出时返回 `CAPACITY` |
 | `max_usage_entries` | 用量记录上限，当前为 `8`；`USAGE` 超出时返回 `CAPACITY` |
 | `mode` | 当前模式，`FACTORY` 或 `NORMAL` |
 
 ```text
 AT+HELLO=1,fe6d7e13d354eb1f8d45968587589c65
-+HELLO:1,agentmate,fe6d7e13d354eb1f8d45968587589c65,8d2b47e0a99347c7a976d386dc194fa2,agentmate_esp32c3,v1.0,4,8,NORMAL
++HELLO:1,agentmate,fe6d7e13d354eb1f8d45968587589c65,8d2b47e0a99347c7a976d386dc194fa2,AGM-C3,v1.1,4,8,NORMAL
 OK
 ```
 
@@ -108,7 +108,7 @@ OK
 | `key` | 1～8 位会话短键；服务端启动期间指向同一原始会话 |
 | `rev` | 该会话在当前 epoch 内递增的正整数版本 |
 | `provider` | `codex` 或 `claude` |
-| `state` | `initializing`、`ready`、`working`、`waiting_for_input`、`permission_required`、`stale`、`ended` 或 `offline` |
+| `state` | `initializing`、`ready`、`working`、`thinking`、`waiting_for_input`、`permission_required`、`task_success`、`task_canceled`、`task_failed`、`stale`、`ended` 或 `offline` |
 | `last_task` | `completed`、`failed`、`cancelled` 或 `-` |
 | `finished_at` | 最近任务结束的 Unix 秒；`last_task=-` 时为 `0` |
 | `task_seconds` | 当次任务到本命令生成时已持续的秒数，范围 `0–4294967295`；没有当次任务时为 `0` |
@@ -117,7 +117,7 @@ OK
 | `ctx_pct_bp` | Claude context 占用百分数 × 100，范围 `0–10000`；例如 `600` 是 6.00% |
 | `ctx_updated_at` | Claude context 读数的 Unix 秒 |
 
-`task_seconds` 只描述当次任务，不表示会话从创建至今的寿命。进行中的 `working`、`waiting_for_input`、`permission_required` 填从该次任务开始累计的秒数；设备用单调时钟在这个基准上继续累加，服务端不必按秒重发。`stale` 填进入该状态前的累计秒数，设备不再累加。`last_task` 为 `completed`、`failed` 或 `cancelled` 时，填该次任务的总秒数，并保持到下一次任务替换它。状态、任务结果或 context 变化而发送本命令时，带上当时的秒数。时长的自然增长不是新的会话变化。
+`task_seconds` 只描述当次任务，不表示会话从创建至今的寿命。进行中的 `working`、`thinking`、`waiting_for_input`、`permission_required` 填从该次任务开始累计的秒数；设备用单调时钟在这个基准上继续累加，服务端不必按秒重发。`stale` 填进入该状态前的累计秒数，设备不再累加。`task_success`、`task_canceled`、`task_failed` 是暂时展示的任务状态，服务端通常在 60 秒后下发 `ready`，新任务或其他有效状态可提前覆盖；设备不自行计时回退。`last_task` 为 `completed`、`failed` 或 `cancelled` 时，填该次任务的总秒数，并保持到下一次任务替换它。状态、任务结果或 context 变化而发送本命令时，带上当时的秒数。时长的自然增长不是新的会话变化。
 
 Claude 有读数时，四个 context 字段均填数字；当前读数未知时，四个字段都写 `?`。**Codex 会话的四个字段全部留空**，表示该设备会话协议不支持 Codex context，而非数值为零。例如末尾的 `0,15,,,,` 中，`0` 是 `finished_at`，`15` 是 `task_seconds`，后面是四个空字段。字段不能混用空值、`?` 和数字。
 
@@ -254,14 +254,14 @@ OK
 | 字段 | 格式和含义 |
 |---|---|
 | `device_id` | 设备 ID，32 位小写十六进制字符；与 `HELLO` 返回的同一值 |
-| `model` | 设备型号，当前为 `agentmate_esp32c3` |
-| `software_version` | 软件版本，格式为 `v<主版本>.<次版本>`，与 `HELLO` 返回的同一值；当前为 `v1.0` |
+| `model` | 设备型号，当前为 `AGM-C3` |
+| `software_version` | 软件版本，格式为 `v<主版本>.<次版本>`，与 `HELLO` 返回的同一值；当前为 `v1.1` |
 | `protocol_version` | 协议主版本，一位十进制数字，当前固定为 `1` |
 | `max_sessions` | 会话槽上限，当前为 `4` |
 
 ```text
 AT+INFO?
-+INFO:8d2b47e0a99347c7a976d386dc194fa2,agentmate_esp32c3,v1.0,1,4
++INFO:8d2b47e0a99347c7a976d386dc194fa2,AGM-C3,v1.1,1,4
 OK
 ```
 

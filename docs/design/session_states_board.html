@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentMate 圆形屏 · 全量 UI 视觉设计稿</title>
+<style>
+  :root {
+    --ink: #2b2448; --ink-soft: #6b628f; --screen-bg: #141733;
+    --mint: #36e29a; --sky: #56ccf2; --amber: #ffb02e; --coral: #ff5f7a;
+    --paper: #fff; --rounded: ui-rounded, "SF Pro Rounded", "Yuanti SC", "PingFang SC", sans-serif;
+    --mono: "SF Pro Rounded", "DIN Alternate", "Avenir Next", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; min-width: 320px; color: var(--ink); font-family: var(--rounded); -webkit-font-smoothing: antialiased;
+    background: radial-gradient(620px 420px at 6% -4%, #ffe6c7 0%, transparent 70%),
+      radial-gradient(560px 420px at 98% 2%, #d8e4ff 0%, transparent 68%), #fdf7f2; }
+  .wrap { max-width: 1332px; margin: 0 auto; padding: 42px 48px 72px; }
+  .board-head { display: flex; align-items: end; gap: 24px; }
+  .logo-dots { display: flex; gap: 7px; margin-bottom: 12px; }
+  .logo-dots i { width: 15px; height: 15px; border-radius: 50%; }
+  h1 { margin: 0; font-size: 40px; line-height: 1.15; letter-spacing: .5px; }
+  h1 em { font-style: normal; color: #ff5f8d; }
+  .intro { margin: 12px 0 0; max-width: 820px; color: var(--ink-soft); font-size: 15px; line-height: 1.7; }
+  .version { margin-left: auto; min-width: 185px; padding: 13px 17px; border-radius: 16px; background: #fff;
+    color: var(--ink-soft); line-height: 1.65; text-align: right; box-shadow: 0 6px 18px #503c781a; }
+  .version strong { color: var(--ink); }
+  .ribbon { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 28px; }
+  .ribbon-item { position: relative; min-height: 96px; padding: 16px 18px; border-radius: 18px; background: white; box-shadow: 0 8px 22px #503c7815; }
+  .ribbon-item:not(:last-child)::after { content: "→"; position: absolute; right: -17px; top: 34px; z-index: 2; color: #8b7da5; font-size: 22px; }
+  .ribbon-item b { display: block; font-size: 17px; }
+  .ribbon-item small { display: block; margin-top: 5px; color: var(--ink-soft); font-size: 12px; line-height: 1.45; }
+  .ribbon-item .rank { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 5px;
+    border-radius: 8px; color: #fff; background: var(--rank); font-size: 12px; }
+  section { margin-top: 42px; }
+  .sec-head { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 17px; }
+  .sec-num { display: grid; place-items: center; width: 35px; height: 35px; border-radius: 12px; color: #fff;
+    font-size: 17px; font-weight: 700; background: var(--accent); box-shadow: 0 6px 14px #503c782e; }
+  h2 { margin: 0; font-size: 23px; }
+  .sec-head p { margin: 0; color: var(--ink-soft); font-size: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 288px); gap: 25px 24px; }
+  .tile { min-height: 359px; padding: 16px 16px 14px; border-radius: 26px; background: var(--paper);
+    box-shadow: 0 10px 26px #5a46821c; display: flex; flex-direction: column; align-items: center; }
+  .stage { position: relative; width: 256px; height: 256px; flex: none; }
+  .led { position: absolute; width: 11px; height: 11px; border-radius: 50%; left: 50%; top: 50%; }
+  .screen { position: absolute; left: 8px; top: 8px; width: 240px; height: 240px; overflow: hidden;
+    border-radius: 50%; background: var(--screen-bg); color: #f2f4ff;
+    box-shadow: 0 0 0 4px #0b0d1c, 0 10px 20px #14143247; }
+  .safe { pointer-events: none; position: absolute; z-index: 20; left: 12px; top: 12px; width: 216px; height: 216px;
+    border-radius: 50%; border: 1px dashed #ffffff2d; }
+  .screen.factory-color .safe { display: none; }
+  .hdr { position: absolute; inset: 0 0 auto; height: 39px; display: grid; place-items: start center;
+    padding-top: 8px; background: var(--link); }
+  .hdr svg { width: 26px; height: 26px; }
+  .abs { position: absolute; left: 0; width: 240px; text-align: center; }
+  .pill { display: inline-block; padding: 5px 11px; border-radius: 13px; background: #ffffff11; color: #bfc9eb; font-size: 12px; letter-spacing: .8px; }
+  .tag { position: absolute; right: -2px; top: -4px; z-index: 30; padding: 4px 10px; border-radius: 10px;
+    color: #2b1830; background: var(--tag); font-size: 12px; font-weight: 700; transform: rotate(5deg); box-shadow: 0 4px 10px #5a468238; }
+  .caption { align-self: stretch; margin-top: 13px; }
+  .caption h3 { display: flex; align-items: baseline; gap: 6px; margin: 0; font-size: 16px; line-height: 1.25; }
+  .caption h3 code { font-family: var(--mono); font-weight: 600; font-size: 12px; color: var(--ink-soft); }
+  .caption p { margin: 7px 0 0; color: #625779; font-size: 12px; line-height: 1.45; }
+  .caption .led-note::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px;
+    border-radius: 50%; background: var(--led); box-shadow: 0 0 8px var(--led); vertical-align: -1px; }
+  .caption .led-note { color: #594f7d; }
+  .provider-icon { width: 34px; height: 34px; flex: none; }
+  .provider-icon.codex { border-radius: 9px; }
+  .session .agent-column { position: absolute; top: 84px; left: 27px; width: 36px; height: 36px; }
+  .session .agent-column .provider-icon { width: 36px; height: 36px; }
+  .session.provider-codex { --agent-color: #8b99ff; }
+  .session.provider-claude { --agent-color: #d97757; }
+  .session .column-rule { position: absolute; top: 56px; left: 69px; width: 1px; height: 146px;
+    background: #566087; }
+  .session .session-copy { position: absolute; top: 58px; left: 78px; width: 137px; text-align: left; }
+  .session .identity-label { display: inline-flex; max-width: 190px; align-items: center; justify-content: center; gap: 6px;
+    padding: 3px 8px; border-radius: 7px; overflow: hidden; white-space: nowrap; background: var(--agent-color, #6c769a);
+    color: #fff; font: 700 15px var(--mono); letter-spacing: .2px; text-shadow: 0 1px 1px #14173399; }
+  .session .session-copy .identity-label { max-width: 137px; }
+  .session .identity-label span { overflow: hidden; text-overflow: ellipsis; }
+  .session .identity-label span:first-child { flex: none; }
+  .session .identity-label i { width: 5px; height: 5px; flex: none; border-radius: 50%; background: #fff; }
+  .session .session-project { margin-top: 4px; max-width: 140px; overflow: hidden; white-space: nowrap;
+    text-overflow: ellipsis; color: var(--agent-color, #b9c2e0); font: 12px var(--mono); }
+  .session .main-state { position: absolute; top: 119px; left: 78px; width: 142px; height: 30px;
+    display: flex; justify-content: flex-start; align-items: center; gap: 4px; white-space: nowrap;
+    color: var(--state); font-size: 23px; font-weight: 700; }
+  .session .main-state.long-state { font-size: 21px; }
+  .session .main-state .state-icon { display: inline-grid; width: 22px; height: 22px; flex: none; }
+  .session .main-state .state-icon svg { width: 22px; height: 22px; }
+  .session .session-time { position: absolute; top: 169px; left: 78px; width: 142px; height: 32px;
+    display: flex; align-items: center; justify-content: flex-start; color: #f6f7fc;
+    font: 300 30px/32px "Helvetica Neue", Arial, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
+  .session .session-time.frozen { color: #7d86af; }
+  .session .session-time .time-colon { margin: 0 2px; color: #a2ffcc; font-size: 30px; }
+  .session .session-time.long-time, .session .session-time.long-time .time-colon { font-size: 26px; }
+  .session .session-time.frozen .time-colon { color: #626e93; }
+  .session .context { position: absolute; top: 132px; left: 21px; width: 48px; text-align: center;
+    color: #b3bce0; white-space: nowrap; }
+  .session .context span { display: block; overflow: hidden; text-overflow: ellipsis; }
+  .session .context .context-percent { font: 600 11px/13px var(--mono); }
+  .session .context .context-used { color: #a6b1d3; font: 11px/13px var(--mono); }
+  .session .context .context-total { color: #8996c1; font: 11px/13px var(--mono); }
+  .page-dot { position: absolute; border-radius: 50%; }
+  .boot .brand-mark { top: 47px; height: 67px; display: grid; place-items: center; }
+  .boot .brand-mark .orb { position: relative; width: 54px; height: 54px; border-radius: 18px; transform: rotate(-15deg);
+    background: #2e3e71; border: 2px solid #798dff; }
+  .boot .brand-mark .orb::before, .boot .brand-mark .orb::after { content: ""; position: absolute; border-radius: 50%; }
+  .boot .brand-mark .orb::before { width: 24px; height: 24px; left: 7px; top: 8px; background: #36e29a; box-shadow: 17px 13px 0 #ff5f8d; }
+  .boot .brand-mark .orb::after { width: 7px; height: 7px; right: 7px; top: 8px; background: #fff; }
+  .boot .brand { top: 125px; font: 700 25px var(--rounded); letter-spacing: -.4px; }
+  .boot .model { top: 159px; color: #91a0cf; font: 13px var(--mono); }
+  .boot .sw-version { top: 188px; color: #c2cae8; font: 15px var(--mono); }
+  .connect .signal { top: 54px; height: 44px; display: grid; place-items: center; color: var(--state); }
+  .connect .signal svg { width: 38px; height: 38px; }
+  .connect .main-label { top: 111px; font-size: 25px; font-weight: 700; color: var(--state); }
+  .connect .sub-label { top: 153px; font-size: 16px; color: #b5bfdf; }
+  .connect .brandline { top: 188px; color: #7d87ad; font: 12px var(--mono); letter-spacing: 1px; }
+  .idle .locale { top: 58px; color: #92a4c9; font-size: 16px; letter-spacing: 1px; }
+  .idle .clock { top: 92px; color: #f6f5ff; font: 600 45px var(--mono); letter-spacing: 1px; }
+  .idle .clock.placeholder { font-size: 39px; color: #8d98b7; }
+  .idle .date { top: 155px; color: #c6d0ed; font: 18px var(--mono); }
+  .idle .lowline { top: 190px; color: #8492bb; font-size: 13px; }
+  .usage .usage-head { position: absolute; top: 53px; left: 28px; height: 48px;
+    display: flex; gap: 13px; align-items: center; }
+  .usage .usage-head .provider-icon { width: 36px; height: 36px; }
+  .usage .usage-divider { width: 1px; height: 46px; background: #303653; }
+  .usage .usage-head b { font: 700 19px var(--rounded); white-space: nowrap; }
+  .usage .quota-grid { position: absolute; top: 108px; left: 36px; width: 168px; display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: 21px 43px 33px; }
+  .usage .quota-grid.single { left: 72px; width: 96px; grid-template-columns: 1fr; }
+  .usage .quota-cell { display: flex; justify-content: center; align-items: center; min-width: 0; text-align: center; }
+  .usage .quota-grid:not(.single) .quota-cell:nth-child(odd) { border-right: 1px solid #303653; }
+  .usage .quota-value, .usage .quota-reset { border-top: 1px solid #303653; }
+  .usage .quota-label { color: #a9b5d6; font-size: 13px; line-height: 20px; }
+  .usage .quota-value { color: #f3f3ff; font: 700 26px var(--mono); line-height: 40px; white-space: nowrap; }
+  .usage .quota-value.unknown { color: #ffbd68; font: 700 18px var(--rounded); }
+  .usage .quota-reset { flex-direction: column; color: #a3afd3; white-space: nowrap; line-height: 13px; }
+  .usage .quota-reset small { font-size: 11px; }
+  .usage .quota-reset span { font: 11px var(--mono); }
+  .info .info-rows { position: absolute; top: 51px; left: 34px; width: 172px; display: grid; }
+  .info .info-row { display: grid; grid-template-columns: 1fr 1fr; align-items: baseline; column-gap: 14px;
+    height: 19px; white-space: nowrap; color: #e5e9fb; }
+  .info .info-row span { justify-self: end; color: #9facd2; font-size: 16px; line-height: 20px; text-align: right; }
+  .info .info-row b { justify-self: start; font: 600 16px/20px var(--mono); text-align: left; }
+  .info .info-row:nth-child(7) { margin-top: 5px; }
+  .pair .pair-title { top: 54px; color: #9cc9ff; font-size: 18px; }
+  .pair .pin { top: 84px; color: #fff; font: 700 49px var(--mono); letter-spacing: 8px; padding-left: 8px; }
+  .pair .pair-copy { top: 151px; color: #cad5ef; font-size: 16px; }
+  .pair .expiry { top: 182px; color: #9cc9ff; font: 15px var(--mono); }
+  .factory .factory-title { top: 55px; color: #fff; font-size: 25px; font-weight: 700; }
+  .factory .factory-sub { top: 100px; color: #c4cbea; font: 13px var(--mono); }
+  .factory .factory-sub2 { top: 128px; color: #c4cbea; font: 13px var(--mono); }
+  .factory .factory-bottom { top: 180px; color: #8f9cc2; font-size: 16px; }
+  .factory .sample { top: 98px; color: #f2f4ff; font: 18px var(--mono); }
+  .factory .sample-zh { top: 133px; color: #f2f4ff; font-size: 18px; }
+  .factory .sample-small { top: 168px; color: #c4cbea; font: 14px var(--mono); }
+  .notes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 42px; }
+  .note { padding: 20px 22px; border-radius: 22px; background: white; box-shadow: 0 10px 26px #5a46821c; }
+  .note h2 { margin-bottom: 10px; font-size: 17px; }
+  .note p, .note li { color: #514873; font-size: 13px; line-height: 1.65; }
+  .note p { margin: 8px 0 0; }
+  .note ul { margin: 0; padding-left: 18px; }
+  .note code { font: 12px var(--mono); color: #7f668a; }
+  .note.wide { grid-column: span 3; background: #fff7e8; border: 1px solid #ffce7a; }
+  @media (max-width: 1270px) { .wrap { max-width: 1000px; } .grid { grid-template-columns: repeat(3, 288px); } }
+  @media (max-width: 970px) { .wrap { max-width: 680px; } .grid { grid-template-columns: repeat(2, 288px); }
+    .ribbon { grid-template-columns: repeat(2, 1fr); } .ribbon-item::after { display: none; }
+    .notes { grid-template-columns: 1fr; } .note.wide { grid-column: auto; } }
+  @media (max-width: 650px) { .wrap { padding: 26px 16px 56px; } .board-head { align-items: start; flex-direction: column; }
+    h1 { font-size: 30px; } .version { margin: 0; text-align: left; } .grid { grid-template-columns: 288px; justify-content: center; }
+    .ribbon { grid-template-columns: 1fr; } .sec-head p { width: 100%; } }
+  @media print { body { background: #fff; } .wrap { max-width: none; } .grid { grid-template-columns: repeat(4, 288px); }
+    .tile, .ribbon-item, .note { break-inside: avoid; box-shadow: none; border: 1px solid #e5e1eb; } section { break-before: auto; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="board-head">
+    <div>
+      <div class="logo-dots"><i style="background:#ff5f8d"></i><i style="background:#ffb02e"></i><i style="background:#36e29a"></i><i style="background:#56ccf2"></i><i style="background:#9b7bff"></i></div>
+      <h1>AgentMate · <em>全量 UI 视觉稿</em></h1>
+      <p class="intro">基于既有 Session 页的深色圆屏、连接色带与 16 颗灯环。下方每块屏幕均按 240 × 240 @1x 绘制；虚线是直径 216 px 安全圆。画板文字是设计标注，不属于设备屏幕。</p>
+    </div>
+    <div class="version">稿件 <strong>v1.7 · 细节调整</strong><br>对应需求 <strong>v1.7</strong><br>2026-10-02</div>
+  </header>
+  <div class="ribbon" aria-label="工作页优先级">
+    <div class="ribbon-item" style="--rank:#36e29a"><b><span class="rank">1</span>任务中 Session</b><small>working / thinking / 等待输入 / 需要批准 / stale；同组多页轮播</small></div>
+    <div class="ribbon-item" style="--rank:#ff5f7a"><b><span class="rank">2</span>完成态 Session</b><small>成功 / 失败 / 取消；服务端约 60 秒后改为 ready</small></div>
+    <div class="ribbon-item" style="--rank:#56ccf2"><b><span class="rank">3</span>近期 Codex 用量</b><small>Codex 有 ready Session、5 小时或一周用量，且 10 分钟内活动</small></div>
+    <div class="ribbon-item" style="--rank:#9b7bff"><b><span class="rank">4</span>日期时间待机</b><small>无可展示任务、完成态或用量时持续显示</small></div>
+  </div>
+  <div id="board"></div>
+  <div class="notes">
+    <article class="note"><h2>页面与字体</h2><p>所有业务屏共用 39 px 顶部连接带，中央为 26 × 26 px 链路图标；白色连通横线表示已连接，断开两端与斜杠表示未连接。启动和产测不使用 header。Session 状态词 21–23 px、状态图标 22 px，状态和时间沿竖线右侧左对齐；时长数字参考 assets/time_number_style.svg 的细体造型，约 30 px。待机时间 45 px，日期 18 px。屏幕主体是 RGB565 可实现的纯色块。</p></article>
+    <article class="note"><h2>切页与灯环</h2><p>工作页只展示当前最高优先级组，同组多页每 6 秒轮换。任务中压过完成态；事件只能短时强调当前组内会话。灯环代表全局最高状态，不跟随每张 Session 卡片变化。设备信息页显示期间保留进入前灯效。</p></article>
+    <article class="note"><h2>时间与空值</h2><p>日期时间和 Codex 重置时间均按服务端主机本地时间显示；时钟或偏移未知时使用占位，不显示 UTC。Context 仅在有有效读数时于 Agent 图标下方分三行显示百分比、已用量、总量；未知或不支持时隐藏。Codex 用量未知显示「用量未知」。</p></article>
+    <article class="note wide"><h2>落地前的素材与协议缺口</h2><ul>
+      <li>Session 页目录名仅为版式示例；当前 <code>AT+SESSION</code> 不传工程目录，需先补服务端、协议和固件字段。短名称暂用会话 key。</li>
+      <li>主机本地时间需要扩展 <code>AT+TIME</code>，同步 Unix 毫秒及当前 UTC 偏移分钟；未来的 Codex 重置时刻还需随 <code>AT+USAGE</code> 下发该时刻生效的偏移，以正确跨越夏令时。现行服务端与固件尚未实现。</li>
+      <li>设备信息页的拉起命令 <code>AT+SHOWINFO</code> 仍是需求提案；配对页是二期设计，不能当作一期固件已实现。</li>
+      <li>本页是视觉与静态关键帧稿。启动动画逐帧 PNG、动效 timeline、切图、完整中文字表仍按需求文档第 14 节单独交付；本稿用到的「思考中」「任务完成」「任务取消」「任务失败」应纳入最终字表。</li>
+    </ul></article>
+  </div>
+</main>
+<script>
+const P = {
+  bg: '#141733', on: '#1fbf74', off: '#e8445c', blue: '#4aa8ff',
+  mint: '#36e29a', sky: '#56ccf2', amber: '#ffb02e', coral: '#ff5f7a',
+  stale: '#d2a76b', teal: '#36d8b4', gray: '#8793bb'
+};
+const CODEX_SHAPE = 'M9.064 3.344a4.578 4.578 0 012.285-.312c1 .115 1.891.54 2.673 1.275.01.01.024.017.037.021a.09.09 0 00.043 0 4.55 4.55 0 013.046.275l.047.022.116.057a4.581 4.581 0 012.188 2.399c.209.51.313 1.041.315 1.595a4.24 4.24 0 01-.134 1.223.123.123 0 00.03.115c.594.607.988 1.33 1.183 2.17.289 1.425-.007 2.71-.887 3.854l-.136.166a4.548 4.548 0 01-2.201 1.388.123.123 0 00-.081.076c-.191.551-.383 1.023-.74 1.494-.9 1.187-2.222 1.846-3.711 1.838-1.187-.006-2.239-.44-3.157-1.302a.107.107 0 00-.105-.024c-.388.125-.78.143-1.204.138a4.441 4.441 0 01-1.945-.466 4.544 4.544 0 01-1.61-1.335c-.152-.202-.303-.392-.414-.617a5.81 5.81 0 01-.37-.961 4.582 4.582 0 01-.014-2.298.124.124 0 00.006-.056.085.085 0 00-.027-.048 4.467 4.467 0 01-1.034-1.651 3.896 3.896 0 01-.251-1.192 5.189 5.189 0 01.141-1.6c.337-1.112.982-1.985 1.933-2.618.212-.141.413-.251.601-.33.215-.089.43-.164.646-.227a.098.098 0 00.065-.066 4.51 4.51 0 01.829-1.615 4.535 4.535 0 011.837-1.388zm3.482 10.565a.637.637 0 000 1.272h3.636a.637.637 0 100-1.272h-3.636zM8.462 9.23a.637.637 0 00-1.106.631l1.272 2.224-1.266 2.136a.636.636 0 101.095.649l1.454-2.455a.636.636 0 00.005-.64L8.462 9.23z';
+function mark(provider) {
+  if (provider === 'claude') { return '<img class="provider-icon" src="../../assets/provider_icons/claude.svg" alt="">'; }
+  return `<svg class="provider-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${CODEX_SHAPE}" fill="#8b99ff"/></svg>`;
+}
+function header(connected) {
+  const icon = connected
+    ? '<path d="M11 5H9a8 8 0 0 0 0 16h2"/><path d="M17 5h2a8 8 0 0 1 0 16h-2"/><path d="M10 13h8"/>'
+    : '<path d="M10 5H9a8 8 0 0 0 0 16h1"/><path d="M18 5h1a8 8 0 0 1 0 16h-1"/><path d="m15.5 9-3 8"/>';
+  return `<div class="hdr" style="--link:${connected ? P.on : P.off}"><svg viewBox="0 0 28 28" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg></div>`;
+}
+function ring(color, mode) {
+  let out = '';
+  for (let i = 0; i < 16; i++) {
+    const a = i * Math.PI / 8 - Math.PI / 2;
+    let k = mode === 'off' ? 0 : mode === 'single' ? (i === 5 ? 1 : 0) : mode === 'rotate' ? .22 + .78 * Math.max(0, Math.cos(a + Math.PI / 2 - .6)) :
+      mode === 'pulse' ? .95 : mode === 'breathe' ? .33 : mode === 'dim' ? .2 : .6;
+    const colorValue = k === 0 ? '#23263f' : color;
+    const glow = k < .25 ? 'none' : `0 0 ${7 + 13 * k}px ${1 + 2 * k}px ${color}`;
+    out += `<i class="led" style="transform:translate(${Math.cos(a) * 128 - 5.5}px,${Math.sin(a) * 128 - 5.5}px);background:${colorValue};opacity:${k ? (.3 + .7 * k).toFixed(2) : 1};box-shadow:${glow}"></i>`;
+  }
+  return out;
+}
+function dots(page, total, color) {
+  if (total < 2) { return ''; }
+  let out = '';
+  for (let k = 0; k < total; k++) {
+    const a = (90 - (k - (total - 1) / 2) * 13) * Math.PI / 180;
+    const x = 120 + Math.cos(a) * 101, y = 120 + Math.sin(a) * 101;
+    const current = k + 1 === page, d = current ? 7 : 5;
+    out += `<i class="page-dot" style="left:${x-d/2}px;top:${y-d/2}px;width:${d}px;height:${d}px;background:${current ? color : '#3b4070'}"></i>`;
+  }
+  return out;
+}
+function icon(kind) {
+  const common = 'fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"';
+  const shapes = {
+    work: '<path d="M20 12a8 8 0 1 0-3.2 6.4"/><circle cx="20" cy="12" r="2.4" fill="currentColor"/>',
+    thinking: '<circle cx="12" cy="12" r="8"/><path d="M8 12h8M12 8v8"/>',
+    wait: '<path d="M4 7a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3h-6l-4 3v-3a3 3 0 0 1-3-3z"/>',
+    perm: '<path d="M6 17c1-2 1-4 1-6a5 5 0 0 1 10 0c0 2 0 4 1 6zM10 20h4"/>',
+    stale: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
+    success: '<circle cx="12" cy="12" r="8"/><path d="m8 12 3 3 5-6"/>',
+    failed: '<circle cx="12" cy="12" r="8"/><path d="m9 9 6 6m0-6-6 6"/>',
+    canceled: '<circle cx="12" cy="12" r="8"/><path d="M8 12h8"/>',
+    ready: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/>',
+    signal: '<path d="M4 12a8 8 0 0 1 16 0"/><path d="M7 12a5 5 0 0 1 10 0"/><circle cx="12" cy="13" r="1.5"/>',
+    sync: '<path d="M20 12a8 8 0 0 0-13-6l-2 2M4 12a8 8 0 0 0 13 6l2-2"/><path d="M4 4v4h4m12 12v-4h-4"/>',
+    link: '<path d="M9 15l6-6M8 9H6a4 4 0 0 0 0 8h3m6-10h3a4 4 0 0 1 0 8h-3"/>',
+    lock: '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>'
+  };
+  return `<svg viewBox="0 0 24 24" ${common}>${shapes[kind] || shapes.signal}</svg>`;
+}
+function content(t) {
+  if (t.type === 'session') {
+    const contextParts = /^(\d+(?:\.\d+)?%) · ([^/]+)\/([^/]+)$/.exec(t.context || '');
+    const contextMarkup = contextParts ? `<div class="context"><span class="context-percent">${contextParts[1]}</span><span class="context-used">${contextParts[2]}</span><span class="context-total">${contextParts[3]}</span></div>` : '';
+    const timeParts = /^(\d+)分(\d+)秒$/.exec(t.duration);
+    const duration = timeParts ? `<span>${timeParts[1]}</span><span class="time-colon">:</span><span>${timeParts[2]}</span>` : t.duration;
+    return `<div class="agent-column">${mark(t.provider)}</div>${contextMarkup}<div class="column-rule"></div>
+      <div class="session-copy"><span class="identity-label"><span>${t.provider.toUpperCase()}</span><i></i><span>${t.key.toUpperCase()}</span></span>
+      <div class="session-project" title="${t.project || ''}">${t.project || ''}</div></div>
+      <div class="main-state ${t.state.length >= 5 ? 'long-state' : ''}"><span class="state-icon">${icon(t.glyph)}</span>${t.state}</div>
+      <div class="session-time ${t.counting ? '' : 'frozen'} ${timeParts && timeParts[1].length > 2 ? 'long-time' : ''}">${duration}</div>
+      ${dots(t.page || 1, t.total || 1, t.color)}`;
+  }
+  if (t.type === 'boot') {
+    return `<div class="abs brand-mark"><span class="orb"></span></div><div class="abs brand">AgentMate</div>
+      <div class="abs model">AGM-C3</div><div class="abs sw-version">${t.version || 'v1.0'}</div>`;
+  }
+  if (t.type === 'connect') {
+    return `<div class="abs signal">${icon(t.glyph || 'signal')}</div><div class="abs main-label">${t.label}</div>
+      <div class="abs sub-label">${t.sub}</div><div class="abs brandline">AGENTMATE · USB</div>`;
+  }
+  if (t.type === 'idle') {
+    return `<div class="abs locale">日期/时间</div><div class="abs clock ${t.invalid ? 'placeholder' : ''}">${t.clock}</div>
+      <div class="abs date">${t.date}</div><div class="abs lowline">${t.lowline || ''}</div>`;
+  }
+  if (t.type === 'usage') {
+    const row = (className, value) => t.windows.map(w => `<div class="quota-cell ${className} ${w.value === '用量未知' && className === 'quota-value' ? 'unknown' : ''}">${value(w)}</div>`).join('');
+    const grid = row('quota-label', w => w.label) + row('quota-value', w => w.value) + row('quota-reset', w => `<small>重置时间</small><span>${w.reset}</span>`);
+    return `<div class="usage-head">${mark('codex')}<span class="usage-divider"></span><b>剩余用量</b></div>
+      <div class="quota-grid ${t.windows.length === 1 ? 'single' : ''}">${grid}</div>`;
+  }
+  if (t.type === 'info') {
+    const rows = [
+      ['设备 ID', 'dc194fa2'], ['型号', 'AGM-C3'],
+      ['软件版本', 'v1.0'], ['协议版本', '1'],
+      ['屏幕亮度', '90%'], ['灯环亮度', '40%'],
+      ['日期', t.invalid ? '---- -- --' : '2026-06-13'],
+      ['时间', t.invalid ? '--:--:--' : '22:00:02']
+    ];
+    return `<div class="info-rows">${rows.map(r=>`<div class="info-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('')}</div>`;
+  }
+  if (t.type === 'pair') {
+    return `<div class="abs pair-title">配对码</div><div class="abs pin">${t.pin}</div>
+      <div class="abs pair-copy">${t.copy}</div><div class="abs expiry">${t.expiry}</div>`;
+  }
+  if (t.type === 'factory') {
+    if (t.variant === 'color') { return ''; }
+    if (t.variant === 'font') { return `<div class="abs factory-title">字体样张</div><div class="abs sample">ABC 0123 45.67%</div><div class="abs sample-zh">工作中　等待输入</div><div class="abs sample-small">AaBbCc / 16 px</div>`; }
+    return `<div class="abs factory-title">${t.label}</div><div class="abs factory-sub">${t.sub}</div><div class="abs factory-sub2">${t.sub2 || ''}</div><div class="abs factory-bottom">${t.bottom || ''}</div>`;
+  }
+  return '';
+}
+function tile(t) {
+  const color = t.color || P.sky;
+  const body = t.type === 'boot' || t.type === 'factory' ? '' : header(t.connected !== false);
+  const screenStyle = `--state:${color};${t.screenColor ? `background:${t.screenColor};` : ''}`;
+  return `<article class="tile"><div class="stage">${ring(t.ledColor || color, t.ledMode || 'steady')}
+    <div class="screen ${t.type} ${t.type === 'session' ? `provider-${t.provider}` : ''} ${t.compact ? 'compact' : ''} ${t.variant === 'color' ? 'factory-color' : ''}" style="${screenStyle}">${body}${content(t)}<div class="safe"></div></div>
+    ${t.tag ? `<span class="tag" style="--tag:${t.tagColor || color}">${t.tag}</span>` : ''}</div>
+    <div class="caption"><h3>${t.title}<code>${t.code || ''}</code></h3>
+      <p class="led-note" style="--led:${t.ledColor || color}">${t.led}</p><p>${t.note}</p></div></article>`;
+}
+const sections = [
+  { n:'A', color:'#9b7bff', title:'启动动画 · Boot', subtitle:'无 header；2–5 秒后进入连接页，灯环熄灭', tiles:[
+    {type:'boot',title:'品牌进入',code:'0–2 s',version:'v1.0',ledMode:'off',color:'#9b7bff',led:'启动期间熄灭',note:'Logo 前 200–400 ms 淡入；版本号随 Logo 稳定后出现。'},
+    {type:'boot',title:'稳定关键帧',code:'2–5 s',version:'v1.0',ledMode:'off',color:'#9b7bff',led:'启动期间熄灭',note:'满 2 秒且连接页已就绪可退出；5 秒为最晚退出点。'}
+  ]},
+  { n:'B', color:'#56ccf2', title:'连接状态 · Connecting', subtitle:'四种链路状态共用断开 header；不显示时钟或校时状态', tiles:[
+    {type:'connect',title:'等待主机',code:'WAIT_HOST',label:'等待主机',sub:'USB 串口就绪',glyph:'signal',color:P.sky,connected:false,ledMode:'breathe',ledColor:'#586b91',led:'暗蓝灰极慢呼吸',note:'长驻超过约 60 秒可降低对比度或极慢位移。'},
+    {type:'connect',title:'正在握手',code:'HANDSHAKE',label:'正在握手',sub:'发现设备中',glyph:'link',color:P.sky,connected:false,ledMode:'breathe',ledColor:'#586b91',led:'暗蓝灰极慢呼吸',note:'连接图标仍为断开态；不出现 Session 内容。'},
+    {type:'connect',title:'正在同步',code:'SYNCING',label:'正在同步',sub:'会话写入中',glyph:'sync',color:P.sky,connected:false,ledMode:'breathe',ledColor:'#586b91',led:'暗蓝灰极慢呼吸',note:'同步完成后按工作页四级规则重新选页。'},
+    {type:'connect',title:'需要配对',code:'UNPAIRED · 二期',label:'需要配对',sub:'请在网页输入配对码',glyph:'lock',color:'#9cc9ff',connected:false,ledMode:'breathe',ledColor:'#586b91',led:'配对页启动前按连接灯效',note:'四位 PIN 生效后转入配对页。'}
+  ]},
+  { n:'C', color:'#36e29a', title:'任务中 Session · 优先级 1', subtitle:'全部 Session 使用分栏布局；状态和时间左对齐，主状态最多支持 5 个汉字', tiles:[
+    {type:'session',title:'工作中 · 新版式',code:'CODEX·S1',provider:'codex',key:'s1',state:'工作中',glyph:'work',duration:'12分12秒',project:'agentmate_esp32',page:1,total:2,color:P.mint,counting:true,ledMode:'rotate',led:'绿灯慢旋转',note:'竖线向上延伸 14 px，身份与目录上移 10 px，状态上下留白均衡。'},
+    {type:'session',title:'工作中 · Context 对齐',code:'working',provider:'claude',key:'s1',state:'工作中',glyph:'work',duration:'12分05秒',context:'6.00% · 12k/200k',project:'agentmate_esp32',page:1,total:2,color:P.mint,counting:true,ledMode:'rotate',led:'绿灯慢旋转',note:'Agent 图标与三行 Context 读数共用中心线；竖线左移 3 px，右侧信息保持原位。'},
+    {type:'session',title:'思考中',code:'thinking',provider:'codex',key:'s2',state:'思考中',glyph:'thinking',duration:'02分16秒',project:'agentmate_service',page:2,total:2,color:P.mint,counting:true,ledMode:'rotate',led:'绿灯慢旋转',note:'与 working 同属任务中；Codex Context 不支持时不显示。'},
+    {type:'session',title:'等待输入',code:'waiting_for_input',provider:'claude',key:'s3',state:'等待输入',glyph:'wait',duration:'03分41秒',context:'42.00% · 84k/200k',project:'agentmate_web',page:1,total:3,color:P.amber,counting:true,ledMode:'pulse',led:'琥珀慢脉冲',note:'状态保持琥珀色，计时数字保持白色与薄荷色冒号。'},
+    {type:'session',title:'需要批准',code:'permission_required',provider:'codex',key:'s4',state:'需要批准',glyph:'perm',duration:'00分18秒',project:'kernel_driver',page:2,total:3,color:P.coral,counting:true,ledMode:'pulse',tag:'优先切入',led:'红 / 珊瑚明显脉冲',note:'事件强调约 4 秒；随后返回本组轮播。'},
+    {type:'session',title:'状态未更新',code:'stale',provider:'claude',key:'s5',state:'状态未更新',glyph:'stale',duration:'26分07秒',context:'unknown',project:'agentmate_web',page:3,total:3,color:P.stale,ledColor:P.blue,ledMode:'dim',led:'蓝弱稳态',note:'任务时长冻结并转暗色；未知 Context 不显示。'},
+    {type:'session',title:'极长文本态',code:'边界',provider:'claude',key:'ABCDEFGH',state:'需要批准',glyph:'perm',duration:'9999分59秒',context:'100.00% · 200k/200k',project:'agentmate-provider-registry-dashboard',page:4,total:4,color:P.coral,counting:true,ledMode:'pulse',led:'红 / 珊瑚明显脉冲',note:'身份短键与目录省略；四位分钟缩小字号，状态词和计时完整显示。'},
+    {type:'session',title:'Context 未知',code:'context_mode=1',provider:'claude',key:'s1',state:'工作中',glyph:'work',duration:'12分09秒',context:'unknown',project:'agentmate_esp32',page:1,total:2,color:P.mint,counting:true,ledMode:'rotate',led:'绿灯慢旋转',note:'读数未知时隐藏 Context，不能沿用先前百分比。'},
+    {type:'session',title:'Context 不支持',code:'context_mode=0',provider:'codex',key:'s1',state:'工作中',glyph:'work',duration:'12分12秒',project:'agentmate_esp32',page:1,total:2,color:P.mint,counting:true,ledMode:'rotate',led:'绿灯慢旋转',note:'Agent 图标下方不显示 Context，也不能画成 0%。'}
+  ]},
+  { n:'D', color:'#ff5f7a', title:'完成态 Session · 优先级 2', subtitle:'仅无任务中 Session 时显示；服务端状态变 ready 即退出', tiles:[
+    {type:'session',title:'任务完成',code:'task_success',provider:'claude',key:'s1',state:'任务完成',glyph:'success',duration:'12分05秒',context:'6.00% · 12k/200k',project:'agentmate_esp32',page:1,total:2,color:P.teal,ledMode:'dim',ledColor:P.teal,led:'绿低亮稳态；EVENT 可短闪',note:'总时长冻结；完成态约 60 秒由服务端保持。'},
+    {type:'session',title:'任务失败',code:'task_failed',provider:'codex',key:'s2',state:'任务失败',glyph:'failed',duration:'08分52秒',project:'agentmate_service',page:2,total:2,color:P.coral,ledMode:'dim',ledColor:P.coral,led:'红低亮稳态；EVENT 可短闪',note:'与任务完成同组轮播；有工作中的其他会话时不上屏。'},
+    {type:'session',title:'任务取消',code:'task_canceled',provider:'claude',key:'s3',state:'任务取消',glyph:'canceled',duration:'04分30秒',context:'unknown',project:'agentmate_web',page:1,total:1,color:P.amber,ledMode:'dim',ledColor:P.amber,led:'琥珀低亮稳态',note:'当前 state 决定完成态；ready 中的 last_task 不能继续生成此页。'},
+    {type:'session',title:'回到就绪',code:'ready · 转场示意',provider:'codex',key:'s25',state:'已就绪',glyph:'ready',duration:'00分00秒',project:'agentmate_service',color:P.gray,ledMode:'dim',ledColor:P.blue,led:'蓝弱稳态',note:'ready 状态效果示意；不参与持续轮播，收到后立即切到符合条件的 Codex 用量页或待机页。'}
+  ]},
+  { n:'E', color:'#56ccf2', title:'近期 Codex 用量 · 优先级 3', subtitle:'仅 Codex；有 ready 会话、近期活动及同一额度指标的 5 小时 / 一周窗口', tiles:[
+    {type:'usage',title:'双窗口用量',code:'5 小时 + 一周',windows:[{label:'5 小时',value:'58.0%',reset:'20:30'},{label:'一周',value:'81.5%',reset:'10月9日 18:00'}],color:P.sky,ledColor:P.blue,ledMode:'dim',led:'蓝弱稳态',note:'两列依次为 5 小时与一周；大字显示剩余百分比，底行显示主机本地重置时间。'},
+    {type:'usage',title:'用量未知',code:'used_bp=-',windows:[{label:'5 小时',value:'用量未知',reset:'未知'},{label:'一周',value:'81.5%',reset:'10月9日 18:00'}],color:P.sky,ledColor:P.blue,ledMode:'dim',led:'蓝弱稳态',note:'未知档保留，不画 0%；有效的一周剩余用量照常显示。'},
+    {type:'usage',title:'单窗口可用',code:'一周窗口缺失',windows:[{label:'5 小时',value:'58.0%',reset:'次日 00:30'}],color:P.sky,ledColor:P.blue,ledMode:'dim',led:'蓝弱稳态',note:'缺少一周窗口时只显示 5 小时，单列居中；跨日重置写「次日」。'}
+  ]},
+  { n:'F', color:'#9b7bff', title:'日期时间待机 · 优先级 4', subtitle:'无符合前三组的对象时持续显示；与设备信息页共用主机本地时间', tiles:[
+    {type:'idle',title:'正常待机',code:'日期/时间',clock:'18:25',date:'2026-10-02',lowline:'',color:'#9b7bff',ledColor:P.blue,ledMode:'dim',led:'蓝弱稳态',note:'服务端同步当前时区偏移；日期与时间始终按主机本地时间显示。'},
+    {type:'idle',title:'全部 ready',code:'10 分钟已过',clock:'18:35',date:'2026-10-02',lowline:'',color:'#9b7bff',ledColor:P.blue,ledMode:'dim',led:'蓝弱稳态',note:'即使仍有用量记录，也回到日期时间待机页。'},
+    {type:'idle',title:'仅 Claude 就绪',code:'忽略非 Codex 用量',clock:'18:37',date:'2026-10-02',lowline:'',color:'#9b7bff',ledColor:P.blue,ledMode:'dim',led:'蓝弱稳态',note:'Claude 即使有 ready Session、近期活动和用量记录，也不进入用量页。'},
+    {type:'idle',title:'时钟或偏移未知',code:'time / offset invalid',clock:'--:--',date:'---- -- --',invalid:true,color:'#9b7bff',ledColor:P.blue,ledMode:'dim',led:'蓝弱稳态',note:'任一未同步即占位；不能回退显示 UTC 时钟。'}
+  ]},
+  { n:'G', color:'#6b7fea', title:'设备信息 · AT 拉起', subtitle:'单屏完整信息；默认 10 秒关闭；灯环保持进入前的效果', tiles:[
+    {type:'info',title:'设备信息',code:'AT+SHOWINFO=10',color:'#6b7fea',ledColor:P.blue,ledMode:'dim',led:'沿用进入前的灯效',note:'首行从 y=51 px 开始，与 header 保留 12 px 间距；日期与时间在最下方。中心线两侧各留 7 px，同一行文字基线对齐。'},
+    {type:'info',title:'时钟或偏移未知',code:'占位态',invalid:true,color:'#6b7fea',ledColor:P.blue,ledMode:'dim',led:'沿用进入前的灯效',note:'任一未同步即占位；本页不显示剩余 10 秒、旋转角或校时文案。'}
+  ]},
+  { n:'H', color:'#4aa8ff', title:'配对 · 二期设计', subtitle:'尚未配对时使用断开 header；PIN 与过期倒计时是主体', tiles:[
+    {type:'pair',title:'配对进行中',code:'PAIRING',pin:'0427',copy:'请在网页输入配对码',expiry:'42 秒后过期 · dc194fa2',connected:false,color:'#9cc9ff',ledColor:P.blue,ledMode:'breathe',led:'蓝灯慢呼吸',note:'4 位码保留前导零；二期功能，一期仅交付设计。'},
+    {type:'pair',title:'配对过期',code:'EXPIRED',pin:'----',copy:'配对码已过期',expiry:'dc194fa2',connected:false,color:'#9cc9ff',ledColor:P.blue,ledMode:'breathe',led:'蓝灯慢呼吸',note:'过期短态后回连接页；不再暴露旧 PIN。'}
+  ]},
+  { n:'I', color:'#ffb02e', title:'工厂产测 · Factory', subtitle:'无业务 header；仅灯珠测试项点亮 LED', tiles:[
+    {type:'factory',title:'产测首页',code:'FACTORY',label:'产测模式',sub:'AT+TESTAUTO=1',sub2:'AT+MODE=NORMAL',bottom:'串口就绪',color:P.amber,ledMode:'off',led:'首页灯环熄灭',note:'退出工厂模式需命令保存并重启。'},
+    {type:'factory',title:'纯色测试',code:'TESTTFT · RED',variant:'color',screenColor:'#ff0000',color:'#ff0000',ledMode:'off',led:'纯色屏时灯环熄灭',note:'六步：黑 #000000、白 #FFFFFF、红 #FF0000、绿 #00FF00、蓝 #0000FF、灰 #808080；每步约 2 秒。'},
+    {type:'factory',title:'整圈灯测试',code:'TESTLED · ALL',label:'LED 全灯',sub:'RED / GREEN',sub2:'BLUE / WHITE',bottom:'4 色测试',color:P.coral,ledColor:P.coral,ledMode:'steady',led:'本帧为整圈红灯',note:'红、绿、蓝、白依次点亮，每步约 2 秒。'},
+    {type:'factory',title:'逐颗灯测试',code:'TESTLED · #05',label:'LED 05 / 16',sub:'WHITE',bottom:'灯珠测试',color:'#e1e6ff',ledColor:'#e1e6ff',ledMode:'single',led:'本帧仅第 5 颗灯亮',note:'实际产测按指令逐颗点亮；其余测试页不套用业务灯色。'},
+    {type:'factory',title:'背光测试',code:'TESTBACKLIGHT',label:'背光 128',sub:'32 / 128 / 255',bottom:'亮度测试',color:P.sky,ledMode:'off',led:'背光测试灯环熄灭',note:'三档亮度依次目视检查，每步约 2 秒。'},
+    {type:'factory',title:'字体样张',code:'TESTFONT',variant:'font',color:P.sky,ledMode:'off',led:'字体测试灯环熄灭',note:'标题与三行字样分别排在 y=55 / 98 / 133 / 168 px，互不重叠；自动模式按测试项轮播。'}
+  ]}
+];
+let board = '';
+for (const s of sections) {
+  board += `<section style="--accent:${s.color}"><div class="sec-head"><span class="sec-num">${s.n}</span><h2>${s.title}</h2><p>${s.subtitle}</p></div><div class="grid">${s.tiles.map(tile).join('')}</div></section>`;
+}
+document.getElementById('board').innerHTML = board;
+</script>
+</body>
+</html>
