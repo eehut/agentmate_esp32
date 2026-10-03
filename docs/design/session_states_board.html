@@ -184,7 +184,7 @@
       <h1>AgentMate · <em>全量 UI 视觉稿</em></h1>
       <p class="intro">基于既有 Session 页的深色圆屏、连接色带与 16 颗灯环。下方每块屏幕均按 240 × 240 @1x 绘制；虚线是直径 216 px 安全圆。画板文字是设计标注，不属于设备屏幕。</p>
     </div>
-    <div class="version">稿件 <strong>v1.14 · 主状态动态外框</strong><br>对应需求 <strong>v1.14</strong><br>2026-10-03</div>
+    <div class="version">稿件 <strong>v1.15 · 连续光段灯环</strong><br>对应需求 <strong>v1.15</strong><br>2026-10-03</div>
   </header>
   <div class="ribbon" aria-label="工作页优先级">
     <div class="ribbon-item" style="--rank:#ffb02e"><b><span class="rank">1</span>等待授权／输入</b><small>只轮播等待组；同组新增不打断当前页</small></div>
@@ -223,34 +223,24 @@ function header(connected) {
     : '<path d="M10 5H9a8 8 0 0 0 0 16h1"/><path d="M18 5h1a8 8 0 0 1 0 16h-1"/><path d="m15.5 9-3 8"/>';
   return `<div class="hdr" style="--link:${connected ? P.on : P.off}"><svg viewBox="0 0 28 28" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg></div>`;
 }
-function ringMask(mode, ms, state) {
-  const shifted = offsets => offsets.reduce((mask, offset) => mask | (1 << ((offset + 32) % 16)), 0);
-  if (mode === 'off') return 0;
-  if (mode === 'single') return 1 << 5;
-  if (mode === 'disconnected' || mode === 'connecting') {
-    const head = Math.floor(ms / (mode === 'disconnected' ? 400 : 100)) % 16;
-    return shifted([2,3,4,5,6,7,10,11,12,13,14,15].map(i => i + head));
-  }
-  if (mode === 'double') return ms % 2000 < 200 || (ms % 2000 >= 400 && ms % 2000 < 600) ? 65535 : 0;
-  if (mode === 'result') return ms % 1600 < 250 ? 65535 : 0;
-  if (mode === 'thinking') {
-    const head = Math.floor(ms / 300) % 16;
-    return shifted([0,1,8,9].map(i => i + head));
-  }
-  if (mode === 'stale') return ms % 2000 < 500 ? 3 : ms % 2000 >= 1000 && ms % 2000 < 1500 ? 768 : 0;
-  if (mode === 'chase') {
-    while (ms >= state.next) {
-      state.head = (state.head + state.direction + 16) % 16;
-      state.next += 150;
-      if (--state.steps === 0) {
-        state.direction *= -1;
-        state.steps = 8 + Math.floor(Math.random() * 17);
-      }
-    }
-    return shifted([0,-1,-2,-5,-6].map(i => state.head + state.direction * i));
-  }
-  // Phase-two pairing illustration, independent of phase-one binary patterns.
-  return 65535;
+function ringLevels(mode, ms) {
+  const levels = Array(16).fill(0);
+  const fixed = (length, a, b) => {for (let i=0;i<length;i++) {levels[i]=a;levels[i+8]=b;}};
+  const moving = (head, values) => values.forEach((value,i)=>{levels[(head-i+16)%16]=value;});
+  if (mode === 'off') return levels;
+  if (mode === 'single') {levels[5]=100;return levels;}
+  if (mode === 'disconnected') {if (ms%4000<500) fixed(3,60,60);}
+  else if (mode === 'connecting') {const h=Math.floor(ms/100)%16;moving(h,[100,75,40,15]);moving((h+8)%16,[100,75,40,15]);}
+  else if (mode === 'permission') {if(ms%2000<150 || (ms%2000>=300 && ms%2000<450)) levels.fill(55);}
+  else if (mode === 'input') {if(ms%2000<600) fixed(4,70,70);}
+  else if (mode === 'working') {moving(Math.floor(ms/150)%16,[100,100,75,50,30,15]);}
+  else if (mode === 'thinking') {const h=Math.floor(ms/250)%16;moving(h,[80,40,15]);moving((h+8)%16,[80,40,15]);}
+  else if (mode === 'stale') {const alternate=ms%3000>=1500;fixed(3,alternate?15:60,alternate?60:15);}
+  else if (mode === 'success') {const p=ms%2400,count=p<450?(Math.floor(p/150)+1)*4:p<1200?16:0;levels.fill(55,0,count);}
+  else if (mode === 'failed') {if(ms%2400<200) levels.fill(55);}
+  else if (mode === 'canceled') {if(ms%3000<300) fixed(4,50,50);}
+  else levels.fill(100); // Existing factory and phase-two illustrations.
+  return levels;
 }
 function ring(color, mode) {
   let out = `<span class="led-ring" data-mode="${mode}" data-color="${color}">`;
@@ -365,26 +355,26 @@ const sections = [
     {type:'boot',title:'稳定关键帧',code:'2–5 s',version:'v1.0',ledMode:'off',color:'#9b7bff',led:'启动期间熄灭',note:'满 2 秒且连接页已就绪可退出；5 秒为最晚退出点。'}
   ]},
   { n:'B', color:'#56ccf2', title:'连接状态 · Connecting', subtitle:'四种链路状态共用断开 header；不显示时钟或校时状态', tiles:[
-    {type:'connect',title:'等待主机',code:'WAIT_HOST',label:'等待主机',sub:'USB 串口就绪',glyph:'signal',color:P.sky,connected:false,ledMode:'disconnected',ledColor:'#ff3b30',led:'红 · 2 灭 6 亮，400 ms 步进',note:'长驻超过约 60 秒可降低对比度或极慢位移。'},
-    {type:'connect',title:'正在握手',code:'HANDSHAKE',label:'正在握手',sub:'发现设备中',glyph:'link',color:P.sky,connected:false,ledMode:'connecting',ledColor:'#ff9f1c',led:'橙 · 2 灭 6 亮，100 ms 步进',note:'连接图标仍为断开态；不出现 Session 内容。'},
-    {type:'connect',title:'正在同步',code:'SYNCING',label:'正在同步',sub:'会话写入中',glyph:'sync',color:P.sky,connected:false,ledMode:'connecting',ledColor:'#ff9f1c',led:'橙 · 2 灭 6 亮，100 ms 步进',note:'同步完成后按最高会话组规则重新选页。'},
+    {type:'connect',title:'等待主机',code:'WAIT_HOST',label:'等待主机',sub:'USB 串口就绪',glyph:'signal',color:P.sky,connected:false,ledMode:'disconnected',ledColor:'#ff3b30',led:'红 · 固定六灯，500 ms／4 秒周期',note:'长驻超过约 60 秒可降低对比度或极慢位移。'},
+    {type:'connect',title:'正在握手',code:'HANDSHAKE',label:'正在握手',sub:'发现设备中',glyph:'link',color:P.sky,connected:false,ledMode:'connecting',ledColor:'#ff9f1c',led:'橙 · 对向四灯尾迹，100 ms 步进',note:'连接图标仍为断开态；不出现 Session 内容。'},
+    {type:'connect',title:'正在同步',code:'SYNCING',label:'正在同步',sub:'会话写入中',glyph:'sync',color:P.sky,connected:false,ledMode:'connecting',ledColor:'#ff9f1c',led:'橙 · 对向四灯尾迹，100 ms 步进',note:'同步完成后按最高会话组规则重新选页。'},
     {type:'connect',title:'需要配对',code:'UNPAIRED · 二期',label:'需要配对',sub:'请在网页输入配对码',glyph:'lock',color:'#9cc9ff',connected:false,ledMode:'breathe',ledColor:'#586b91',led:'配对页启动前按连接灯效',note:'四位 PIN 生效后转入配对页。'}
   ]},
   { n:'C', color:'#36e29a', title:'Session · 等待组 1／工作组 3', subtitle:'全部 Session 使用分栏布局；状态和时间左对齐，主状态最多支持 5 个汉字', tiles:[
-    {type:'session',title:'工作中 · 新版式',code:'CODEX·S1',provider:'codex',key:'s1',state:'工作中',glyph:'work',duration:'12分12秒',project:'agentmate_esp32',page:1,total:2,color:P.mint,counting:true,ledMode:'chase',led:'绿 · 三灯＋二灯随机换向追逐',note:'竖线向上延伸 14 px，身份与目录上移 10 px，状态上下留白均衡。'},
-    {type:'session',title:'工作中 · Context 对齐',code:'working',provider:'claude',key:'s1',state:'工作中',glyph:'work',duration:'12分05秒',context:'6.00% · 12k/200k',project:'agentmate_esp32',page:1,total:2,color:P.mint,counting:true,ledMode:'chase',led:'绿 · 三灯＋二灯随机换向追逐',note:'Agent 图标与三行 Context 读数共用中心线；竖线左移 3 px，右侧信息保持原位。'},
-    {type:'session',title:'思考中',code:'thinking',provider:'codex',key:'s2',state:'思考中',glyph:'thinking',duration:'02分16秒',project:'agentmate_service',page:2,total:2,color:P.mint,counting:true,ledColor:'#8b99ff',ledMode:'thinking',led:'淡紫 · 对向双灯 300 ms 步进',note:'与 working 同属任务中；Codex Context 不支持时不显示。'},
-    {type:'session',title:'等待输入',code:'waiting_for_input',provider:'claude',key:'s3',state:'等待输入',glyph:'wait',duration:'03分41秒',context:'42.00% · 84k/200k',project:'agentmate_web',page:1,total:2,color:P.amber,counting:true,ledMode:'double',led:'琥珀 · 双闪后停顿',note:'状态保持琥珀色，计时数字保持白色与薄荷色冒号。'},
-    {type:'session',title:'需要批准',code:'permission_required',provider:'codex',key:'s4',state:'需要批准',glyph:'perm',duration:'00分18秒',project:'kernel_driver',page:2,total:2,color:P.coral,counting:true,ledMode:'double',tag:'等待组 · 同级',led:'珊瑚 · 双闪后停顿',note:'与等待输入同级；新增会话加入当前组，轮播 10 秒。'},
-    {type:'session',title:'状态未更新',code:'stale',provider:'claude',key:'s5',state:'状态未更新',glyph:'stale',duration:'26分07秒',context:'unknown',project:'agentmate_web',page:3,total:3,color:P.stale,ledColor:'#a3afd3',ledMode:'stale',led:'灰蓝 · 固定双灯交替，时长冻结',note:'任务时长冻结并转暗色；未知 Context 不显示。'},
-    {type:'session',title:'极长文本态',code:'边界',provider:'claude',key:'ABCDEFGH',state:'需要批准',glyph:'perm',duration:'9999分59秒',context:'100.00% · 200k/200k',project:'agentmate-provider-registry-dashboard',page:4,total:4,color:P.coral,counting:true,ledMode:'double',led:'珊瑚 · 双闪后停顿',note:'身份短键与目录省略；四位分钟缩小字号，状态词和计时完整显示。'},
-    {type:'session',title:'Context 未知',code:'context_mode=1',provider:'claude',key:'s1',state:'工作中',glyph:'work',duration:'12分09秒',context:'unknown',project:'agentmate_esp32',page:1,total:2,color:P.mint,counting:true,ledMode:'chase',led:'绿 · 三灯＋二灯随机换向追逐',note:'读数未知时隐藏 Context，不能沿用先前百分比。'},
-    {type:'session',title:'Context 不支持',code:'context_mode=0',provider:'codex',key:'s1',state:'工作中',glyph:'work',duration:'12分12秒',project:'agentmate_esp32',page:1,total:2,color:P.mint,counting:true,ledMode:'chase',led:'绿 · 三灯＋二灯随机换向追逐',note:'Agent 图标下方不显示 Context，也不能画成 0%。'}
+    {type:'session',title:'工作中 · 新版式',code:'CODEX·S1',provider:'codex',key:'s1',state:'工作中',glyph:'work',duration:'12分12秒',project:'agentmate_esp32',page:1,total:2,color:P.mint,counting:true,ledMode:'working',led:'绿 · 连续六灯明暗尾迹，150 ms 步进',note:'竖线向上延伸 14 px，身份与目录上移 10 px，状态上下留白均衡。'},
+    {type:'session',title:'工作中 · Context 对齐',code:'working',provider:'claude',key:'s1',state:'工作中',glyph:'work',duration:'12分05秒',context:'6.00% · 12k/200k',project:'agentmate_esp32',page:1,total:2,color:P.mint,counting:true,ledMode:'working',led:'绿 · 连续六灯明暗尾迹，150 ms 步进',note:'Agent 图标与三行 Context 读数共用中心线；竖线左移 3 px，右侧信息保持原位。'},
+    {type:'session',title:'思考中',code:'thinking',provider:'codex',key:'s2',state:'思考中',glyph:'thinking',duration:'02分16秒',project:'agentmate_service',page:2,total:2,color:P.mint,counting:true,ledColor:'#8b99ff',ledMode:'thinking',led:'淡紫 · 对向三灯尾迹，250 ms 步进',note:'与 working 同属任务中；Codex Context 不支持时不显示。'},
+    {type:'session',title:'等待输入',code:'waiting_for_input',provider:'claude',key:'s3',state:'等待输入',glyph:'wait',duration:'03分41秒',context:'42.00% · 84k/200k',project:'agentmate_web',page:1,total:2,color:P.amber,counting:true,ledMode:'input',led:'琥珀 · 固定八灯长闪，2 秒周期',note:'状态保持琥珀色，计时数字保持白色与薄荷色冒号。'},
+    {type:'session',title:'需要批准',code:'permission_required',provider:'codex',key:'s4',state:'需要批准',glyph:'perm',duration:'00分18秒',project:'kernel_driver',page:2,total:2,color:P.coral,counting:true,ledMode:'permission',tag:'等待组 · 同级',led:'珊瑚 · 双闪后停顿',note:'与等待输入同级；新增会话加入当前组，轮播 10 秒。'},
+    {type:'session',title:'状态未更新',code:'stale',provider:'claude',key:'s5',state:'状态未更新',glyph:'stale',duration:'26分07秒',context:'unknown',project:'agentmate_web',page:3,total:3,color:P.stale,ledColor:'#a3afd3',ledMode:'stale',led:'灰蓝 · 固定六灯交替明暗，时长冻结',note:'任务时长冻结并转暗色；未知 Context 不显示。'},
+    {type:'session',title:'极长文本态',code:'边界',provider:'claude',key:'ABCDEFGH',state:'需要批准',glyph:'perm',duration:'9999分59秒',context:'100.00% · 200k/200k',project:'agentmate-provider-registry-dashboard',page:4,total:4,color:P.coral,counting:true,ledMode:'permission',led:'珊瑚 · 双闪后停顿',note:'身份短键与目录省略；四位分钟缩小字号，状态词和计时完整显示。'},
+    {type:'session',title:'Context 未知',code:'context_mode=1',provider:'claude',key:'s1',state:'工作中',glyph:'work',duration:'12分09秒',context:'unknown',project:'agentmate_esp32',page:1,total:2,color:P.mint,counting:true,ledMode:'working',led:'绿 · 连续六灯明暗尾迹，150 ms 步进',note:'读数未知时隐藏 Context，不能沿用先前百分比。'},
+    {type:'session',title:'Context 不支持',code:'context_mode=0',provider:'codex',key:'s1',state:'工作中',glyph:'work',duration:'12分12秒',project:'agentmate_esp32',page:1,total:2,color:P.mint,counting:true,ledMode:'working',led:'绿 · 连续六灯明暗尾迹，150 ms 步进',note:'Agent 图标下方不显示 Context，也不能画成 0%。'}
   ]},
   { n:'D', color:'#ff5f7a', title:'完成态 Session · 优先级 2', subtitle:'无等待授权／输入时显示；服务端状态变 ready 即退出', tiles:[
-    {type:'session',title:'任务完成',code:'task_success',provider:'claude',key:'s1',state:'任务完成',glyph:'success',duration:'12分05秒',context:'6.00% · 12k/200k',project:'agentmate_esp32',page:1,total:2,color:P.teal,ledMode:'result',ledColor:P.mint,led:'绿 · 250 ms 单闪／1.6 秒周期',note:'总时长冻结；完成态约 60 秒由服务端保持。'},
-    {type:'session',title:'任务失败',code:'task_failed',provider:'codex',key:'s2',state:'任务失败',glyph:'failed',duration:'08分52秒',project:'agentmate_service',page:2,total:2,color:P.coral,ledMode:'result',ledColor:'#ff3b30',led:'红 · 250 ms 单闪／1.6 秒周期',note:'与任务完成同组轮播；优先于其他工作中会话显示。'},
-    {type:'session',title:'任务取消',code:'task_canceled',provider:'claude',key:'s3',state:'任务取消',glyph:'canceled',duration:'04分30秒',context:'unknown',project:'agentmate_web',page:1,total:1,color:P.amber,ledMode:'result',ledColor:P.blue,led:'蓝 · 250 ms 单闪／1.6 秒周期',note:'当前 state 决定完成态；ready 中的 last_task 不能继续生成此页。'},
+    {type:'session',title:'任务完成',code:'task_success',provider:'claude',key:'s1',state:'任务完成',glyph:'success',duration:'12分05秒',context:'6.00% · 12k/200k',project:'agentmate_esp32',page:1,total:2,color:P.teal,ledMode:'success',ledColor:P.mint,led:'绿 · 四扇区累加填满，2.4 秒周期',note:'总时长冻结；完成态约 60 秒由服务端保持。'},
+    {type:'session',title:'任务失败',code:'task_failed',provider:'codex',key:'s2',state:'任务失败',glyph:'failed',duration:'08分52秒',project:'agentmate_service',page:2,total:2,color:P.coral,ledMode:'failed',ledColor:'#ff3b30',led:'红 · 200 ms 单闪／2.4 秒周期',note:'与任务完成同组轮播；优先于其他工作中会话显示。'},
+    {type:'session',title:'任务取消',code:'task_canceled',provider:'claude',key:'s3',state:'任务取消',glyph:'canceled',duration:'04分30秒',context:'unknown',project:'agentmate_web',page:1,total:1,color:P.amber,ledMode:'canceled',ledColor:P.blue,led:'蓝 · 固定八灯，300 ms／3 秒周期',note:'当前 state 决定完成态；ready 中的 last_task 不能继续生成此页。'},
     {type:'session',title:'回到就绪',code:'ready · 转场示意',provider:'codex',key:'s25',state:'已就绪',glyph:'ready',duration:'00分00秒',project:'agentmate_service',color:P.gray,ledMode:'off',ledColor:P.blue,led:'待机灯环熄灭',note:'ready 状态效果示意；不参与持续轮播，收到后立即切到符合条件的 Codex 用量页或待机页。'}
   ]},
   { n:'E', color:'#56ccf2', title:'待机 · Codex 用量 · 优先级 4', subtitle:'仅 Codex；成功推送即启用，待机时与日期时间每 10 秒轮播', tiles:[
@@ -400,8 +390,8 @@ const sections = [
     {type:'idle',title:'时钟或偏移未知',code:'time / offset invalid',clock:'--:--',date:'---- -- --',invalid:true,color:'#9b7bff',ledColor:P.blue,ledMode:'off',led:'待机灯环熄灭',note:'任一未同步即占位；不能回退显示 UTC 时钟。'}
   ]},
   { n:'G', color:'#6b7fea', title:'设备信息 · AT 拉起', subtitle:'单屏完整信息；默认 10 秒关闭；灯环保持进入前的效果', tiles:[
-    {type:'info',title:'设备信息',code:'AT+SHOWINFO=10',color:'#6b7fea',ledColor:P.mint,ledMode:'chase',led:'沿用进入前灯效（示例：工作追逐）',note:'首行从 y=51 px 开始，与 header 保留 12 px 间距；日期与时间在最下方。中心线两侧各留 7 px，同一行文字基线对齐。'},
-    {type:'info',title:'时钟或偏移未知',code:'占位态',invalid:true,color:'#6b7fea',ledColor:P.mint,ledMode:'chase',led:'沿用进入前灯效（示例：工作追逐）',note:'任一未同步即占位；本页不显示剩余 10 秒、旋转角或校时文案。'}
+    {type:'info',title:'设备信息',code:'AT+SHOWINFO=10',color:'#6b7fea',ledColor:P.mint,ledMode:'working',led:'沿用进入前灯效（示例：工作追逐）',note:'首行从 y=51 px 开始，与 header 保留 12 px 间距；日期与时间在最下方。中心线两侧各留 7 px，同一行文字基线对齐。'},
+    {type:'info',title:'时钟或偏移未知',code:'占位态',invalid:true,color:'#6b7fea',ledColor:P.mint,ledMode:'working',led:'沿用进入前灯效（示例：工作追逐）',note:'任一未同步即占位；本页不显示剩余 10 秒、旋转角或校时文案。'}
   ]},
   { n:'H', color:'#4aa8ff', title:'配对 · 二期设计', subtitle:'尚未配对时使用断开 header；PIN 与过期倒计时是主体', tiles:[
     {type:'pair',title:'配对进行中',code:'PAIRING',pin:'0427',copy:'请在网页输入配对码',expiry:'42 秒后过期 · dc194fa2',connected:false,color:'#9cc9ff',ledColor:P.blue,ledMode:'breathe',led:'蓝灯慢呼吸',note:'4 位码保留前导零；二期功能，一期仅交付设计。'},
@@ -441,9 +431,7 @@ for (const s of sections) {
   board += `<section style="--accent:${s.color}"><div class="sec-head"><span class="sec-num">${s.n}</span><h2>${s.title}</h2><p>${s.subtitle}</p></div><div class="grid">${s.tiles.map(tile).join('')}</div></section>`;
 }
 document.getElementById('board').innerHTML = board;
-const rings = [...document.querySelectorAll('.led-ring')].map(el => ({
-  el, state: {head:0, direction:Math.random() < .5 ? -1 : 1, steps:8 + Math.floor(Math.random() * 17), next:150}
-}));
+const rings = [...document.querySelectorAll('.led-ring')];
 const statuses = [...document.querySelectorAll('.status-motion')];
 const ringStarted = performance.now();
 let lastStatusTick = -1;
@@ -457,12 +445,14 @@ function animateRings(now) {
     }
     lastStatusTick = tick;
   }
-  for (const {el, state} of rings) {
-    const mask = ringMask(el.dataset.mode, ms, state);
+  for (const el of rings) {
+    const levels = ringLevels(el.dataset.mode, ms);
+    const hex = el.dataset.color.replace('#','');
+    const base = [0,2,4].map(offset=>parseInt(hex.slice(offset,offset+2),16));
     [...el.children].forEach((dot, i) => {
-      const lit = (mask & (1 << i)) !== 0;
-      dot.style.background = lit ? el.dataset.color : '#23263f';
-      dot.style.boxShadow = lit ? `0 0 10px ${el.dataset.color}` : 'none';
+      const color = `rgb(${base.map(c=>Math.round(c*levels[i]/100)).join(',')})`;
+      dot.style.background = levels[i] ? color : '#23263f';
+      dot.style.boxShadow = levels[i] ? `0 0 6px ${color}` : 'none';
     });
   }
   requestAnimationFrame(animateRings);

@@ -140,9 +140,30 @@ def main():
                          'stale':3000,'task_success':4000,'task_failed':2400,'task_canceled':4000}
         },
         'led': {
-            'disconnected_step_ms':400, 'connecting_step_ms':100, 'attention_ms':[200,200,200,1400],
-            'working_step_ms':150, 'working_segment_steps':[8,24], 'working_offsets':[0,-1,-2,-5,-6],
-            'thinking_step_ms':300, 'stale_ms':[500,500,500,500], 'result_ms':[250,1350], 'page_dwell_ms':10000
+            'version': 2,
+            'direction': 'increasing_index',
+            'disconnected_ms': [500, 3500],
+            'disconnected_levels': [60, 60],
+            'connecting_step_ms': 100,
+            'connecting_levels': [100, 75, 40, 15],
+            'permission_ms': [150, 150, 150, 1550],
+            'permission_level': 55,
+            'input_ms': [600, 1400],
+            'input_level': 70,
+            'working_step_ms': 150,
+            'working_levels': [100, 100, 75, 50, 30, 15],
+            'thinking_step_ms': 250,
+            'thinking_levels': [80, 40, 15],
+            'stale_swap_ms': 1500,
+            'stale_levels': [60, 15],
+            'success_stages_ms': [150, 150, 150, 750, 1200],
+            'success_counts': [4, 8, 12, 16, 0],
+            'success_level': 55,
+            'failed_ms': [200, 2200],
+            'failed_level': 55,
+            'canceled_ms': [300, 2700],
+            'canceled_level': 50,
+            'page_dwell_ms': 10000,
         }
     }, ensure_ascii=False, indent=2) + '\n')
     print('Generated UI fonts, masks and brand')

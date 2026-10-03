@@ -13,7 +13,7 @@
 #
 #####################################################################################
 #
-# Description: AgentMate binary LED patterns and injectable chase animation
+# Description: AgentMate continuous LED arcs and deterministic state animation
 # Author: Liu Chuansen <liuchuansen@outlook.com>
 #
 #####################################################################################
@@ -23,6 +23,7 @@
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
 # 2026-10-03 1.0      Codex         Created selected-session LED animations.
+# 2026-10-03 1.1      Codex         Redesigned patterns for discrete DIY light points.
 #
 #####################################################################################
 */
@@ -36,11 +37,14 @@ enum am_led_mode {
     AM_LED_OFF,
     AM_LED_DISCONNECTED,
     AM_LED_CONNECTING,
-    AM_LED_DOUBLE_FLASH,
-    AM_LED_CHASE,
+    AM_LED_PERMISSION,
+    AM_LED_WORKING,
     AM_LED_THINKING,
     AM_LED_STALE,
-    AM_LED_RESULT,
+    AM_LED_SUCCESS,
+    AM_LED_INPUT,
+    AM_LED_FAILED,
+    AM_LED_CANCELED,
 };
 
 struct am_led_effect {
@@ -54,16 +58,9 @@ struct am_led_state {
     bool initialized;
     struct am_led_effect effect;
     int64_t started_us;
-    int64_t next_step_us;
-    int head;
-    int direction;
-    unsigned steps_left;
 };
 
-typedef uint32_t (*am_led_random_fn)(void *context);
-
 struct am_led_effect am_led_select(const am_model_t *model, const struct am_ui_selection *selection);
-void am_led_frame(struct am_led_state *state, const struct am_led_effect *effect, int64_t now,
-                  am_led_random_fn random, void *context, rgb_led_color_t colors[16]);
+void am_led_frame(struct am_led_state *state, const struct am_led_effect *effect, int64_t now, rgb_led_color_t colors[16]);
 
 #endif

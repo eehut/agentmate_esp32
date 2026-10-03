@@ -34,6 +34,7 @@
 # 2026-10-03 2.4      Codex         Darken Codex titles and adapt directory and idle heading sizes.
 # 2026-10-03 2.3      Codex         Render cleared quota placeholders during standby rotation.
 # 2026-10-03 2.2      Codex         Improve quota headings and reset layout.
+# 2026-10-03 2.8      Codex         Added deterministic LED v2 patterns and frame diagnostics.
 #
 #####################################################################################
 */
@@ -48,7 +49,6 @@
 #include <time.h>
 
 #include "esp_timer.h"
-#include "esp_random.h"
 #include "freertos/task.h"
 #include "lcd_fonts.h"
 #include "provider_icons.h"
@@ -614,17 +614,11 @@ static void boot_page(void)
     centered(184, 140, &g_am_font_body, TFT_RGB565(194, 202, 232), AM_SOFTWARE_VERSION);
 }
 
-static uint32_t led_random(void *context)
-{
-    (void)context;
-    return esp_random();
-}
-
 static esp_err_t animate_led(am_app_t *app, struct am_led_state *state, const struct am_led_effect *effect, int64_t now,
                              rgb_led_color_t colors[16], bool force)
 {
     static rgb_led_color_t s_previous[16];
-    am_led_frame(state, effect, now, led_random, NULL, colors);
+    am_led_frame(state, effect, now, colors);
     if (!force && memcmp(colors, s_previous, sizeof(s_previous)) == 0) {
         return ESP_OK;
     }
@@ -785,7 +779,11 @@ void am_ui_run(am_app_t *app)
             app->ui_led_mode = (uint8_t)effect.mode;
             app->ui_led_rgb = ((uint32_t)effect.color.r << 16) | ((uint32_t)effect.color.g << 8) | effect.color.b;
             app->ui_led_mask = 0;
+            app->ui_led_sum = 0;
+            app->ui_led_pixel0 = ((uint32_t)led_colors[0].r << 16) | ((uint32_t)led_colors[0].g << 8) | led_colors[0].b;
+            app->ui_led_pixel8 = ((uint32_t)led_colors[8].r << 16) | ((uint32_t)led_colors[8].g << 8) | led_colors[8].b;
             for (int i = 0; i < 16; ++i) {
+                app->ui_led_sum += led_colors[i].r + led_colors[i].g + led_colors[i].b;
                 if (led_colors[i].r || led_colors[i].g || led_colors[i].b) {
                     app->ui_led_mask |= (uint16_t)(1U << i);
                 }

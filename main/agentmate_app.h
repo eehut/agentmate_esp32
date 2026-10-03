@@ -32,6 +32,7 @@
 # 2026-10-03 1.7      Codex         Default to eight sessions and four usage records.
 # 2026-10-03 1.6      Codex         Track connection-local usage display support.
 # 2026-10-03 1.5      Codex         Added bounded atomic usage batch storage.
+# 2026-10-03 1.10     Codex         Added deterministic LED v2 patterns and frame diagnostics.
 #
 #####################################################################################
 */
@@ -195,6 +196,9 @@ typedef struct {
     uint8_t ui_slot;
     uint8_t ui_led_mode;
     uint16_t ui_led_mask;
+    uint16_t ui_led_sum;
+    uint32_t ui_led_pixel0;
+    uint32_t ui_led_pixel8;
     uint32_t ui_led_rgb;
     uint32_t ui_page_sequence;
     uint32_t ui_status_sequence;

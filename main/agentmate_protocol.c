@@ -34,6 +34,7 @@
 # 2026-10-01 1.2      Codex         Report the CMake project version on HELLO and INFO.
 # 2026-10-01 1.3      Codex         Use the shared product model on HELLO and INFO.
 # 2026-10-02 1.4      Codex         Accept transient task display states.
+# 2026-10-03 2.6      Codex         Added deterministic LED v2 patterns and frame diagnostics.
 #
 #####################################################################################
 */
@@ -70,7 +71,7 @@
 static const char *s_tag = "agentmate_at";
 static bool s_last_command_failed;
 static bool s_log_failed;
-static char s_pending_log[320];
+static char s_pending_log[384];
 static uint32_t s_log_sequence;
 
 typedef struct {
@@ -955,16 +956,16 @@ static void dispatch(am_app_t *app, char *line)
         (void)write_line("+INFO:%s,%s,%s,%s,%d", app->device_id, AM_PRODUCT_MODEL, AM_SOFTWARE_VERSION, AM_PROTOCOL_VERSION_TEXT,
                          AM_MAX_SESSIONS);
         (void)write_line("OK");
-        char diagnostic[320];
+        char diagnostic[384];
         snprintf(diagnostic, sizeof(diagnostic),
                  "heap=%u min_heap=%u at_stack=%u ui_stack=%u render_max_us=%u page=%u page_seq=%u usage_supported=%u "
-                 "group=%u slot=%u led=%u mask=%u rgb=%u status=%u frame=%u status_seq=%u",
+                 "group=%u slot=%u led=%u mask=%u rgb=%u status=%u frame=%u status_seq=%u led_sum=%u p0=%u p8=%u",
                  (unsigned)esp_get_free_heap_size(), (unsigned)esp_get_minimum_free_heap_size(),
                  (unsigned)uxTaskGetStackHighWaterMark(NULL), (unsigned)app->ui_stack_free, (unsigned)app->ui_render_max_us,
                  (unsigned)app->ui_page, (unsigned)app->ui_page_sequence, (unsigned)app->model.usage_supported,
                  (unsigned)app->ui_group, (unsigned)app->ui_slot, (unsigned)app->ui_led_mode, (unsigned)app->ui_led_mask,
                  (unsigned)app->ui_led_rgb, (unsigned)app->ui_status_kind, (unsigned)app->ui_status_frame,
-                 (unsigned)app->ui_status_sequence);
+                 (unsigned)app->ui_status_sequence, (unsigned)app->ui_led_sum, (unsigned)app->ui_led_pixel0, (unsigned)app->ui_led_pixel8);
         queue_log(diagnostic);
         return;
     }

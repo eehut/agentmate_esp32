@@ -33,7 +33,7 @@ def main():
         try:
             expect_ok(port, 'AT+LOG=1')
             hello(port)
-            wait(port, lambda r: r['led'] == 2 and r['rgb'] == 0xff9f1c and r['mask'].bit_count() == 12)
+            wait(port, lambda r: r['led'] == 2 and r['rgb'] == 0xff9f1c and r['mask'].bit_count() == 8)
             epoch = secrets.token_hex(16)
             synchronize(port, epoch)
             wait(port, lambda r: r['page'] == 4 and r['led'] == 0 and r['mask'] == 0)
@@ -50,7 +50,7 @@ def main():
             session('f', 'task_failed')
             session('c', 'task_canceled')
             session('i', 'waiting_for_input')
-            first = wait(port, lambda r: r['group'] == 1 and r['slot'] == 7 and r['rgb'] == 0xffb02e)
+            first = wait(port, lambda r: r['group'] == 1 and r['slot'] == 7 and r['rgb'] == 0xffb02e and r['led'] == 8)
             start = time.monotonic()
             time.sleep(2)
             session('p', 'permission_required')
@@ -74,49 +74,50 @@ def main():
                 assert row['page'] == 5 and row['rgb'] == 0xff5f7a, row
                 time.sleep(.2)
             expect_ok(port, 'AT+SHOWINFO=0')
-            wait(port, lambda r: r['slot'] == 7 and r['rgb'] == 0xffb02e)
+            wait(port, lambda r: r['slot'] == 7 and r['rgb'] == 0xffb02e and r['led'] == 8)
             expect_ok(port, f'AT+DELETE={epoch},i')
             wait(port, lambda r: r['slot'] == 8)
             expect_ok(port, f'AT+DELETE={epoch},p')
             wait(port, lambda r: r['slot'] == 4 and r['group'] == 2 and r['rgb'] == 0x36e29a)
             row = wait(port, lambda r: r['slot'] == 5, 11)
-            assert row['rgb'] == 0xff3b30 and row['led'] == 7, row
+            assert row['rgb'] == 0xff3b30 and row['led'] == 9, row
             row = wait(port, lambda r: r['slot'] == 6, 11)
-            assert row['rgb'] == 0x4aa8ff and row['led'] == 7, row
+            assert row['rgb'] == 0x4aa8ff and row['led'] == 10, row
             print('PASS result group excludes work; green/red/blue follow 10-second rotation', flush=True)
             for key in ('s', 'f', 'c'):
                 expect_ok(port, f'AT+DELETE={epoch},{key}')
             row = wait(port, lambda r: r['slot'] == 1 and r['group'] == 3)
-            assert row['led'] == 4 and row['mask'].bit_count() == 5 and row['rgb'] == 0x36e29a, row
+            assert row['led'] == 4 and row['mask'].bit_count() == 6 and row['rgb'] == 0x36e29a, row
             masks = set()
             until = time.monotonic() + 1.5
             while time.monotonic() < until:
                 row = diagnostic(port)
-                assert row['slot'] == 1 and row['mask'].bit_count() == 5, row
+                assert row['slot'] == 1 and row['mask'].bit_count() == 6 and row['led_sum'] == 1607, row
                 masks.add(row['mask'])
                 time.sleep(.08)
             assert len(masks) > 3, masks
             row = wait(port, lambda r: r['slot'] == 2, 10)
-            assert row['led'] == 5 and row['mask'].bit_count() == 4 and row['rgb'] == 0x8b99ff, row
+            assert row['led'] == 5 and row['mask'].bit_count() == 6 and row['rgb'] == 0x8b99ff, row
             row = wait(port, lambda r: r['slot'] == 3, 11)
             assert row['led'] == 6 and row['rgb'] == 0xa3afd3, row
-            masks = set()
-            until = time.monotonic() + 2.2
+            pixels = set()
+            until = time.monotonic() + 3.2
             while time.monotonic() < until:
                 row = diagnostic(port)
-                masks.add(row['mask'])
+                assert row['mask'] == 0x0707 and row['led_sum'] == 1236, row
+                pixels.add((row['p0'], row['p8']))
                 time.sleep(.1)
-            assert masks == {0, 3, 768}, masks
-            print('PASS work/thinking/stale rotate with distinct 5-light/4-light/fixed-pair effects', flush=True)
+            assert len(pixels) == 2, pixels
+            print('PASS work/thinking/stale rotate with continuous six-light tails and fixed alternating arcs', flush=True)
             for key in ('w', 't', 'u'):
                 expect_ok(port, f'AT+DELETE={epoch},{key}')
             wait(port, lambda r: r['page'] == 4 and r['led'] == 0 and r['mask'] == 0)
             # A new HELLO overrides INFO, followed by the 30-second disconnect watchdog.
             expect_ok(port, 'AT+SHOWINFO=60')
             hello(port)
-            wait(port, lambda r: r['led'] == 2 and r['mask'].bit_count() == 12)
+            wait(port, lambda r: r['led'] == 2 and r['mask'].bit_count() == 8)
             time.sleep(30.2)
-            row = wait(port, lambda r: r['led'] == 1 and r['rgb'] == 0xff3b30 and r['mask'].bit_count() == 12)
+            row = wait(port, lambda r: r['led'] == 1 and r['rgb'] == 0xff3b30 and r['mask'] == 0x0707 and r['led_sum'] == 1302, 4.5)
             print('PASS idle LEDs off and disconnect overrides INFO; diagnostics:', row, flush=True)
         finally:
             hello(port)

@@ -50,8 +50,8 @@ static unsigned s_submitted_pixels;
 static int64_t s_now;
 
 int64_t esp_timer_get_time(void) { return s_now; }
-uint32_t esp_random(void) { return 1; }
 void test_led_patterns(void);
+void write_led_preview(const char *directory);
 esp_err_t tft_display_draw_bitmap_rgb565(tft_display_handle_t h, int x, int y, int w, int height, const uint16_t *p)
 {
     (void)h;
@@ -686,6 +686,7 @@ int main(int argc,char **argv)
     test_idle_rotation();
     test_calendar_and_led();
     test_led_patterns();
+    write_led_preview(argv[1]);
     test_usage_colors();
     test_render(argv[1]);
     test_status_animation(argv[1]);

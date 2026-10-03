@@ -365,3 +365,5 @@ TIME 只设置 UTC 与当前显示偏移，不将链路变为 ONLINE；SYNCEND �
 开启 LOG 后，INFO? 的结构化 +LOG 额外提供 heap、min_heap、at_stack、ui_stack 和 render_max_us，供真机内存／刷新检查；任务栈余量单位为字节（ESP-IDF），刷新耗时单位为微秒。这些诊断只走串口，不进入 UI。
 
 正常模式开启 LOG 后，INFO? 的诊断行另含 `page`、`page_seq`、`usage_supported`：page 为连接 0、任务 1、结果 2、用量 3、日期时间 4、信息 5；page_seq 为成功绘制的页面切换计数。仅用于测试诊断，不改变 INFO 响应字段，LOG=0 时不输出。
+
+会话与灯环诊断另含 `group`（0 连接、1 等待、2 完成、3 工作、4 待机）、`slot`（1～8，非会话页为 0）、`led`（0 熄灭、1 未连接、2 连接中、3 授权、4 工作、5 思考、6 stale、7 成功、8 输入、9 失败、10 取消）、`mask`（16 位亮灯掩码）与 `rgb`（模式的 24 位基准颜色）。`led_sum` 是全部灯珠 RGB 通道总和，`p0`／`p8` 为对应灯珠的 24 位 RGB；这些像素值在空间档位缩放之后、用户全局亮度缩放之前，反映成功提交到驱动的帧。`status`／`frame`／`status_seq` 对应成功绘制的状态边框动画，非会话页 status／frame 为 255。诊断字段仅供测试，不作为服务端协议依赖。
