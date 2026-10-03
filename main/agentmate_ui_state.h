@@ -1,0 +1,83 @@
+/*
+#####################################################################################
+#
+# Copyright (c) 2023-2026 Liu Chuansen <liuchuansen@outlook.com>. All Rights Reserved.
+#
+# This software is the personal work of Liu Chuansen. You shall not copy, use,
+# distribute, or create derivative works of this software without the author's
+# prior written permission.
+#
+# UNAUTHORIZED COPYING, USE, OR DISTRIBUTION OF THIS SOFTWARE, OR ANY PORTION OR
+# DERIVATIVE THEREOF, IS STRICTLY PROHIBITED. IF YOU HAVE RECEIVED THIS SOFTWARE IN
+# ERROR, PLEASE NOTIFY THE AUTHOR IMMEDIATELY AND DELETE IT FROM YOUR SYSTEM.
+#
+#####################################################################################
+#
+# Description: AgentMate page selection and animation state
+# Author: Liu Chuansen <liuchuansen@outlook.com>
+#
+#####################################################################################
+#
+# Revision History:
+#
+# Date       Version  Author       Description
+# ---------- -------- ------------ -----------------------------------------------
+# 2026-10-03 1.2      Codex         Separate priority groups and use ten-second dwell.
+# 2026-10-03 1.1      Codex         Share standby rotation state without activity tracking.
+# 2026-10-02 1.0      Codex         Created phase-one implementation.
+#
+#####################################################################################
+*/
+
+#ifndef AGENTMATE_UI_STATE_H
+#define AGENTMATE_UI_STATE_H
+
+#include "agentmate_app.h"
+
+enum am_page {
+    AM_PAGE_CONNECT,
+    AM_PAGE_TASK,
+    AM_PAGE_RESULT,
+    AM_PAGE_USAGE,
+    AM_PAGE_IDLE,
+    AM_PAGE_INFO,
+    AM_PAGE_BOOT,
+};
+
+#define AM_PAGE_DWELL_US (10LL * 1000000)
+
+enum am_ui_group {
+    AM_GROUP_CONNECT,
+    AM_GROUP_ATTENTION,
+    AM_GROUP_RESULT,
+    AM_GROUP_WORK,
+    AM_GROUP_IDLE,
+};
+
+struct am_ui_selection {
+    enum am_ui_group group;
+    enum am_page page;
+    int slots[AM_MAX_SESSIONS];
+    int count;
+    int current;
+    int usage[2];
+    bool preempted;
+};
+
+struct am_ui_schedule {
+    enum am_ui_group group;
+    char current_key[9];
+    int current_slot;
+    int64_t page_since_us;
+    bool idle_usage_supported;
+    uint32_t attention_sequence;
+    uint32_t remote_generation;
+};
+
+bool am_state_advancing(const char *state);
+bool am_state_result(const char *state);
+uint64_t am_task_duration(const am_session_t *session, int64_t now);
+bool am_event_in_group(const am_model_t *model);
+void am_ui_select(const am_model_t *model, struct am_ui_schedule *schedule, int64_t now, struct am_ui_selection *selection);
+
+#endif

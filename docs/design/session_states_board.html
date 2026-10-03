@@ -68,26 +68,27 @@
   .provider-icon.codex { border-radius: 9px; }
   .session .agent-column { position: absolute; top: 84px; left: 27px; width: 36px; height: 36px; }
   .session .agent-column .provider-icon { width: 36px; height: 36px; }
-  .session.provider-codex { --agent-color: #8b99ff; }
+  .session.provider-codex { --agent-color: #8b99ff; --agent-title-color: #6550c8; }
   .session.provider-claude { --agent-color: #d97757; }
   .session .column-rule { position: absolute; top: 56px; left: 69px; width: 1px; height: 146px;
     background: #566087; }
   .session .session-copy { position: absolute; top: 58px; left: 78px; width: 137px; text-align: left; }
   .session .identity-label { display: inline-flex; max-width: 190px; align-items: center; justify-content: center; gap: 6px;
-    padding: 3px 8px; border-radius: 7px; overflow: hidden; white-space: nowrap; background: var(--agent-color, #6c769a);
+    padding: 3px 8px; border-radius: 7px; overflow: hidden; white-space: nowrap; background: var(--agent-title-color, var(--agent-color, #6c769a));
     color: #fff; font: 700 15px var(--mono); letter-spacing: .2px; text-shadow: 0 1px 1px #14173399; }
   .session .session-copy .identity-label { max-width: 137px; }
   .session .identity-label span { overflow: hidden; text-overflow: ellipsis; }
   .session .identity-label span:first-child { flex: none; }
   .session .identity-label i { width: 5px; height: 5px; flex: none; border-radius: 50%; background: #fff; }
-  .session .session-project { margin-top: 4px; max-width: 140px; overflow: hidden; white-space: nowrap;
-    text-overflow: ellipsis; color: var(--agent-color, #b9c2e0); font: 12px var(--mono); }
-  .session .main-state { position: absolute; top: 119px; left: 78px; width: 142px; height: 30px;
-    display: flex; justify-content: flex-start; align-items: center; gap: 4px; white-space: nowrap;
-    color: var(--state); font-size: 23px; font-weight: 700; }
+  .session .session-project { margin-top: 4px; max-width: 137px; overflow: hidden; white-space: nowrap;
+    text-overflow: ellipsis; color: var(--agent-color, #b9c2e0); font: 14px var(--mono); }
+  .session .main-state { position: absolute; top: 113px; left: 78px; width: 137px; height: 42px;
+    display: flex; justify-content: center; align-items: center; white-space: nowrap;
+    color: var(--state); font-size: 23px; font-weight: 700; border: 1px solid var(--state); border-radius: 10px; }
   .session .main-state.long-state { font-size: 21px; }
-  .session .main-state .state-icon { display: inline-grid; width: 22px; height: 22px; flex: none; }
-  .session .main-state .state-icon svg { width: 22px; height: 22px; }
+  .session .main-state.status-motion { top: 110px; left: 75px; width: 143px; height: 48px; border: 0; border-radius: 0;
+    background-image: url('status_border_frames.png'); background-repeat: no-repeat; }
+  .session .status-motion .state-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .session .session-time { position: absolute; top: 169px; left: 78px; width: 142px; height: 32px;
     display: flex; align-items: center; justify-content: flex-start; color: #f6f7fc;
     font: 300 30px/32px "Helvetica Neue", Arial, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
@@ -116,7 +117,7 @@
   .connect .main-label { top: 111px; font-size: 25px; font-weight: 700; color: var(--state); }
   .connect .sub-label { top: 153px; font-size: 16px; color: #b5bfdf; }
   .connect .brandline { top: 188px; color: #7d87ad; font: 12px var(--mono); letter-spacing: 1px; }
-  .idle .locale { top: 58px; color: #92a4c9; font-size: 16px; letter-spacing: 1px; }
+  .idle .locale { top: 58px; color: #92a4c9; font-size: 19px; font-weight: 700; letter-spacing: 1px; }
   .idle .clock { top: 92px; color: #f6f5ff; font: 600 45px var(--mono); letter-spacing: 1px; }
   .idle .clock.placeholder { font-size: 39px; color: #8d98b7; }
   .idle .date { top: 155px; color: #c6d0ed; font: 18px var(--mono); }
@@ -126,18 +127,19 @@
   .usage .usage-head .provider-icon { width: 36px; height: 36px; }
   .usage .usage-divider { width: 1px; height: 46px; background: #303653; }
   .usage .usage-head b { font: 700 19px var(--rounded); white-space: nowrap; }
-  .usage .quota-grid { position: absolute; top: 108px; left: 36px; width: 168px; display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: 21px 43px 33px; }
+  .usage .quota-grid { position: absolute; top: 105px; left: 36px; width: 168px; display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: 24px 36px 40px; }
   .usage .quota-grid.single { left: 72px; width: 96px; grid-template-columns: 1fr; }
   .usage .quota-cell { display: flex; justify-content: center; align-items: center; min-width: 0; text-align: center; }
   .usage .quota-grid:not(.single) .quota-cell:nth-child(odd) { border-right: 1px solid #303653; }
-  .usage .quota-value, .usage .quota-reset { border-top: 1px solid #303653; }
-  .usage .quota-label { color: #a9b5d6; font-size: 13px; line-height: 20px; }
+  .usage .quota-label { color: #a9b5d6; font-size: 19px; font-weight: 700; line-height: 24px; }
   .usage .quota-value { color: #f3f3ff; font: 700 26px var(--mono); line-height: 40px; white-space: nowrap; }
-  .usage .quota-value.unknown { color: #ffbd68; font: 700 18px var(--rounded); }
+  .usage .quota-value.sufficient { color: #36e29a; }
+  .usage .quota-value.attention { color: #ffb02e; }
+  .usage .quota-value.low { color: #ff5f7a; }
+  .usage .quota-value.unknown { color: #a3afd3; font: 700 18px var(--rounded); }
   .usage .quota-reset { flex-direction: column; color: #a3afd3; white-space: nowrap; line-height: 13px; }
-  .usage .quota-reset small { font-size: 11px; }
-  .usage .quota-reset span { font: 11px var(--mono); }
+  .usage .quota-reset span { font: 16px var(--rounded); line-height: 20px; }
   .info .info-rows { position: absolute; top: 51px; left: 34px; width: 172px; display: grid; }
   .info .info-row { display: grid; grid-template-columns: 1fr 1fr; align-items: baseline; column-gap: 14px;
     height: 19px; white-space: nowrap; color: #e5e9fb; }
@@ -182,23 +184,24 @@
       <h1>AgentMate · <em>全量 UI 视觉稿</em></h1>
       <p class="intro">基于既有 Session 页的深色圆屏、连接色带与 16 颗灯环。下方每块屏幕均按 240 × 240 @1x 绘制；虚线是直径 216 px 安全圆。画板文字是设计标注，不属于设备屏幕。</p>
     </div>
-    <div class="version">稿件 <strong>v1.7 · 细节调整</strong><br>对应需求 <strong>v1.7</strong><br>2026-10-02</div>
+    <div class="version">稿件 <strong>v1.14 · 主状态动态外框</strong><br>对应需求 <strong>v1.14</strong><br>2026-10-03</div>
   </header>
   <div class="ribbon" aria-label="工作页优先级">
-    <div class="ribbon-item" style="--rank:#36e29a"><b><span class="rank">1</span>任务中 Session</b><small>working / thinking / 等待输入 / 需要批准 / stale；同组多页轮播</small></div>
-    <div class="ribbon-item" style="--rank:#ff5f7a"><b><span class="rank">2</span>完成态 Session</b><small>成功 / 失败 / 取消；服务端约 60 秒后改为 ready</small></div>
-    <div class="ribbon-item" style="--rank:#56ccf2"><b><span class="rank">3</span>近期 Codex 用量</b><small>Codex 有 ready Session、5 小时或一周用量，且 10 分钟内活动</small></div>
-    <div class="ribbon-item" style="--rank:#9b7bff"><b><span class="rank">4</span>日期时间待机</b><small>无可展示任务、完成态或用量时持续显示</small></div>
+    <div class="ribbon-item" style="--rank:#ffb02e"><b><span class="rank">1</span>等待授权／输入</b><small>只轮播等待组；同组新增不打断当前页</small></div>
+    <div class="ribbon-item" style="--rank:#ff5f7a"><b><span class="rank">2</span>完成态 Session</b><small>成功／失败／取消同组；优先于工作中</small></div>
+    <div class="ribbon-item" style="--rank:#36e29a"><b><span class="rank">3</span>工作／思考／状态未更新</b><small>三种状态同组，灯环分别表现</small></div>
+    <div class="ribbon-item" style="--rank:#56ccf2"><b><span class="rank">4</span>用量／日期时间待机</b><small>所有子页统一 10 秒轮播；待机灯环熄灭</small></div>
   </div>
   <div id="board"></div>
   <div class="notes">
-    <article class="note"><h2>页面与字体</h2><p>所有业务屏共用 39 px 顶部连接带，中央为 26 × 26 px 链路图标；白色连通横线表示已连接，断开两端与斜杠表示未连接。启动和产测不使用 header。Session 状态词 21–23 px、状态图标 22 px，状态和时间沿竖线右侧左对齐；时长数字参考 assets/time_number_style.svg 的细体造型，约 30 px。待机时间 45 px，日期 18 px。屏幕主体是 RGB565 可实现的纯色块。</p></article>
-    <article class="note"><h2>切页与灯环</h2><p>工作页只展示当前最高优先级组，同组多页每 6 秒轮换。任务中压过完成态；事件只能短时强调当前组内会话。灯环代表全局最高状态，不跟随每张 Session 卡片变化。设备信息页显示期间保留进入前灯效。</p></article>
+    <article class="note"><h2>页面与字体</h2><p>所有业务屏共用 39 px 顶部连接带，中央为 26 × 26 px 链路图标；白色连通横线表示已连接，断开两端与斜杠表示未连接。启动和产测不使用 header。Session 状态词 21–23 px，移除引导图标；137×42 px 圆角动态框内文字居中，时长继续左对齐；时长数字参考 assets/time_number_style.svg 的细体造型，约 30 px。待机时间 45 px，日期 18 px。屏幕主体是 RGB565 可实现的纯色块。</p></article>
+    <article class="note"><h2>切页与灯环</h2><p>只显示最高组，所有轮播子页驻留 10 秒。同组新增不抢切；当前会话离开立即选下一页。灯环跟随当前会话，不使用呼吸。下方灯环按实际时序动态预览；信息页保留进入时灯环动画，断线覆盖。主状态边框预览使用真实 C 渲染帧，按 10 fps 播放，冻结状态也持续变化。</p></article>
     <article class="note"><h2>时间与空值</h2><p>日期时间和 Codex 重置时间均按服务端主机本地时间显示；时钟或偏移未知时使用占位，不显示 UTC。Context 仅在有有效读数时于 Agent 图标下方分三行显示百分比、已用量、总量；未知或不支持时隐藏。Codex 用量未知显示「用量未知」。</p></article>
-    <article class="note wide"><h2>落地前的素材与协议缺口</h2><ul>
+    <article class="note wide"><h2>定稿时的素材与协议缺口</h2><ul>
       <li>Session 页目录名仅为版式示例；当前 <code>AT+SESSION</code> 不传工程目录，需先补服务端、协议和固件字段。短名称暂用会话 key。</li>
       <li>主机本地时间需要扩展 <code>AT+TIME</code>，同步 Unix 毫秒及当前 UTC 偏移分钟；未来的 Codex 重置时刻还需随 <code>AT+USAGE</code> 下发该时刻生效的偏移，以正确跨越夏令时。现行服务端与固件尚未实现。</li>
       <li>设备信息页的拉起命令 <code>AT+SHOWINFO</code> 仍是需求提案；配对页是二期设计，不能当作一期固件已实现。</li>
+      <li>固件一期已实现，生成资源与协议、服务端适配清单见 <a href="../agentmate_ui_implementation.md">实施记录</a>；以下缺口说明保留为定稿背景。</li>
       <li>本页是视觉与静态关键帧稿。启动动画逐帧 PNG、动效 timeline、切图、完整中文字表仍按需求文档第 14 节单独交付；本稿用到的「思考中」「任务完成」「任务取消」「任务失败」应纳入最终字表。</li>
     </ul></article>
   </div>
@@ -220,17 +223,42 @@ function header(connected) {
     : '<path d="M10 5H9a8 8 0 0 0 0 16h1"/><path d="M18 5h1a8 8 0 0 1 0 16h-1"/><path d="m15.5 9-3 8"/>';
   return `<div class="hdr" style="--link:${connected ? P.on : P.off}"><svg viewBox="0 0 28 28" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg></div>`;
 }
+function ringMask(mode, ms, state) {
+  const shifted = offsets => offsets.reduce((mask, offset) => mask | (1 << ((offset + 32) % 16)), 0);
+  if (mode === 'off') return 0;
+  if (mode === 'single') return 1 << 5;
+  if (mode === 'disconnected' || mode === 'connecting') {
+    const head = Math.floor(ms / (mode === 'disconnected' ? 400 : 100)) % 16;
+    return shifted([2,3,4,5,6,7,10,11,12,13,14,15].map(i => i + head));
+  }
+  if (mode === 'double') return ms % 2000 < 200 || (ms % 2000 >= 400 && ms % 2000 < 600) ? 65535 : 0;
+  if (mode === 'result') return ms % 1600 < 250 ? 65535 : 0;
+  if (mode === 'thinking') {
+    const head = Math.floor(ms / 300) % 16;
+    return shifted([0,1,8,9].map(i => i + head));
+  }
+  if (mode === 'stale') return ms % 2000 < 500 ? 3 : ms % 2000 >= 1000 && ms % 2000 < 1500 ? 768 : 0;
+  if (mode === 'chase') {
+    while (ms >= state.next) {
+      state.head = (state.head + state.direction + 16) % 16;
+      state.next += 150;
+      if (--state.steps === 0) {
+        state.direction *= -1;
+        state.steps = 8 + Math.floor(Math.random() * 17);
+      }
+    }
+    return shifted([0,-1,-2,-5,-6].map(i => state.head + state.direction * i));
+  }
+  // Phase-two pairing illustration, independent of phase-one binary patterns.
+  return 65535;
+}
 function ring(color, mode) {
-  let out = '';
+  let out = `<span class="led-ring" data-mode="${mode}" data-color="${color}">`;
   for (let i = 0; i < 16; i++) {
     const a = i * Math.PI / 8 - Math.PI / 2;
-    let k = mode === 'off' ? 0 : mode === 'single' ? (i === 5 ? 1 : 0) : mode === 'rotate' ? .22 + .78 * Math.max(0, Math.cos(a + Math.PI / 2 - .6)) :
-      mode === 'pulse' ? .95 : mode === 'breathe' ? .33 : mode === 'dim' ? .2 : .6;
-    const colorValue = k === 0 ? '#23263f' : color;
-    const glow = k < .25 ? 'none' : `0 0 ${7 + 13 * k}px ${1 + 2 * k}px ${color}`;
-    out += `<i class="led" style="transform:translate(${Math.cos(a) * 128 - 5.5}px,${Math.sin(a) * 128 - 5.5}px);background:${colorValue};opacity:${k ? (.3 + .7 * k).toFixed(2) : 1};box-shadow:${glow}"></i>`;
+    out += `<i class="led" style="transform:translate(${Math.cos(a) * 128 - 5.5}px,${Math.sin(a) * 128 - 5.5}px);background:#23263f"></i>`;
   }
-  return out;
+  return out + '</span>';
 }
 function dots(page, total, color) {
   if (total < 2) { return ''; }
@@ -262,6 +290,8 @@ function icon(kind) {
   };
   return `<svg viewBox="0 0 24 24" ${common}>${shapes[kind] || shapes.signal}</svg>`;
 }
+const statusKinds = ['work','thinking','wait','perm','stale','success','failed','canceled'];
+const statusPeriods = [24,40,20,20,30,40,24,40];
 function content(t) {
   if (t.type === 'session') {
     const contextParts = /^(\d+(?:\.\d+)?%) · ([^/]+)\/([^/]+)$/.exec(t.context || '');
@@ -271,7 +301,8 @@ function content(t) {
     return `<div class="agent-column">${mark(t.provider)}</div>${contextMarkup}<div class="column-rule"></div>
       <div class="session-copy"><span class="identity-label"><span>${t.provider.toUpperCase()}</span><i></i><span>${t.key.toUpperCase()}</span></span>
       <div class="session-project" title="${t.project || ''}">${t.project || ''}</div></div>
-      <div class="main-state ${t.state.length >= 5 ? 'long-state' : ''}"><span class="state-icon">${icon(t.glyph)}</span>${t.state}</div>
+      <div class="main-state ${statusKinds.indexOf(t.glyph) >= 0 ? 'status-motion' : ''} ${t.state.length >= 5 ? 'long-state' : ''}"
+        data-status="${statusKinds.indexOf(t.glyph)}"><span class="state-label">${t.state}</span></div>
       <div class="session-time ${t.counting ? '' : 'frozen'} ${timeParts && timeParts[1].length > 2 ? 'long-time' : ''}">${duration}</div>
       ${dots(t.page || 1, t.total || 1, t.color)}`;
   }
@@ -288,8 +319,12 @@ function content(t) {
       <div class="abs date">${t.date}</div><div class="abs lowline">${t.lowline || ''}</div>`;
   }
   if (t.type === 'usage') {
-    const row = (className, value) => t.windows.map(w => `<div class="quota-cell ${className} ${w.value === '用量未知' && className === 'quota-value' ? 'unknown' : ''}">${value(w)}</div>`).join('');
-    const grid = row('quota-label', w => w.label) + row('quota-value', w => w.value) + row('quota-reset', w => `<small>重置时间</small><span>${w.reset}</span>`);
+    const grade = value => {
+      const percent = Number.parseFloat(value);
+      return Number.isFinite(percent) ? (percent >= 50 ? 'sufficient' : percent >= 20 ? 'attention' : 'low') : 'unknown';
+    };
+    const row = (className, value) => t.windows.map(w => `<div class="quota-cell ${className} ${className === 'quota-value' ? grade(w.value) : ''}">${value(w)}</div>`).join('');
+    const grid = row('quota-label', w => w.label) + row('quota-value', w => w.value) + row('quota-reset', w => { const parts = w.reset.split(' '); const clock = parts[parts.length - 1]; return w.label === '一周' ? `<span>${parts.length > 1 ? parts[0] : '未知'}</span><span>${clock}</span>` : `<span>${clock}</span>`; });
     return `<div class="usage-head">${mark('codex')}<span class="usage-divider"></span><b>剩余用量</b></div>
       <div class="quota-grid ${t.windows.length === 1 ? 'single' : ''}">${grid}</div>`;
   }
@@ -330,42 +365,43 @@ const sections = [
     {type:'boot',title:'稳定关键帧',code:'2–5 s',version:'v1.0',ledMode:'off',color:'#9b7bff',led:'启动期间熄灭',note:'满 2 秒且连接页已就绪可退出；5 秒为最晚退出点。'}
   ]},
   { n:'B', color:'#56ccf2', title:'连接状态 · Connecting', subtitle:'四种链路状态共用断开 header；不显示时钟或校时状态', tiles:[
-    {type:'connect',title:'等待主机',code:'WAIT_HOST',label:'等待主机',sub:'USB 串口就绪',glyph:'signal',color:P.sky,connected:false,ledMode:'breathe',ledColor:'#586b91',led:'暗蓝灰极慢呼吸',note:'长驻超过约 60 秒可降低对比度或极慢位移。'},
-    {type:'connect',title:'正在握手',code:'HANDSHAKE',label:'正在握手',sub:'发现设备中',glyph:'link',color:P.sky,connected:false,ledMode:'breathe',ledColor:'#586b91',led:'暗蓝灰极慢呼吸',note:'连接图标仍为断开态；不出现 Session 内容。'},
-    {type:'connect',title:'正在同步',code:'SYNCING',label:'正在同步',sub:'会话写入中',glyph:'sync',color:P.sky,connected:false,ledMode:'breathe',ledColor:'#586b91',led:'暗蓝灰极慢呼吸',note:'同步完成后按工作页四级规则重新选页。'},
+    {type:'connect',title:'等待主机',code:'WAIT_HOST',label:'等待主机',sub:'USB 串口就绪',glyph:'signal',color:P.sky,connected:false,ledMode:'disconnected',ledColor:'#ff3b30',led:'红 · 2 灭 6 亮，400 ms 步进',note:'长驻超过约 60 秒可降低对比度或极慢位移。'},
+    {type:'connect',title:'正在握手',code:'HANDSHAKE',label:'正在握手',sub:'发现设备中',glyph:'link',color:P.sky,connected:false,ledMode:'connecting',ledColor:'#ff9f1c',led:'橙 · 2 灭 6 亮，100 ms 步进',note:'连接图标仍为断开态；不出现 Session 内容。'},
+    {type:'connect',title:'正在同步',code:'SYNCING',label:'正在同步',sub:'会话写入中',glyph:'sync',color:P.sky,connected:false,ledMode:'connecting',ledColor:'#ff9f1c',led:'橙 · 2 灭 6 亮，100 ms 步进',note:'同步完成后按最高会话组规则重新选页。'},
     {type:'connect',title:'需要配对',code:'UNPAIRED · 二期',label:'需要配对',sub:'请在网页输入配对码',glyph:'lock',color:'#9cc9ff',connected:false,ledMode:'breathe',ledColor:'#586b91',led:'配对页启动前按连接灯效',note:'四位 PIN 生效后转入配对页。'}
   ]},
-  { n:'C', color:'#36e29a', title:'任务中 Session · 优先级 1', subtitle:'全部 Session 使用分栏布局；状态和时间左对齐，主状态最多支持 5 个汉字', tiles:[
-    {type:'session',title:'工作中 · 新版式',code:'CODEX·S1',provider:'codex',key:'s1',state:'工作中',glyph:'work',duration:'12分12秒',project:'agentmate_esp32',page:1,total:2,color:P.mint,counting:true,ledMode:'rotate',led:'绿灯慢旋转',note:'竖线向上延伸 14 px，身份与目录上移 10 px，状态上下留白均衡。'},
-    {type:'session',title:'工作中 · Context 对齐',code:'working',provider:'claude',key:'s1',state:'工作中',glyph:'work',duration:'12分05秒',context:'6.00% · 12k/200k',project:'agentmate_esp32',page:1,total:2,color:P.mint,counting:true,ledMode:'rotate',led:'绿灯慢旋转',note:'Agent 图标与三行 Context 读数共用中心线；竖线左移 3 px，右侧信息保持原位。'},
-    {type:'session',title:'思考中',code:'thinking',provider:'codex',key:'s2',state:'思考中',glyph:'thinking',duration:'02分16秒',project:'agentmate_service',page:2,total:2,color:P.mint,counting:true,ledMode:'rotate',led:'绿灯慢旋转',note:'与 working 同属任务中；Codex Context 不支持时不显示。'},
-    {type:'session',title:'等待输入',code:'waiting_for_input',provider:'claude',key:'s3',state:'等待输入',glyph:'wait',duration:'03分41秒',context:'42.00% · 84k/200k',project:'agentmate_web',page:1,total:3,color:P.amber,counting:true,ledMode:'pulse',led:'琥珀慢脉冲',note:'状态保持琥珀色，计时数字保持白色与薄荷色冒号。'},
-    {type:'session',title:'需要批准',code:'permission_required',provider:'codex',key:'s4',state:'需要批准',glyph:'perm',duration:'00分18秒',project:'kernel_driver',page:2,total:3,color:P.coral,counting:true,ledMode:'pulse',tag:'优先切入',led:'红 / 珊瑚明显脉冲',note:'事件强调约 4 秒；随后返回本组轮播。'},
-    {type:'session',title:'状态未更新',code:'stale',provider:'claude',key:'s5',state:'状态未更新',glyph:'stale',duration:'26分07秒',context:'unknown',project:'agentmate_web',page:3,total:3,color:P.stale,ledColor:P.blue,ledMode:'dim',led:'蓝弱稳态',note:'任务时长冻结并转暗色；未知 Context 不显示。'},
-    {type:'session',title:'极长文本态',code:'边界',provider:'claude',key:'ABCDEFGH',state:'需要批准',glyph:'perm',duration:'9999分59秒',context:'100.00% · 200k/200k',project:'agentmate-provider-registry-dashboard',page:4,total:4,color:P.coral,counting:true,ledMode:'pulse',led:'红 / 珊瑚明显脉冲',note:'身份短键与目录省略；四位分钟缩小字号，状态词和计时完整显示。'},
-    {type:'session',title:'Context 未知',code:'context_mode=1',provider:'claude',key:'s1',state:'工作中',glyph:'work',duration:'12分09秒',context:'unknown',project:'agentmate_esp32',page:1,total:2,color:P.mint,counting:true,ledMode:'rotate',led:'绿灯慢旋转',note:'读数未知时隐藏 Context，不能沿用先前百分比。'},
-    {type:'session',title:'Context 不支持',code:'context_mode=0',provider:'codex',key:'s1',state:'工作中',glyph:'work',duration:'12分12秒',project:'agentmate_esp32',page:1,total:2,color:P.mint,counting:true,ledMode:'rotate',led:'绿灯慢旋转',note:'Agent 图标下方不显示 Context，也不能画成 0%。'}
+  { n:'C', color:'#36e29a', title:'Session · 等待组 1／工作组 3', subtitle:'全部 Session 使用分栏布局；状态和时间左对齐，主状态最多支持 5 个汉字', tiles:[
+    {type:'session',title:'工作中 · 新版式',code:'CODEX·S1',provider:'codex',key:'s1',state:'工作中',glyph:'work',duration:'12分12秒',project:'agentmate_esp32',page:1,total:2,color:P.mint,counting:true,ledMode:'chase',led:'绿 · 三灯＋二灯随机换向追逐',note:'竖线向上延伸 14 px，身份与目录上移 10 px，状态上下留白均衡。'},
+    {type:'session',title:'工作中 · Context 对齐',code:'working',provider:'claude',key:'s1',state:'工作中',glyph:'work',duration:'12分05秒',context:'6.00% · 12k/200k',project:'agentmate_esp32',page:1,total:2,color:P.mint,counting:true,ledMode:'chase',led:'绿 · 三灯＋二灯随机换向追逐',note:'Agent 图标与三行 Context 读数共用中心线；竖线左移 3 px，右侧信息保持原位。'},
+    {type:'session',title:'思考中',code:'thinking',provider:'codex',key:'s2',state:'思考中',glyph:'thinking',duration:'02分16秒',project:'agentmate_service',page:2,total:2,color:P.mint,counting:true,ledColor:'#8b99ff',ledMode:'thinking',led:'淡紫 · 对向双灯 300 ms 步进',note:'与 working 同属任务中；Codex Context 不支持时不显示。'},
+    {type:'session',title:'等待输入',code:'waiting_for_input',provider:'claude',key:'s3',state:'等待输入',glyph:'wait',duration:'03分41秒',context:'42.00% · 84k/200k',project:'agentmate_web',page:1,total:2,color:P.amber,counting:true,ledMode:'double',led:'琥珀 · 双闪后停顿',note:'状态保持琥珀色，计时数字保持白色与薄荷色冒号。'},
+    {type:'session',title:'需要批准',code:'permission_required',provider:'codex',key:'s4',state:'需要批准',glyph:'perm',duration:'00分18秒',project:'kernel_driver',page:2,total:2,color:P.coral,counting:true,ledMode:'double',tag:'等待组 · 同级',led:'珊瑚 · 双闪后停顿',note:'与等待输入同级；新增会话加入当前组，轮播 10 秒。'},
+    {type:'session',title:'状态未更新',code:'stale',provider:'claude',key:'s5',state:'状态未更新',glyph:'stale',duration:'26分07秒',context:'unknown',project:'agentmate_web',page:3,total:3,color:P.stale,ledColor:'#a3afd3',ledMode:'stale',led:'灰蓝 · 固定双灯交替，时长冻结',note:'任务时长冻结并转暗色；未知 Context 不显示。'},
+    {type:'session',title:'极长文本态',code:'边界',provider:'claude',key:'ABCDEFGH',state:'需要批准',glyph:'perm',duration:'9999分59秒',context:'100.00% · 200k/200k',project:'agentmate-provider-registry-dashboard',page:4,total:4,color:P.coral,counting:true,ledMode:'double',led:'珊瑚 · 双闪后停顿',note:'身份短键与目录省略；四位分钟缩小字号，状态词和计时完整显示。'},
+    {type:'session',title:'Context 未知',code:'context_mode=1',provider:'claude',key:'s1',state:'工作中',glyph:'work',duration:'12分09秒',context:'unknown',project:'agentmate_esp32',page:1,total:2,color:P.mint,counting:true,ledMode:'chase',led:'绿 · 三灯＋二灯随机换向追逐',note:'读数未知时隐藏 Context，不能沿用先前百分比。'},
+    {type:'session',title:'Context 不支持',code:'context_mode=0',provider:'codex',key:'s1',state:'工作中',glyph:'work',duration:'12分12秒',project:'agentmate_esp32',page:1,total:2,color:P.mint,counting:true,ledMode:'chase',led:'绿 · 三灯＋二灯随机换向追逐',note:'Agent 图标下方不显示 Context，也不能画成 0%。'}
   ]},
-  { n:'D', color:'#ff5f7a', title:'完成态 Session · 优先级 2', subtitle:'仅无任务中 Session 时显示；服务端状态变 ready 即退出', tiles:[
-    {type:'session',title:'任务完成',code:'task_success',provider:'claude',key:'s1',state:'任务完成',glyph:'success',duration:'12分05秒',context:'6.00% · 12k/200k',project:'agentmate_esp32',page:1,total:2,color:P.teal,ledMode:'dim',ledColor:P.teal,led:'绿低亮稳态；EVENT 可短闪',note:'总时长冻结；完成态约 60 秒由服务端保持。'},
-    {type:'session',title:'任务失败',code:'task_failed',provider:'codex',key:'s2',state:'任务失败',glyph:'failed',duration:'08分52秒',project:'agentmate_service',page:2,total:2,color:P.coral,ledMode:'dim',ledColor:P.coral,led:'红低亮稳态；EVENT 可短闪',note:'与任务完成同组轮播；有工作中的其他会话时不上屏。'},
-    {type:'session',title:'任务取消',code:'task_canceled',provider:'claude',key:'s3',state:'任务取消',glyph:'canceled',duration:'04分30秒',context:'unknown',project:'agentmate_web',page:1,total:1,color:P.amber,ledMode:'dim',ledColor:P.amber,led:'琥珀低亮稳态',note:'当前 state 决定完成态；ready 中的 last_task 不能继续生成此页。'},
-    {type:'session',title:'回到就绪',code:'ready · 转场示意',provider:'codex',key:'s25',state:'已就绪',glyph:'ready',duration:'00分00秒',project:'agentmate_service',color:P.gray,ledMode:'dim',ledColor:P.blue,led:'蓝弱稳态',note:'ready 状态效果示意；不参与持续轮播，收到后立即切到符合条件的 Codex 用量页或待机页。'}
+  { n:'D', color:'#ff5f7a', title:'完成态 Session · 优先级 2', subtitle:'无等待授权／输入时显示；服务端状态变 ready 即退出', tiles:[
+    {type:'session',title:'任务完成',code:'task_success',provider:'claude',key:'s1',state:'任务完成',glyph:'success',duration:'12分05秒',context:'6.00% · 12k/200k',project:'agentmate_esp32',page:1,total:2,color:P.teal,ledMode:'result',ledColor:P.mint,led:'绿 · 250 ms 单闪／1.6 秒周期',note:'总时长冻结；完成态约 60 秒由服务端保持。'},
+    {type:'session',title:'任务失败',code:'task_failed',provider:'codex',key:'s2',state:'任务失败',glyph:'failed',duration:'08分52秒',project:'agentmate_service',page:2,total:2,color:P.coral,ledMode:'result',ledColor:'#ff3b30',led:'红 · 250 ms 单闪／1.6 秒周期',note:'与任务完成同组轮播；优先于其他工作中会话显示。'},
+    {type:'session',title:'任务取消',code:'task_canceled',provider:'claude',key:'s3',state:'任务取消',glyph:'canceled',duration:'04分30秒',context:'unknown',project:'agentmate_web',page:1,total:1,color:P.amber,ledMode:'result',ledColor:P.blue,led:'蓝 · 250 ms 单闪／1.6 秒周期',note:'当前 state 决定完成态；ready 中的 last_task 不能继续生成此页。'},
+    {type:'session',title:'回到就绪',code:'ready · 转场示意',provider:'codex',key:'s25',state:'已就绪',glyph:'ready',duration:'00分00秒',project:'agentmate_service',color:P.gray,ledMode:'off',ledColor:P.blue,led:'待机灯环熄灭',note:'ready 状态效果示意；不参与持续轮播，收到后立即切到符合条件的 Codex 用量页或待机页。'}
   ]},
-  { n:'E', color:'#56ccf2', title:'近期 Codex 用量 · 优先级 3', subtitle:'仅 Codex；有 ready 会话、近期活动及同一额度指标的 5 小时 / 一周窗口', tiles:[
-    {type:'usage',title:'双窗口用量',code:'5 小时 + 一周',windows:[{label:'5 小时',value:'58.0%',reset:'20:30'},{label:'一周',value:'81.5%',reset:'10月9日 18:00'}],color:P.sky,ledColor:P.blue,ledMode:'dim',led:'蓝弱稳态',note:'两列依次为 5 小时与一周；大字显示剩余百分比，底行显示主机本地重置时间。'},
-    {type:'usage',title:'用量未知',code:'used_bp=-',windows:[{label:'5 小时',value:'用量未知',reset:'未知'},{label:'一周',value:'81.5%',reset:'10月9日 18:00'}],color:P.sky,ledColor:P.blue,ledMode:'dim',led:'蓝弱稳态',note:'未知档保留，不画 0%；有效的一周剩余用量照常显示。'},
-    {type:'usage',title:'单窗口可用',code:'一周窗口缺失',windows:[{label:'5 小时',value:'58.0%',reset:'次日 00:30'}],color:P.sky,ledColor:P.blue,ledMode:'dim',led:'蓝弱稳态',note:'缺少一周窗口时只显示 5 小时，单列居中；跨日重置写「次日」。'}
+  { n:'E', color:'#56ccf2', title:'待机 · Codex 用量 · 优先级 4', subtitle:'仅 Codex；成功推送即启用，待机时与日期时间每 10 秒轮播', tiles:[
+    {type:'usage',title:'双窗口用量',code:'5 小时 + 一周',windows:[{label:'5小时',value:'58.0%',reset:'20:30'},{label:'一周',value:'81.5%',reset:'10月9日 18:00'}],color:P.sky,ledColor:P.blue,ledMode:'off',led:'待机灯环熄灭',note:'两列依次为 5 小时与一周；大字显示剩余百分比，底行显示主机本地重置时间。'},
+    {type:'usage',title:'注意与偏低',code:'三档颜色 · 独立判断',windows:[{label:'5小时',value:'35.0%',reset:'20:30'},{label:'一周',value:'8.0%',reset:'10月9日 18:00'}],color:P.sky,ledColor:P.blue,ledMode:'off',led:'待机灯环熄灭',note:'剩余 ≥50% 为薄荷绿，20%–49.9% 为琥珀色，<20% 为珊瑚红；每列独立判断。'},
+    {type:'usage',title:'用量未知',code:'used_bp=-',windows:[{label:'5小时',value:'用量未知',reset:'未知'},{label:'一周',value:'81.5%',reset:'10月9日 18:00'}],color:P.sky,ledColor:P.blue,ledMode:'off',led:'待机灯环熄灭',note:'未知档保留，不画 0%；有效的一周剩余用量照常显示。'},
+    {type:'usage',title:'单窗口可用',code:'一周窗口缺失',windows:[{label:'5小时',value:'58.0%',reset:'00:30'}],color:P.sky,ledColor:P.blue,ledMode:'off',led:'待机灯环熄灭',note:'缺少一周窗口时只显示 5 小时，单列居中；5 小时重置仅显示时间，不添加跨日标识。'}
   ]},
-  { n:'F', color:'#9b7bff', title:'日期时间待机 · 优先级 4', subtitle:'无符合前三组的对象时持续显示；与设备信息页共用主机本地时间', tiles:[
-    {type:'idle',title:'正常待机',code:'日期/时间',clock:'18:25',date:'2026-10-02',lowline:'',color:'#9b7bff',ledColor:P.blue,ledMode:'dim',led:'蓝弱稳态',note:'服务端同步当前时区偏移；日期与时间始终按主机本地时间显示。'},
-    {type:'idle',title:'全部 ready',code:'10 分钟已过',clock:'18:35',date:'2026-10-02',lowline:'',color:'#9b7bff',ledColor:P.blue,ledMode:'dim',led:'蓝弱稳态',note:'即使仍有用量记录，也回到日期时间待机页。'},
-    {type:'idle',title:'仅 Claude 就绪',code:'忽略非 Codex 用量',clock:'18:37',date:'2026-10-02',lowline:'',color:'#9b7bff',ledColor:P.blue,ledMode:'dim',led:'蓝弱稳态',note:'Claude 即使有 ready Session、近期活动和用量记录，也不进入用量页。'},
-    {type:'idle',title:'时钟或偏移未知',code:'time / offset invalid',clock:'--:--',date:'---- -- --',invalid:true,color:'#9b7bff',ledColor:P.blue,ledMode:'dim',led:'蓝弱稳态',note:'任一未同步即占位；不能回退显示 UTC 时钟。'}
+  { n:'F', color:'#9b7bff', title:'待机 · 日期时间 · 优先级 4', subtitle:'无任务或结果时显示；已支持用量则每 10 秒轮播，共用主机本地时间', tiles:[
+    {type:'idle',title:'正常待机',code:'日期/时间',clock:'18:25',date:'2026-10-02',lowline:'',color:'#9b7bff',ledColor:P.blue,ledMode:'off',led:'待机灯环熄灭',note:'服务端同步当前时区偏移；日期与时间始终按主机本地时间显示。'},
+    {type:'idle',title:'全部 ready',code:'待机轮播 · 10 秒',clock:'18:35',date:'2026-10-02',lowline:'',color:'#9b7bff',ledColor:P.blue,ledMode:'off',led:'待机灯环熄灭',note:'已收到用量时，与用量页每 10 秒轮播，不受活动时间影响。'},
+    {type:'idle',title:'仅 Claude 就绪',code:'忽略非 Codex 用量',clock:'18:37',date:'2026-10-02',lowline:'',color:'#9b7bff',ledColor:P.blue,ledMode:'off',led:'待机灯环熄灭',note:'Claude 用量不启用本期用量页；已收到 Codex 用量时照常轮播。'},
+    {type:'idle',title:'时钟或偏移未知',code:'time / offset invalid',clock:'--:--',date:'---- -- --',invalid:true,color:'#9b7bff',ledColor:P.blue,ledMode:'off',led:'待机灯环熄灭',note:'任一未同步即占位；不能回退显示 UTC 时钟。'}
   ]},
   { n:'G', color:'#6b7fea', title:'设备信息 · AT 拉起', subtitle:'单屏完整信息；默认 10 秒关闭；灯环保持进入前的效果', tiles:[
-    {type:'info',title:'设备信息',code:'AT+SHOWINFO=10',color:'#6b7fea',ledColor:P.blue,ledMode:'dim',led:'沿用进入前的灯效',note:'首行从 y=51 px 开始，与 header 保留 12 px 间距；日期与时间在最下方。中心线两侧各留 7 px，同一行文字基线对齐。'},
-    {type:'info',title:'时钟或偏移未知',code:'占位态',invalid:true,color:'#6b7fea',ledColor:P.blue,ledMode:'dim',led:'沿用进入前的灯效',note:'任一未同步即占位；本页不显示剩余 10 秒、旋转角或校时文案。'}
+    {type:'info',title:'设备信息',code:'AT+SHOWINFO=10',color:'#6b7fea',ledColor:P.mint,ledMode:'chase',led:'沿用进入前灯效（示例：工作追逐）',note:'首行从 y=51 px 开始，与 header 保留 12 px 间距；日期与时间在最下方。中心线两侧各留 7 px，同一行文字基线对齐。'},
+    {type:'info',title:'时钟或偏移未知',code:'占位态',invalid:true,color:'#6b7fea',ledColor:P.mint,ledMode:'chase',led:'沿用进入前灯效（示例：工作追逐）',note:'任一未同步即占位；本页不显示剩余 10 秒、旋转角或校时文案。'}
   ]},
   { n:'H', color:'#4aa8ff', title:'配对 · 二期设计', subtitle:'尚未配对时使用断开 header；PIN 与过期倒计时是主体', tiles:[
     {type:'pair',title:'配对进行中',code:'PAIRING',pin:'0427',copy:'请在网页输入配对码',expiry:'42 秒后过期 · dc194fa2',connected:false,color:'#9cc9ff',ledColor:P.blue,ledMode:'breathe',led:'蓝灯慢呼吸',note:'4 位码保留前导零；二期功能，一期仅交付设计。'},
@@ -380,11 +416,65 @@ const sections = [
     {type:'factory',title:'字体样张',code:'TESTFONT',variant:'font',color:P.sky,ledMode:'off',led:'字体测试灯环熄灭',note:'标题与三行字样分别排在 y=55 / 98 / 133 / 168 px，互不重叠；自动模式按测试项轮播。'}
   ]}
 ];
+const mixedSessions = sections[2];
+const attentionTiles = mixedSessions.tiles.filter(t => t.glyph === 'wait' || t.glyph === 'perm');
+const workTiles = mixedSessions.tiles.filter(t => t.glyph !== 'wait' && t.glyph !== 'perm');
+for (const t of workTiles) {
+  t.total = 3;
+}
+sections.splice(2, 2,
+  {...mixedSessions, color:P.amber, title:'等待授权／输入 Session · 优先级 1',
+    subtitle:'两种状态同级，仅轮播本组，每页 10 秒；新增会话不打断当前页', tiles:attentionTiles},
+  sections[3],
+  {...mixedSessions, title:'工作／思考／状态未更新 · 优先级 3',
+    subtitle:'无等待或完成态时显示，三种状态同级；灯环跟随当前会话', tiles:workTiles});
+sections.forEach((section, i) => { section.n = String.fromCharCode(65 + i); });
+const statusColors = [P.mint,'#8b99ff',P.amber,P.coral,'#a3afd3',P.mint,'#ff3b30',P.blue];
+for (const section of sections) {
+  for (const t of section.tiles) {
+    const kind = statusKinds.indexOf(t.glyph);
+    if (t.type === 'session' && kind >= 0) t.color = statusColors[kind];
+  }
+}
 let board = '';
 for (const s of sections) {
   board += `<section style="--accent:${s.color}"><div class="sec-head"><span class="sec-num">${s.n}</span><h2>${s.title}</h2><p>${s.subtitle}</p></div><div class="grid">${s.tiles.map(tile).join('')}</div></section>`;
 }
 document.getElementById('board').innerHTML = board;
+const rings = [...document.querySelectorAll('.led-ring')].map(el => ({
+  el, state: {head:0, direction:Math.random() < .5 ? -1 : 1, steps:8 + Math.floor(Math.random() * 17), next:150}
+}));
+const statuses = [...document.querySelectorAll('.status-motion')];
+const ringStarted = performance.now();
+let lastStatusTick = -1;
+function animateRings(now) {
+  const ms = Math.floor(now - ringStarted);
+  const tick = Math.floor(ms / 100);
+  if (tick !== lastStatusTick) {
+    for (const element of statuses) {
+      const kind = Number(element.dataset.status);
+      element.style.backgroundPosition = `${-(tick % statusPeriods[kind]) * 143}px ${-kind * 48}px`;
+    }
+    lastStatusTick = tick;
+  }
+  for (const {el, state} of rings) {
+    const mask = ringMask(el.dataset.mode, ms, state);
+    [...el.children].forEach((dot, i) => {
+      const lit = (mask & (1 << i)) !== 0;
+      dot.style.background = lit ? el.dataset.color : '#23263f';
+      dot.style.boxShadow = lit ? `0 0 10px ${el.dataset.color}` : 'none';
+    });
+  }
+  requestAnimationFrame(animateRings);
+}
+requestAnimationFrame(animateRings);
+document.fonts.ready.then(() => {
+  const measure = document.createElement('canvas').getContext('2d');
+  document.querySelectorAll('.session-project').forEach(project => {
+    measure.font = `14px ${getComputedStyle(project).fontFamily}`;
+    project.style.fontSize = measure.measureText(project.textContent).width <= 137 ? '14px' : '12px';
+  });
+});
 </script>
 </body>
 </html>

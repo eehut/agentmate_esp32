@@ -20,6 +20,13 @@
 #
 # Revision History:
 #
+# 2026-10-02 2.0      Codex         Implemented phase-one UI protocol extensions.
+# 2026-10-03 2.5      Codex         Report successful status animation frames in optional diagnostics.
+# 2026-10-03 2.4      Codex         Report page selection and submitted LED frames through optional diagnostics.
+# 2026-10-03 2.1      Codex         Use percent for public brightness settings.
+# 2026-10-03 2.3      Codex         Reset usage support with remote connection state.
+# 2026-10-03 2.2      Codex         Publish quota refreshes as atomic batches.
+#
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
 # 2026-10-01 1.0      Liu Chuansen  Organized for project C style.
@@ -32,6 +39,9 @@
 */
 
 #include "agentmate_app.h"
+#include "agentmate_usage.h"
+#include "agentmate_ui_state.h"
+#include "agentmate_text.h"
 
 #include <errno.h>
 #include <inttypes.h>
@@ -41,6 +51,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include <time.h>
 
 #include "bootloader_random.h"
 #include "driver/uart.h"
@@ -59,7 +70,7 @@
 static const char *s_tag = "agentmate_at";
 static bool s_last_command_failed;
 static bool s_log_failed;
-static char s_pending_log[160];
+static char s_pending_log[320];
 static uint32_t s_log_sequence;
 
 typedef struct {
@@ -230,6 +241,7 @@ static void clear_remote(am_app_t *app)
 {
     memset(app->model.sessions, 0, sizeof(app->model.sessions));
     memset(app->model.usages, 0, sizeof(app->model.usages));
+    memset(&app->usage_batch, 0, sizeof(app->usage_batch));
     memset(app->model.epoch, 0, sizeof(app->model.epoch));
     memset(app->event_ids, 0, sizeof(app->event_ids));
     app->next_event_id = 0;
@@ -238,8 +250,11 @@ static void clear_remote(am_app_t *app)
     app->model.sync_active = false;
     app->model.sync_id = 0;
     app->model.last_sync_end_id = 0;
-    app->model.alert_kind[0] = 0;
-    app->model.alert_until_us = 0;
+    app->model.alert_key[0] = 0;
+    app->model.alert_provider[0] = 0;
+    app->model.info_until_us = 0;
+    app->model.usage_supported = false;
+    app->model.remote_generation++;
     app->model.revision++;
 }
 
@@ -314,17 +329,6 @@ static am_session_t *find_session(am_app_t *app, const char *key)
     return NULL;
 }
 
-static am_usage_t *find_usage(am_app_t *app, const char *provider, const char *metric, const char *window)
-{
-    for (int i = 0; i < AM_MAX_USAGE_ENTRIES; ++i) {
-        am_usage_t *entry = &app->model.usages[i];
-        if (entry->used && strcmp(entry->provider, provider) == 0 && strcmp(entry->metric, metric) == 0 && strcmp(entry->window, window) == 0) {
-            return entry;
-        }
-    }
-    return NULL;
-}
-
 static bool valid_session_state(const char *value)
 {
     static const char *const s_allowed[] = {
@@ -380,18 +384,21 @@ static bool valid_nonce(const char *value)
 
 static void handle_hello(am_app_t *app, char *argument)
 {
-    char *f[2];
+    char *f[2] = {argument, NULL};
     if (split_csv(argument, f, 2) != 2 || strcmp(f[0], AM_PROTOCOL_VERSION_TEXT) != 0 || !is_lower_hex(f[1], 32)) {
         send_error(strcmp(f[0], AM_PROTOCOL_VERSION_TEXT) == 0 ? "INVALID_ARG" : "UNSUPPORTED_VERSION");
         return;
     }
     if (!app->model.factory_mode) {
         clear_remote(app);
+        app->model.clock_valid = false;
+        app->model.utc_offset_valid = false;
         app->model.link = AM_LINK_HANDSHAKE;
     }
     (void)write_line("+HELLO:%s,agentmate,%s,%s,%s,%s,%d,%d,%s", AM_PROTOCOL_VERSION_TEXT, f[1], app->device_id, AM_PRODUCT_MODEL,
                      AM_SOFTWARE_VERSION, AM_MAX_SESSIONS, AM_MAX_USAGE_ENTRIES, app->model.factory_mode ? "FACTORY" : "NORMAL");
     (void)write_line("OK");
+    memset(&app->usage_batch, 0, sizeof(app->usage_batch));
     queue_log("hello accepted");
 }
 
@@ -427,11 +434,12 @@ static void handle_sync_begin(am_app_t *app, char *argument)
 
 static void handle_session(am_app_t *app, char *argument)
 {
-    char *f[12];
+    char *f[13];
+    char project[AM_PROJECT_BYTES + 1];
     uint64_t rev, finished, duration, ctx_used = 0, ctx_window = 0, ctx_pct = 0, ctx_updated = 0;
-    if (split_csv(argument, f, 12) != 12 || !is_lower_hex(f[0], 32) || !is_short_key(f[1], 8) || !parse_u64(f[2], &rev) || rev == 0 || !valid_provider(f[3]) ||
+    if (split_csv(argument, f, 13) != 13 || !is_lower_hex(f[0], 32) || !is_short_key(f[1], 8) || !parse_u64(f[2], &rev) || rev == 0 || !valid_provider(f[3]) ||
         !valid_session_state(f[4]) || !valid_task(f[5]) || !parse_u64(f[6], &finished) || !parse_bounded(f[7], UINT32_MAX, &duration) ||
-        ((strcmp(f[5], "-") == 0) != (finished == 0))) {
+        ((strcmp(f[5], "-") == 0) != (finished == 0)) || !am_project_decode(f[12], project)) {
         send_error("INVALID_ARG");
         return;
     }
@@ -479,8 +487,16 @@ static void handle_session(am_app_t *app, char *argument)
             return;
         }
     }
+    bool attention = (strcmp(f[4], "permission_required") == 0 || strcmp(f[4], "waiting_for_input") == 0) &&
+                     (!entry->used || strcmp(entry->state, f[4]) != 0);
     memset(entry, 0, sizeof(*entry));
     entry->used = true;
+    memcpy(entry->project_name, project, strlen(project) + 1);
+    if (attention) {
+        app->model.attention_sequence++;
+        memcpy(app->model.attention_key, f[1], strlen(f[1]) + 1);
+        app->model.info_until_us = 0;
+    }
     entry->seen = app->model.sync_active;
     memcpy(entry->key, f[1], strlen(f[1]) + 1);
     entry->rev = rev;
@@ -549,7 +565,7 @@ static void handle_sync_end(am_app_t *app, char *argument)
     count_entries(app);
     app->model.sync_active = false;
     app->model.last_sync_end_id = id;
-    app->model.link = app->model.clock_valid ? AM_LINK_ONLINE : AM_LINK_DEGRADED;
+    app->model.link = AM_LINK_ONLINE;
     app->model.revision++;
     (void)write_line("OK");
 }
@@ -586,44 +602,39 @@ static void handle_get(am_app_t *app, char *key)
         snprintf(context, sizeof(context), "%llu,%llu,%u,%llu", (unsigned long long)s->ctx_used, (unsigned long long)s->ctx_window, s->ctx_pct_bp,
                  (unsigned long long)s->ctx_updated_at);
     }
-    (void)write_line("+SESSION:%s,%s,%llu,%s,%s,%s,%llu,%u,%s", app->model.epoch, s->key, (unsigned long long)s->rev, s->provider, s->state, s->last_task,
-                     (unsigned long long)s->finished_at, s->task_seconds, context);
+    char project[AM_PROJECT_BYTES * 3 + 1];
+    am_project_encode(s->project_name, project);
+    (void)write_line("+SESSION:%s,%s,%llu,%s,%s,%s,%llu,%u,%s,%s", app->model.epoch, s->key, (unsigned long long)s->rev, s->provider, s->state, s->last_task,
+                     (unsigned long long)s->finished_at, s->task_seconds, context, project);
     (void)write_line("OK");
 }
 
 static void handle_usage(am_app_t *app, char *argument)
 {
-    char *f[8];
+    char *f[9];
+    int16_t offset = 0;
     uint64_t used = 0, reset, window, updated;
     bool unknown;
-    if (split_csv(argument, f, 8) != 8 || !is_lower_hex(f[0], 32) || !is_short_key(f[1], 16) || !is_short_key(f[2], 8) || !is_short_key(f[3], 8) ||
-        !parse_u64(f[5], &reset) || !parse_bounded(f[6], UINT32_MAX, &window) || !parse_u64(f[7], &updated)) {
+    if (split_csv(argument, f, 9) != 9 || !is_lower_hex(f[0], 32) || !is_short_key(f[1], 16) || !is_short_key(f[2], 8) || !is_short_key(f[3], 16) ||
+        !parse_u64(f[5], &reset) || !parse_bounded(f[6], UINT32_MAX, &window) || !parse_u64(f[7], &updated) ||
+        (strcmp(f[8], "-") != 0 && !am_parse_offset(f[8], &offset))) {
+        app->usage_batch.failed |= app->usage_batch.active;
         send_error("INVALID_ARG");
         return;
     }
     unknown = strcmp(f[4], "-") == 0;
-    if ((!unknown && !parse_bounded(f[4], 10000, &used)) || (unknown && (reset != 0 || window != 0))) {
+    if (!unknown && !parse_bounded(f[4], 10000, &used)) {
+        app->usage_batch.failed |= app->usage_batch.active;
         send_error("INVALID_ARG");
         return;
     }
     if (!same_epoch(app, f[0])) {
+        app->usage_batch.failed |= app->usage_batch.active;
         send_error("BAD_STATE");
         return;
     }
-    am_usage_t *entry = find_usage(app, f[1], f[2], f[3]);
-    if (!entry) {
-        for (int i = 0; i < AM_MAX_USAGE_ENTRIES; ++i) {
-            if (!app->model.usages[i].used) {
-                entry = &app->model.usages[i];
-                break;
-            }
-        }
-        if (!entry) {
-            send_error("CAPACITY");
-            return;
-        }
-    }
-    memset(entry, 0, sizeof(*entry));
+    am_usage_t value = {0};
+    am_usage_t *entry = &value;
     entry->used = true;
     memcpy(entry->provider, f[1], strlen(f[1]) + 1);
     memcpy(entry->metric, f[2], strlen(f[2]) + 1);
@@ -632,8 +643,13 @@ static void handle_usage(am_app_t *app, char *argument)
     entry->reset_at = reset;
     entry->window_seconds = (uint32_t)window;
     entry->updated_at = updated;
-    count_entries(app);
-    app->model.revision++;
+    entry->reset_offset_valid = strcmp(f[8], "-") != 0;
+    entry->reset_utc_offset_minutes = offset;
+    enum am_usage_error err = am_usage_write(app, entry);
+    if (err != AM_USAGE_OK) {
+        send_error(err == AM_USAGE_CAPACITY ? "CAPACITY" : "BAD_STATE");
+        return;
+    }
     (void)write_line("OK");
 }
 
@@ -648,13 +664,27 @@ static void handle_usage_clear(am_app_t *app, char *argument)
         send_error("BAD_STATE");
         return;
     }
-    for (int i = 0; i < AM_MAX_USAGE_ENTRIES; ++i) {
-        if (app->model.usages[i].used && strcmp(app->model.usages[i].provider, f[1]) == 0) {
-            memset(&app->model.usages[i], 0, sizeof(app->model.usages[i]));
-        }
+    am_usage_clear(app, f[1]);
+    (void)write_line("OK");
+}
+
+static void handle_usage_batch(am_app_t *app, char *argument, bool begin)
+{
+    char *f[3];
+    uint64_t id;
+    if (split_csv(argument, f, 3) != 3 || !is_lower_hex(f[0], 32) || !is_short_key(f[1], 16) || !parse_u64(f[2], &id) || !id) {
+        send_error("INVALID_ARG");
+        return;
     }
-    count_entries(app);
-    app->model.revision++;
+    if (!same_epoch(app, f[0])) {
+        send_error("BAD_STATE");
+        return;
+    }
+    enum am_usage_error err = begin ? am_usage_begin(app, f[1], id, now_us()) : am_usage_end(app, f[1], id);
+    if (err != AM_USAGE_OK) {
+        send_error("BAD_STATE");
+        return;
+    }
     (void)write_line("OK");
 }
 
@@ -681,16 +711,20 @@ static void handle_event(am_app_t *app, char *argument)
     app->next_event_id = (app->next_event_id + 1) % AM_EVENT_CACHE_SIZE;
     memcpy(app->model.alert_key, f[2], strlen(f[2]) + 1);
     memcpy(app->model.alert_provider, f[3], strlen(f[3]) + 1);
-    memcpy(app->model.alert_kind, f[4], strlen(f[4]) + 1);
-    app->model.alert_until_us = now_us() + 4000000LL;
+    if (am_event_in_group(&app->model)) {
+        app->model.info_until_us = 0;
+    }
     app->model.revision++;
     (void)write_line("OK");
 }
 
 static void handle_time(am_app_t *app, char *argument)
 {
+    char *f[2];
+    int16_t offset;
     uint64_t milliseconds;
-    if (!parse_u64(argument, &milliseconds) || milliseconds == 0 || milliseconds > INT64_MAX) {
+    if (split_csv(argument, f, 2) != 2 || !parse_u64(f[0], &milliseconds) || milliseconds == 0 ||
+        milliseconds > 253402300799999ULL || !am_parse_offset(f[1], &offset)) {
         send_error("INVALID_ARG");
         return;
     }
@@ -700,32 +734,50 @@ static void handle_time(am_app_t *app, char *argument)
         return;
     }
     app->model.clock_valid = true;
+    app->model.utc_offset_valid = true;
+    app->model.utc_offset_minutes = offset;
     app->model.last_clock_sync_us = now_us();
-    if (!app->model.sync_active && app->model.epoch[0]) {
-        app->model.link = AM_LINK_ONLINE;
-    }
     app->model.revision++;
-    struct timeval current;
-    if (gettimeofday(&current, NULL) != 0) {
-        send_error("TIME_ERROR");
-        return;
-    }
-    (void)write_line("+TIME:%llu,%llu", (unsigned long long)current.tv_sec * 1000 + current.tv_usec / 1000, (unsigned long long)(now_us() / 1000));
+    (void)write_line("+TIME:%llu,%llu,%d", (unsigned long long)milliseconds, (unsigned long long)(now_us() / 1000), offset);
     (void)write_line("OK");
 }
 
 static void handle_time_query(am_app_t *app)
 {
     if (!app->model.clock_valid) {
-        (void)write_line("+TIME:0,%llu,-", (unsigned long long)(now_us() / 1000));
+        (void)write_line("+TIME:0,%llu,-,-", (unsigned long long)(now_us() / 1000));
     } else {
         struct timeval current;
         if (gettimeofday(&current, NULL) != 0) {
             send_error("TIME_ERROR");
             return;
         }
-        (void)write_line("+TIME:%llu,%llu,%llu", (unsigned long long)current.tv_sec * 1000 + current.tv_usec / 1000, (unsigned long long)(now_us() / 1000),
-                         (unsigned long long)((now_us() - app->model.last_clock_sync_us) / 1000));
+        char offset[8];
+        if (app->model.utc_offset_valid) {
+            snprintf(offset, sizeof(offset), "%d", app->model.utc_offset_minutes);
+        } else {
+            snprintf(offset, sizeof(offset), "-");
+        }
+        (void)write_line("+TIME:%llu,%llu,%llu,%s", (unsigned long long)current.tv_sec * 1000 + current.tv_usec / 1000,
+                         (unsigned long long)(now_us() / 1000), (unsigned long long)((now_us() - app->model.last_clock_sync_us) / 1000), offset);
+    }
+    (void)write_line("OK");
+}
+
+static void handle_showinfo(am_app_t *app, const char *argument, bool query)
+{
+    if (query) {
+        int64_t remaining = app->model.info_until_us - now_us();
+        (void)write_line("+SHOWINFO:%lld", (long long)(remaining > 0 ? (remaining + 999999) / 1000000 : 0));
+    } else {
+        uint64_t seconds;
+        if (!argument || !parse_bounded(argument, 60, &seconds)) {
+            send_error("INVALID_ARG");
+            return;
+        }
+        app->model.info_until_us = seconds ? now_us() + (int64_t)seconds * 1000000 : 0;
+        app->model.info_sequence++;
+        app->model.revision++;
     }
     (void)write_line("OK");
 }
@@ -734,22 +786,23 @@ static void handle_setting(am_app_t *app, char *argument, const char *name)
 {
     uint64_t value;
     bool rotation = strcmp(name, "TFTROTATE") == 0;
-    if (!parse_u64(argument, &value) || (rotation ? (value != 0 && value != 90 && value != 180 && value != 270) : value > 255)) {
+    if (!parse_u64(argument, &value) || (rotation ? (value != 0 && value != 90 && value != 180 && value != 270) : value > 100)) {
         send_error("INVALID_ARG");
         return;
     }
+    uint8_t brightness = rotation ? 0 : am_brightness_from_percent((uint8_t)value);
     xSemaphoreTake(app->display_lock, portMAX_DELAY);
     uint16_t previous = rotation ? app->rotation : strcmp(name, "TFTBRIGHT") == 0 ? app->tft_brightness : app->led_brightness;
     bool storage_error = false;
     esp_err_t err = rotation                         ? am_ui_apply_rotation(app, (uint16_t)value)
-                    : strcmp(name, "TFTBRIGHT") == 0 ? am_ui_apply_tft_brightness(app, (uint8_t)value)
-                                                     : am_ui_apply_led_brightness(app, (uint8_t)value);
+                    : strcmp(name, "TFTBRIGHT") == 0 ? am_ui_apply_tft_brightness(app, brightness)
+                                                     : am_ui_apply_led_brightness(app, brightness);
     if (err == ESP_OK) {
         err = save_setting(app,
                            rotation                         ? "rotation"
                            : strcmp(name, "TFTBRIGHT") == 0 ? "tft_bright"
                                                             : "led_bright",
-                           rotation ? (uint8_t)(value / 90) : (uint8_t)value);
+                           rotation ? (uint8_t)(value / 90) : brightness);
         if (err != ESP_OK) {
             storage_error = true;
             if (rotation) {
@@ -902,6 +955,17 @@ static void dispatch(am_app_t *app, char *line)
         (void)write_line("+INFO:%s,%s,%s,%s,%d", app->device_id, AM_PRODUCT_MODEL, AM_SOFTWARE_VERSION, AM_PROTOCOL_VERSION_TEXT,
                          AM_MAX_SESSIONS);
         (void)write_line("OK");
+        char diagnostic[320];
+        snprintf(diagnostic, sizeof(diagnostic),
+                 "heap=%u min_heap=%u at_stack=%u ui_stack=%u render_max_us=%u page=%u page_seq=%u usage_supported=%u "
+                 "group=%u slot=%u led=%u mask=%u rgb=%u status=%u frame=%u status_seq=%u",
+                 (unsigned)esp_get_free_heap_size(), (unsigned)esp_get_minimum_free_heap_size(),
+                 (unsigned)uxTaskGetStackHighWaterMark(NULL), (unsigned)app->ui_stack_free, (unsigned)app->ui_render_max_us,
+                 (unsigned)app->ui_page, (unsigned)app->ui_page_sequence, (unsigned)app->model.usage_supported,
+                 (unsigned)app->ui_group, (unsigned)app->ui_slot, (unsigned)app->ui_led_mode, (unsigned)app->ui_led_mask,
+                 (unsigned)app->ui_led_rgb, (unsigned)app->ui_status_kind, (unsigned)app->ui_status_frame,
+                 (unsigned)app->ui_status_sequence);
+        queue_log(diagnostic);
         return;
     }
     if (strcmp(command, "MODE") == 0 && query) {
@@ -950,7 +1014,9 @@ static void dispatch(am_app_t *app, char *line)
         send_error("UNSUPPORTED_FEATURE");
         return;
     }
-    if (strcmp(command, "SYNCBEGIN") == 0 && argument) {
+    if (strcmp(command, "SHOWINFO") == 0) {
+        handle_showinfo(app, argument, query);
+    } else if (strcmp(command, "SYNCBEGIN") == 0 && argument) {
         handle_sync_begin(app, argument);
     } else if (strcmp(command, "SESSION") == 0 && argument) {
         handle_session(app, argument);
@@ -962,6 +1028,8 @@ static void dispatch(am_app_t *app, char *line)
         handle_list(app);
     } else if (strcmp(command, "GET") == 0 && argument) {
         handle_get(app, argument);
+    } else if ((strcmp(command, "USAGEBEGIN") == 0 || strcmp(command, "USAGEEND") == 0) && argument) {
+        handle_usage_batch(app, argument, strcmp(command, "USAGEBEGIN") == 0);
     } else if (strcmp(command, "USAGE") == 0 && argument) {
         handle_usage(app, argument);
     } else if (strcmp(command, "USAGECLEAR") == 0 && argument) {
@@ -987,8 +1055,8 @@ static void dispatch(am_app_t *app, char *line)
         handle_setting(app, argument, command);
     } else if ((strcmp(command, "TFTBRIGHT") == 0 || strcmp(command, "LEDBRIGHT") == 0 || strcmp(command, "TFTROTATE") == 0) && query) {
         (void)write_line("+%s:%u", command,
-                         strcmp(command, "TFTBRIGHT") == 0   ? app->tft_brightness
-                         : strcmp(command, "LEDBRIGHT") == 0 ? app->led_brightness
+                         strcmp(command, "TFTBRIGHT") == 0   ? am_brightness_to_percent(app->tft_brightness)
+                         : strcmp(command, "LEDBRIGHT") == 0 ? am_brightness_to_percent(app->led_brightness)
                                                              : app->rotation);
         (void)write_line("OK");
     } else {
@@ -1010,15 +1078,20 @@ void am_protocol_run(am_app_t *app)
     ESP_ERROR_CHECK(uart_param_config(UART_NUM_0, &config));
     ESP_ERROR_CHECK(uart_set_pin(UART_NUM_0, GPIO_NUM_21, GPIO_NUM_20, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
     char line[AM_LINE_BYTES + 1];
+    xSemaphoreTake(app->model_lock, portMAX_DELAY);
+    app->model.protocol_ready = true;
+    xSemaphoreGive(app->model_lock);
     size_t length = 0;
     bool overflow = false;
     bool skip_lf = false;
     for (;;) {
         int64_t now = now_us();
         xSemaphoreTake(app->model_lock, portMAX_DELAY);
+        am_usage_expire(app, now);
         if (!app->model.factory_mode && app->last_valid_command_us > 0 && now - app->last_valid_command_us > AM_CONNECTION_TIMEOUT_US &&
             app->model.link != AM_LINK_WAIT_HOST) {
             clear_remote(app);
+            app->model.utc_offset_valid = false;
             app->model.link = AM_LINK_WAIT_HOST;
             app->last_valid_command_us = 0;
             queue_log("host timeout");

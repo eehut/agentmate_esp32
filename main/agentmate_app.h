@@ -25,6 +25,13 @@
 # 2026-10-01 1.0      Liu Chuansen  Organized for project C style.
 # 2026-10-01 1.1      Codex         Added the protocol version constant.
 # 2026-10-01 1.2      Codex         Defined the product model.
+# 2026-10-02 1.3      Codex         Added phase-one UI state and local-time fields.
+# 2026-10-03 1.4      Codex         Shared percentage brightness conversion.
+# 2026-10-03 1.9      Codex         Expose successfully rendered status animation frames.
+# 2026-10-03 1.8      Codex         Expose selected session and submitted LED frame diagnostics.
+# 2026-10-03 1.7      Codex         Default to eight sessions and four usage records.
+# 2026-10-03 1.6      Codex         Track connection-local usage display support.
+# 2026-10-03 1.5      Codex         Added bounded atomic usage batch storage.
 #
 #####################################################################################
 */
@@ -41,10 +48,11 @@
 #include "rgb_led_strip.h"
 #include "tft_display.h"
 
-#define AM_MAX_SESSIONS 4
-#define AM_MAX_USAGE_ENTRIES 8
+#define AM_MAX_SESSIONS 8
+#define AM_MAX_USAGE_ENTRIES 4
 #define AM_EVENT_CACHE_SIZE 32
-#define AM_LINE_BYTES 256
+#define AM_LINE_BYTES 512
+#define AM_PROJECT_BYTES 64
 #define AM_PROTOCOL_VERSION_TEXT "1"
 #define AM_PRODUCT_MODEL "AGM-C3"
 
@@ -78,6 +86,7 @@ typedef struct {
     uint64_t rev;
     char provider[17];
     char state[24];
+    char project_name[AM_PROJECT_BYTES + 1];
     char last_task[10];
     uint64_t finished_at;
     uint32_t task_seconds;
@@ -94,11 +103,13 @@ typedef struct {
     bool used;
     char provider[17];
     char metric[9];
-    char window[9];
+    char window[17];
     int32_t used_bp; /* -1 means unknown. */
     uint64_t reset_at;
     uint32_t window_seconds;
     uint64_t updated_at;
+    bool reset_offset_valid;
+    int16_t reset_utc_offset_minutes;
 } am_usage_t;
 
 typedef struct {
@@ -123,14 +134,32 @@ typedef struct {
     char pair_pin[5];
     int64_t pair_deadline_us;
     int64_t pair_cooldown_us;
-    char alert_kind[24];
     char alert_key[9];
     char alert_provider[17];
-    int64_t alert_until_us;
+    uint32_t attention_sequence;
+    char attention_key[9];
+    int64_t info_until_us;
+    uint32_t info_sequence;
+    bool usage_supported;
+    uint32_t remote_generation;
     bool clock_valid;
+    bool utc_offset_valid;
+    int16_t utc_offset_minutes;
+    bool protocol_ready;
     int64_t last_clock_sync_us;
     uint32_t revision;
 } am_model_t;
+
+struct am_usage_batch {
+    bool active;
+    bool failed;
+    char provider[17];
+    uint64_t id;
+    int64_t started_us;
+    char last_provider[17];
+    uint64_t last_id;
+    am_usage_t entries[AM_MAX_USAGE_ENTRIES];
+};
 
 typedef struct {
     SemaphoreHandle_t model_lock;
@@ -152,14 +181,39 @@ typedef struct {
     int64_t last_valid_command_us;
     char event_ids[AM_EVENT_CACHE_SIZE][33];
     uint8_t next_event_id;
+    /* Driver and NVS brightness remain 0..255; public settings use 0..100 percent. */
     uint8_t tft_brightness;
     uint8_t led_brightness;
     uint16_t rotation;
     bool echo_enabled;
     bool log_enabled;
     bool restart_pending;
+    uint32_t ui_stack_free;
+    uint32_t ui_render_max_us;
+    uint8_t ui_page;
+    uint8_t ui_group;
+    uint8_t ui_slot;
+    uint8_t ui_led_mode;
+    uint16_t ui_led_mask;
+    uint32_t ui_led_rgb;
+    uint32_t ui_page_sequence;
+    uint32_t ui_status_sequence;
+    uint8_t ui_status_kind;
+    uint8_t ui_status_frame;
+    struct am_usage_batch usage_batch;
     am_model_t model;
 } am_app_t;
+
+/* Callers validate percent <= 100 before converting to driver brightness. */
+static inline uint8_t am_brightness_from_percent(uint8_t percent)
+{
+    return (uint8_t)((percent * 255U + 50U) / 100U);
+}
+
+static inline uint8_t am_brightness_to_percent(uint8_t value)
+{
+    return (uint8_t)((value * 100U + 127U) / 255U);
+}
 
 esp_err_t am_app_init(am_app_t *app);
 void am_protocol_run(am_app_t *app);

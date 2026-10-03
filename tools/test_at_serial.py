@@ -82,7 +82,7 @@ def test(port):
     expect_ok(port, "AT+MODE?", ending=b"\n")
     expect_error(port, "AT+TESTLED=ALL,256,0,0,32" if mode == "FACTORY" else "AT+TESTAUTO=1",
                  "INVALID_ARG" if mode == "FACTORY" else "UNSUPPORTED_FEATURE")
-    expect_error(port, "AT+" + "X" * 255, "LINE_TOO_LONG")
+    expect_error(port, "AT+" + "X" * 511, "LINE_TOO_LONG")
     expect_ok(port, "AT+INFO?")
 
     expect_ok(port, "AT+ECHO=0")
@@ -127,8 +127,21 @@ def test(port):
             raise AssertionError(f"PING nonce mismatch: {pong!r}")
         query_value(port, "AT+TIME?", "+TIME:")
         query_value(port, "AT+LIST?", "+LIST:")
-        for name in ("TFTBRIGHT", "LEDBRIGHT", "TFTROTATE"):
-            query_value(port, f"AT+{name}?", f"+{name}:")
+        for name in ("TFTBRIGHT", "LEDBRIGHT"):
+            saved = int(query_value(port, f"AT+{name}?", f"+{name}:"))
+            if not 0 <= saved <= 100:
+                raise AssertionError(f"{name}: invalid brightness percent {saved}")
+            try:
+                for value in (0, 1, 25, 50, 75, 99, 100):
+                    expect_ok(port, f"AT+{name}={value}")
+                    actual = int(query_value(port, f"AT+{name}?", f"+{name}:"))
+                    if actual != value:
+                        raise AssertionError(f"{name}: {value}% round trip returned {actual}%")
+                for value in (-1, 101, 255):
+                    expect_error(port, f"AT+{name}={value}", "INVALID_ARG")
+            finally:
+                expect_ok(port, f"AT+{name}={saved}")
+        query_value(port, "AT+TFTROTATE?", "+TFTROTATE:")
     print("AT interaction checks passed")
 
 
@@ -137,6 +150,8 @@ def main():
     parser.add_argument("port", help="ESP32-C3 CH340 UART0 port")
     args = parser.parse_args()
     with serial.Serial(args.port, 115200, timeout=0.1, write_timeout=2.0) as port:
+        port.dtr = False
+        port.rts = False
         time.sleep(1.5)
         test(port)
 

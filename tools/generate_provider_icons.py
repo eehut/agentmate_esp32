@@ -17,8 +17,8 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "assets" / "provider_icons"
 OUTPUT = ROOT / "main" / "provider_icons.h"
-SIZE = 48
-BACKGROUND = (12, 17, 28, 255)
+SIZE = 36
+BACKGROUND = (20, 23, 51, 255)
 
 
 def rgb565(red: int, green: int, blue: int) -> int:
@@ -27,7 +27,7 @@ def rgb565(red: int, green: int, blue: int) -> int:
 
 def render(name: str) -> list[int]:
     png = cairosvg.svg2png(
-        url=str(SOURCE / f"{name}.svg"),
+        url=str(SOURCE / ("codex_ui.svg" if name == "codex" else f"{name}.svg")),
         output_width=SIZE,
         output_height=SIZE,
     )

@@ -1,0 +1,101 @@
+{
+  "fonts": {
+    "cjk_font": {
+      "file": "PingFang.ttc",
+      "sha256": "9ff3ce9439fe285cdabb46f9ceb46b1ac58f1ca07e6f4a764e8286db621a0af9"
+    },
+    "latin_font": {
+      "file": "SFNSRounded.ttf",
+      "sha256": "9ccd6c9a1ec93ac11092a28c30b71c442269f0a8539704d975f8e09e677f4f74"
+    },
+    "number_font": {
+      "file": "HelveticaNeue.ttc",
+      "sha256": "f589d70dc741853a336fcb0d11aa1505d1646898fba2340a0f5999ea920406b3"
+    }
+  },
+  "directory_sizes_px": [
+    14,
+    12
+  ],
+  "directory_shared_glyphs": true,
+  "mask_bits": 4,
+  "dynamic_directory": "ASCII + GB2312; unsupported glyphs use ?",
+  "boot": [
+    {
+      "ms": 0,
+      "alpha": 0
+    },
+    {
+      "ms": 300,
+      "alpha": 255
+    },
+    {
+      "ms": 2000,
+      "interruptible": true
+    },
+    {
+      "ms": 5000,
+      "exit": true
+    }
+  ],
+  "led": {
+    "disconnected_step_ms": 400,
+    "connecting_step_ms": 100,
+    "attention_ms": [
+      200,
+      200,
+      200,
+      1400
+    ],
+    "working_step_ms": 150,
+    "working_segment_steps": [
+      8,
+      24
+    ],
+    "working_offsets": [
+      0,
+      -1,
+      -2,
+      -5,
+      -6
+    ],
+    "thinking_step_ms": 300,
+    "stale_ms": [
+      500,
+      500,
+      500,
+      500
+    ],
+    "result_ms": [
+      250,
+      1350
+    ],
+    "page_dwell_ms": 10000
+  },
+  "status_border": {
+    "bounds": [
+      78,
+      113,
+      137,
+      42
+    ],
+    "radius": 10,
+    "draw_bounds": [
+      75,
+      110,
+      143,
+      48
+    ],
+    "fps": 10,
+    "period_ms": {
+      "working": 2400,
+      "thinking": 4000,
+      "waiting_for_input": 2000,
+      "permission_required": 2000,
+      "stale": 3000,
+      "task_success": 4000,
+      "task_failed": 2400,
+      "task_canceled": 4000
+    }
+  }
+}
