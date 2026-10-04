@@ -119,6 +119,9 @@
   .connect .brandline { top: 188px; color: #7d87ad; font: 12px var(--mono); letter-spacing: 1px; }
   .idle .locale { top: 58px; color: #92a4c9; font-size: 19px; font-weight: 700; letter-spacing: 1px; }
   .idle .clock { top: 92px; color: #f6f5ff; font: 600 45px var(--mono); letter-spacing: 1px; }
+  .idle .clock-colon { display:inline-block; transform:translateY(-5px); }
+  .idle .clock-colon.counting { animation:clock-tick 1s steps(1,end) infinite; }
+  @keyframes clock-tick { 0%,100% { opacity:1; } 50% { opacity:0; } }
   .idle .clock.placeholder { font-size: 39px; color: #8d98b7; }
   .idle .date { top: 155px; color: #c6d0ed; font: 18px var(--mono); }
   .idle .lowline { top: 190px; color: #8492bb; font-size: 13px; }
@@ -184,7 +187,7 @@
       <h1>AgentMate · <em>全量 UI 视觉稿</em></h1>
       <p class="intro">基于既有 Session 页的深色圆屏、连接色带与 16 颗灯环。下方每块屏幕均按 240 × 240 @1x 绘制；虚线是直径 216 px 安全圆。画板文字是设计标注，不属于设备屏幕。</p>
     </div>
-    <div class="version">稿件 <strong>v1.15 · 连续光段灯环</strong><br>对应需求 <strong>v1.15</strong><br>2026-10-03</div>
+    <div class="version">稿件 <strong>v1.17 · Codex 图标配色</strong><br>对应需求 <strong>v1.17</strong><br>2026-10-04</div>
   </header>
   <div class="ribbon" aria-label="工作页优先级">
     <div class="ribbon-item" style="--rank:#ffb02e"><b><span class="rank">1</span>等待授权／输入</b><small>只轮播等待组；同组新增不打断当前页</small></div>
@@ -215,7 +218,7 @@ const P = {
 const CODEX_SHAPE = 'M9.064 3.344a4.578 4.578 0 012.285-.312c1 .115 1.891.54 2.673 1.275.01.01.024.017.037.021a.09.09 0 00.043 0 4.55 4.55 0 013.046.275l.047.022.116.057a4.581 4.581 0 012.188 2.399c.209.51.313 1.041.315 1.595a4.24 4.24 0 01-.134 1.223.123.123 0 00.03.115c.594.607.988 1.33 1.183 2.17.289 1.425-.007 2.71-.887 3.854l-.136.166a4.548 4.548 0 01-2.201 1.388.123.123 0 00-.081.076c-.191.551-.383 1.023-.74 1.494-.9 1.187-2.222 1.846-3.711 1.838-1.187-.006-2.239-.44-3.157-1.302a.107.107 0 00-.105-.024c-.388.125-.78.143-1.204.138a4.441 4.441 0 01-1.945-.466 4.544 4.544 0 01-1.61-1.335c-.152-.202-.303-.392-.414-.617a5.81 5.81 0 01-.37-.961 4.582 4.582 0 01-.014-2.298.124.124 0 00.006-.056.085.085 0 00-.027-.048 4.467 4.467 0 01-1.034-1.651 3.896 3.896 0 01-.251-1.192 5.189 5.189 0 01.141-1.6c.337-1.112.982-1.985 1.933-2.618.212-.141.413-.251.601-.33.215-.089.43-.164.646-.227a.098.098 0 00.065-.066 4.51 4.51 0 01.829-1.615 4.535 4.535 0 011.837-1.388zm3.482 10.565a.637.637 0 000 1.272h3.636a.637.637 0 100-1.272h-3.636zM8.462 9.23a.637.637 0 00-1.106.631l1.272 2.224-1.266 2.136a.636.636 0 101.095.649l1.454-2.455a.636.636 0 00.005-.64L8.462 9.23z';
 function mark(provider) {
   if (provider === 'claude') { return '<img class="provider-icon" src="../../assets/provider_icons/claude.svg" alt="">'; }
-  return `<svg class="provider-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${CODEX_SHAPE}" fill="#8b99ff"/></svg>`;
+  return `<svg class="provider-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${CODEX_SHAPE}" fill="#6550c8"/></svg>`;
 }
 function header(connected) {
   const icon = connected
@@ -305,7 +308,7 @@ function content(t) {
       <div class="abs sub-label">${t.sub}</div><div class="abs brandline">AGENTMATE · USB</div>`;
   }
   if (t.type === 'idle') {
-    return `<div class="abs locale">日期/时间</div><div class="abs clock ${t.invalid ? 'placeholder' : ''}">${t.clock}</div>
+    return `<div class="abs locale">日期/时间</div><div class="abs clock ${t.invalid ? 'placeholder' : ''}">${t.clock.split(':')[0]}<span class="clock-colon ${t.invalid ? '' : 'counting'}">:</span>${t.clock.split(':')[1]}</div>
       <div class="abs date">${t.date}</div><div class="abs lowline">${t.lowline || ''}</div>`;
   }
   if (t.type === 'usage') {
@@ -384,10 +387,10 @@ const sections = [
     {type:'usage',title:'单窗口可用',code:'一周窗口缺失',windows:[{label:'5小时',value:'58.0%',reset:'00:30'}],color:P.sky,ledColor:P.blue,ledMode:'off',led:'待机灯环熄灭',note:'缺少一周窗口时只显示 5 小时，单列居中；5 小时重置仅显示时间，不添加跨日标识。'}
   ]},
   { n:'F', color:'#9b7bff', title:'待机 · 日期时间 · 优先级 4', subtitle:'无任务或结果时显示；已支持用量则每 10 秒轮播，共用主机本地时间', tiles:[
-    {type:'idle',title:'正常待机',code:'日期/时间',clock:'18:25',date:'2026-10-02',lowline:'',color:'#9b7bff',ledColor:P.blue,ledMode:'off',led:'待机灯环熄灭',note:'服务端同步当前时区偏移；日期与时间始终按主机本地时间显示。'},
+    {type:'idle',title:'正常待机',code:'日期/时间',clock:'18:25',date:'2026-10-02',lowline:'',color:'#9b7bff',ledColor:P.blue,ledMode:'off',led:'待机灯环熄灭',note:'服务端同步当前时区偏移；冒号上移 5 px，亮／灭各 500 ms，数字位置保持稳定。'},
     {type:'idle',title:'全部 ready',code:'待机轮播 · 10 秒',clock:'18:35',date:'2026-10-02',lowline:'',color:'#9b7bff',ledColor:P.blue,ledMode:'off',led:'待机灯环熄灭',note:'已收到用量时，与用量页每 10 秒轮播，不受活动时间影响。'},
     {type:'idle',title:'仅 Claude 就绪',code:'忽略非 Codex 用量',clock:'18:37',date:'2026-10-02',lowline:'',color:'#9b7bff',ledColor:P.blue,ledMode:'off',led:'待机灯环熄灭',note:'Claude 用量不启用本期用量页；已收到 Codex 用量时照常轮播。'},
-    {type:'idle',title:'时钟或偏移未知',code:'time / offset invalid',clock:'--:--',date:'---- -- --',invalid:true,color:'#9b7bff',ledColor:P.blue,ledMode:'off',led:'待机灯环熄灭',note:'任一未同步即占位；不能回退显示 UTC 时钟。'}
+    {type:'idle',title:'时钟或偏移未知',code:'time / offset invalid',clock:'--:--',date:'---- -- --',invalid:true,color:'#9b7bff',ledColor:P.blue,ledMode:'off',led:'待机灯环熄灭',note:'任一未同步即占位；冒号保持静止，不暗示正在计时。'}
   ]},
   { n:'G', color:'#6b7fea', title:'设备信息 · AT 拉起', subtitle:'单屏完整信息；默认 10 秒关闭；灯环保持进入前的效果', tiles:[
     {type:'info',title:'设备信息',code:'AT+SHOWINFO=10',color:'#6b7fea',ledColor:P.mint,ledMode:'working',led:'沿用进入前灯效（示例：工作追逐）',note:'首行从 y=51 px 开始，与 header 保留 12 px 间距；日期与时间在最下方。中心线两侧各留 7 px，同一行文字基线对齐。'},

@@ -29,6 +29,8 @@ def main():
         image=Image.open(file); image.save(out/(file.stem+'.png'))
         x=(i%4)*256;y=(i//4)*278;sheet.paste(image,(x+8,y+6));draw.text((x+8,y+248),file.stem,fill='#242444')
     sheet.save(out/'firmware_preview.png'); print(out/'firmware_preview.png')
+    clock_frames = [Image.open(out / ('idle_colon_' + phase + '.ppm')).convert('RGB') for phase in ('on', 'off')]
+    clock_frames[0].save(out / 'idle_clock_blink.gif', save_all=True, append_images=clock_frames[1:], duration=500, loop=0)
     states = ['working','thinking','waiting_for_input','permission_required','stale','task_success','task_failed','task_canceled']
     movies = [[Image.open(path).convert('RGB') for path in sorted((out/'animation').glob(state+'_*.ppm'))] for state in states]
     atlas = Image.new('RGB',(40*143,8*48),'#141733')

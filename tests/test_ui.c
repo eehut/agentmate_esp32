@@ -25,6 +25,7 @@
 # 2026-10-02 1.0      Codex         Created phase-one implementation.
 # 2026-10-03 1.1      Codex         Verify percentage brightness conversion.
 # 2026-10-03 1.8      Codex         Verify animated borders and export dynamic previews.
+# 2026-10-04 1.9      Codex         Verify clock separator timing and bounded redraws.
 # 2026-10-03 1.7      Codex         Verify priority groups and ten-second noninterrupting rotation.
 # 2026-10-03 1.6      Codex         Verify eight-session rotation and four-entry quota capacity.
 # 2026-10-03 1.5      Codex         Check quota color boundaries, rounding and incremental rendering.
@@ -493,6 +494,74 @@ static void test_status_animation(const char *directory)
     }
 }
 
+static void test_idle_clock(const char *directory)
+{
+    am_app_t app = {0};
+    am_model_t model = {.link = AM_LINK_ONLINE, .clock_valid = true, .utc_offset_valid = true, .utc_offset_minutes = 480};
+    struct am_ui_scene previous = {0};
+    static uint16_t s_visible[240 * 240];
+    const int64_t times[] = {0, 499999, 500000, 999999, 1000000};
+    for (int frame = 0; frame < 5; ++frame) {
+        memset(&s_scene, 0, sizeof(s_scene));
+        s_scene.body_alpha = 255;
+        business_header(true);
+        idle_page(&model, 1790936702, times[frame]);
+        s_submitted_pixels = 0;
+        assert(am_scene_render(&app, &previous, &s_scene, frame == 0) == ESP_OK);
+        if (frame == 0) {
+            memcpy(s_visible, s_screen, sizeof(s_visible));
+            write_ppm(directory, "idle_colon_on");
+        } else if (frame == 1 || frame == 3) {
+            assert(s_submitted_pixels == 0);
+        } else {
+            assert(s_submitted_pixels == 15 * 49);
+        }
+        if (frame == 2) {
+            int changed = 0, left = 240, right = 0, top = 240, bottom = 0;
+            for (int y = 0; y < 240; ++y) {
+                for (int x = 0; x < 240; ++x) {
+                    if (s_visible[y * 240 + x] != s_screen[y * 240 + x]) {
+                        changed++;
+                        left = x < left ? x : left;
+                        right = x > right ? x : right;
+                        top = y < top ? y : top;
+                        bottom = y > bottom ? y : bottom;
+                    }
+                }
+            }
+            assert(changed > 0 && changed < 150 && right - left < 10);
+            /* Digit ink occupies y=99..131; separator center must align within one pixel. */
+            assert(abs(top + bottom - 230) <= 2);
+            write_ppm(directory, "idle_colon_off");
+        }
+        if (frame == 4) {
+            assert(memcmp(s_visible, s_screen, sizeof(s_visible)) == 0);
+        }
+        check_incremental(&app, &previous);
+    }
+    /* Minute changes and valid/unknown transitions must match complete redraws. */
+    memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true);
+    idle_page(&model, 1790936759, 1500000); check_incremental(&app, &previous);
+    memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true);
+    idle_page(&model, 1790936760, 2000000); check_incremental(&app, &previous);
+    for (int invalid = 0; invalid < 2; ++invalid) {
+        model.clock_valid = invalid != 0;
+        model.utc_offset_valid = invalid == 0;
+        memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true);
+        idle_page(&model, 1790936702, 0); check_incremental(&app, &previous);
+        memcpy(s_visible, s_screen, sizeof(s_visible));
+        memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true);
+        idle_page(&model, 1790936702, 500000);
+        s_submitted_pixels = 0;
+        assert(am_scene_render(&app, &previous, &s_scene, false) == ESP_OK && s_submitted_pixels == 0);
+        assert(memcmp(s_visible, s_screen, sizeof(s_visible)) == 0);
+    }
+    model.clock_valid = true;
+    model.utc_offset_valid = true;
+    memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true);
+    idle_page(&model, 1790936702, 700000); check_incremental(&app, &previous);
+}
+
 static void test_render(const char *directory)
 {
     am_app_t app = {0}; strcpy(app.device_id,"0123456789abcdef01234567dc194fa2");
@@ -528,12 +597,12 @@ static void test_render(const char *directory)
     check_incremental(&app,&previous); write_ppm(directory,"long_session");
     memset(&s_scene,0,sizeof(s_scene)); s_scene.body_alpha=255; business_header(true); info_page(&app,&model,230,102,1790936702);
     check_incremental(&app,&previous); write_ppm(directory,"info");
-    memset(&s_scene,0,sizeof(s_scene)); s_scene.body_alpha=255; business_header(true); idle_page(&model,1790936702);
+    memset(&s_scene,0,sizeof(s_scene)); s_scene.body_alpha=255; business_header(true); idle_page(&model,1790936702, 0);
     check_incremental(&app,&previous); write_ppm(directory,"idle");
     model.utc_offset_valid=false;
     memset(&s_scene,0,sizeof(s_scene)); s_scene.body_alpha=255; business_header(true); info_page(&app,&model,230,102,1790936702);
     check_incremental(&app,&previous); write_ppm(directory,"info_unknown");
-    memset(&s_scene,0,sizeof(s_scene)); s_scene.body_alpha=255; business_header(true); idle_page(&model,1790936702);
+    memset(&s_scene,0,sizeof(s_scene)); s_scene.body_alpha=255; business_header(true); idle_page(&model,1790936702, 0);
     check_incremental(&app,&previous); write_ppm(directory,"idle_unknown");
     const am_link_t links[]={AM_LINK_WAIT_HOST,AM_LINK_HANDSHAKE,AM_LINK_SYNCING};
     const char *link_names[]={"wait_host","handshake","syncing"};
@@ -689,6 +758,7 @@ int main(int argc,char **argv)
     write_led_preview(argv[1]);
     test_usage_colors();
     test_render(argv[1]);
+    test_idle_clock(argv[1]);
     test_status_animation(argv[1]);
     puts("UI text, scheduler, partial rendering, factory fonts, LED and animated status checks passed");
     return 0;

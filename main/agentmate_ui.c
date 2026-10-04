@@ -35,6 +35,7 @@
 # 2026-10-03 2.3      Codex         Render cleared quota placeholders during standby rotation.
 # 2026-10-03 2.2      Codex         Improve quota headings and reset layout.
 # 2026-10-03 2.8      Codex         Added deterministic LED v2 patterns and frame diagnostics.
+# 2026-10-04 2.9      Codex         Center and blink the standby clock separator independently.
 #
 #####################################################################################
 */
@@ -429,12 +430,23 @@ static void connection_page(const am_model_t *model)
     centered(185, 170, &g_am_font_label, TFT_RGB565(125, 135, 173), "AGENTMATE");
 }
 
-static void idle_page(const am_model_t *model, int64_t utc)
+static void idle_page(const am_model_t *model, int64_t utc, int64_t now)
 {
     char date[20], clock[16];
     calendar_text(model, utc, date, sizeof(date), clock, sizeof(clock), false);
     centered(55, 180, &g_am_font_title, TFT_RGB565(146, 164, 201), "日期/时间");
-    centered(86, 210, &g_am_font_clock, C_FG, clock);
+    bool valid = clock[0] != '-';
+    bool colon_visible = !valid || now / 500000 % 2 == 0;
+    clock[2] = 0;
+    const struct am_font *font = &g_am_font_clock;
+    int hour_width = am_text_width(font, clock);
+    int colon_width = am_text_width(font, ":");
+    int minute_width = am_text_width(font, clock + 3);
+    int x = (240 - hour_width - colon_width - minute_width) / 2;
+    am_scene_text(&s_scene, x, 86, hour_width, font, C_FG, clock, -1);
+    /* The clock font's colon ink center is five pixels below its digit center. */
+    am_scene_text(&s_scene, x + hour_width, 81, colon_width, font, colon_visible ? C_FG : AM_UI_BG, ":", -1);
+    am_scene_text(&s_scene, x + hour_width + colon_width, 86, minute_width, font, C_FG, clock + 3, -1);
     centered(151, 190, &g_am_font_date, TFT_RGB565(198, 208, 237), date);
 }
 
@@ -737,7 +749,7 @@ void am_ui_run(am_app_t *app)
             info_page(app, &s_snapshot, tft, led, utc);
             break;
         default:
-            idle_page(&s_snapshot, utc);
+            idle_page(&s_snapshot, utc, now);
             break;
         }
         rgb_led_color_t led_colors[16];
