@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-04 3.0      Codex         Add protocol 2 host labels and session display names.
 #
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
@@ -91,6 +92,8 @@ static am_session_t session(const char *key, const char *state, const char *prov
 {
     am_session_t s = {.used = true, .task_seconds = 725, .task_base_us = 1000000};
     snprintf(s.key, sizeof(s.key), "%s", key);
+    snprintf(s.host_label, sizeof(s.host_label), "LOCAL");
+    snprintf(s.session_short_name, sizeof(s.session_short_name), "S1");
     snprintf(s.state, sizeof(s.state), "%s", state);
     snprintf(s.provider, sizeof(s.provider), "%s", provider);
     snprintf(s.project_name, sizeof(s.project_name), "agentmate_esp32");
@@ -99,6 +102,10 @@ static am_session_t session(const char *key, const char *state, const char *prov
 
 static void test_text(void)
 {
+    assert(am_host_label_valid("LOCAL") && am_host_label_valid("WSL") && am_host_label_valid("SERVER01"));
+    assert(!am_host_label_valid("AB") && !am_host_label_valid("ABCDEFGHI") && !am_host_label_valid("wsl") && !am_host_label_valid("WSL*S1"));
+    assert(am_session_short_name_valid("S1") && am_session_short_name_valid("S4294967295"));
+    assert(!am_session_short_name_valid("S0") && !am_session_short_name_valid("S01") && !am_session_short_name_valid("S4294967296"));
     char name[65], encoded[193];
     assert(am_project_decode("project%2C%E4%B8%AD%E6%96%87", name));
     assert(strcmp(name, "project,中文") == 0);
@@ -575,6 +582,19 @@ static void test_render(const char *directory)
         memset(&s_scene,0,sizeof(s_scene)); s_scene.body_alpha=255; business_header(true);
         strcpy(s.state,states[i]); session_page(&s,&sel,s_now, 0); check_incremental(&app,&previous); write_ppm(directory,states[i]);
     }
+    strcpy(s.host_label, "WWWWWWWW");
+    strcpy(s.session_short_name, "S4294967295");
+    memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true); session_page(&s, &sel, s_now, 0);
+    bool identity_found = false;
+    for (int i = 0; i < s_scene.count; ++i) {
+        if (s_scene.ops[i].kind == AM_OP_TEXT && strcmp(s_scene.ops[i].text, "WWWWWWWW*S4294967295") == 0) {
+            identity_found = true;
+            assert(s_scene.ops[i].x >= 78 && s_scene.ops[i].x + s_scene.ops[i].width <= 215);
+        }
+    }
+    assert(identity_found);
+    check_incremental(&app, &previous); write_ppm(directory, "long_host_title");
+    strcpy(s.host_label, "WSL"); strcpy(s.session_short_name, "S1");
     sel.count = AM_MAX_SESSIONS; sel.current = AM_MAX_SESSIONS - 1;
     memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true); session_page(&s, &sel, s_now, 0);
     check_incremental(&app, &previous); write_ppm(directory, "eight_sessions");

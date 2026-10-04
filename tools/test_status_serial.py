@@ -32,7 +32,7 @@ def main():
             for index, state in enumerate(states):
                 result = {'task_success':'completed','task_failed':'failed','task_canceled':'cancelled'}.get(state,'-')
                 finished = int(time.time()) if result != '-' else 0
-                expect_ok(port,f'AT+SESSION={epoch},motion,{index+1},codex,{state},{result},{finished},725,,,,,status_motion')
+                expect_ok(port,f'AT+SESSION={epoch},motion,{index+1},codex,{state},{result},{finished},725,,,,,status_motion,LOCAL,S1')
                 start = time.monotonic()
                 frames, sequences = set(), set()
                 while time.monotonic() - start < 2.5:

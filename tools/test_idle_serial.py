@@ -111,7 +111,7 @@ def main():
             def session(rev, state):
                 result = 'completed' if state == 'task_success' else '-'
                 finished = int(time.time()) if result != '-' else 0
-                expect_ok(port, f'AT+SESSION={epoch},s1,{rev},codex,{state},{result},{finished},10,,,,,idle_test')
+                expect_ok(port, f'AT+SESSION={epoch},s1,{rev},codex,{state},{result},{finished},10,,,,,idle_test,LOCAL,S1')
             session(1, 'permission_required')
             wait_page(port, 1, 1)
             session(2, 'task_success')

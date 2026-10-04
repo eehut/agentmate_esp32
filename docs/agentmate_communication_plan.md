@@ -1,6 +1,8 @@
+> 当前协议为 2：设备只接收本机 AgentMate 汇总后的投影；SESSION 包含 host_label 和 session_short_name，标题为主机短名*Session短名。跨节点订阅、启停及持久化由电脑服务处理。旧配对章节仍属未来规划。
+
 # AgentMate 服务端与 ESP32 通信技术方案
 
-> **一期实现更新（2026-10-01）**：当前固件首次烧录进入产测模式，产测完成后经 `AT+MODE=NORMAL` 进入正常模式。正常模式经 `AT+HELLO=1,<nonce>` 发现后直接接收业务命令；配对、四位码和 HMAC 认证调整为二期规划。本文旧版配对/认证流程章节仅保留为二期设计参考；一期线格式及命令可用性以 [AT 指令指南](agentmate_at_command_guide.md) 为准。当前原型的 AT 通道为 CH340 桥接的 UART0（115200 8N1）；运行期和 bootloader 常规日志关闭，应用日志仅使用可开关的 `+LOG:` 行，ROM 复位字节在发现前丢弃。
+> **一期实现更新（2026-10-01）**：当前固件首次烧录进入产测模式，产测完成后经 `AT+MODE=NORMAL` 进入正常模式。正常模式经 `AT+HELLO=2,<nonce>` 发现后直接接收业务命令；配对、四位码和 HMAC 认证调整为二期规划。本文旧版配对/认证流程章节仅保留为二期设计参考；一期线格式及命令可用性以 [AT 指令指南](agentmate_at_command_guide.md) 为准。当前原型的 AT 通道为 CH340 桥接的 UART0（115200 8N1）；运行期和 bootloader 常规日志关闭，应用日志仅使用可开关的 `+LOG:` 行，ROM 复位字节在发现前丢弃。
 
 
 状态：ESP32 基础版固件已实现；服务端对接待完成  
@@ -90,7 +92,7 @@ OK
 ### 5.1 二期规划：握手与认证
 
 ```text
-AT+HELLO=1,fe6d7e13d354eb1f8d45968587589c65,1337a242cd1845299b397e8222293984
+AT+HELLO=2,fe6d7e13d354eb1f8d45968587589c65,1337a242cd1845299b397e8222293984
 +HELLO:1,agentmate,fe6d7e13d354eb1f8d45968587589c65,8d2b47e0a99347c7a976d386dc194fa2,d8c4b78b9c63195dd337cbcb3f88b914,agentmate_esp32c3,v1.0,4,8,<proof>
 OK
 AT+AUTH=<host_proof>
@@ -102,7 +104,7 @@ OK
 首次配对示例（四位码仅显示在设备屏幕；`key_hex` 为占位符，实际传输需替换成 64 位十六进制密钥）：
 
 ```text
-AT+HELLO=1,fe6d7e13d354eb1f8d45968587589c65,1337a242cd1845299b397e8222293984
+AT+HELLO=2,fe6d7e13d354eb1f8d45968587589c65,1337a242cd1845299b397e8222293984
 +HELLO:1,agentmate,fe6d7e13d354eb1f8d45968587589c65,8d2b47e0a99347c7a976d386dc194fa2,d8c4b78b9c63195dd337cbcb3f88b914,agentmate_esp32c3,v1.0,4,8,-
 OK
 AT+PAIRBEGIN

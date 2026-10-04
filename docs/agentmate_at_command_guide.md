@@ -1,3 +1,5 @@
+> 协议 2 更新：SESSION 和 GET 新增主机标识与 Session 短名；设备页标题为 LOCAL*S1 / WSL*S1，provider 使用图标。必须配套升级主机服务；不接受旧版 13 字段 SESSION。
+
 # AgentMate AT 指令指南
 
 文档版本：**1.7**
@@ -7,11 +9,11 @@
 
 ## 1. 命令与模式
 
-正常模式通过 `AT+HELLO=1,<nonce>` 发现设备后直接同步业务数据；一期不进行配对和身份认证。产测模式只接受发现、信息、模式、回显、日志和产测命令。`PAIRBEGIN`、`PAIRCOMMIT`、`AUTH` 在本版返回 `UNSUPPORTED_FEATURE`，配对认证规划为二期。
+正常模式通过 `AT+HELLO=2,<nonce>` 发现设备后直接同步业务数据；一期不进行配对和身份认证。产测模式只接受发现、信息、模式、回显、日志和产测命令。`PAIRBEGIN`、`PAIRCOMMIT`、`AUTH` 在本版返回 `UNSUPPORTED_FEATURE`，配对认证规划为二期。
 
 | 命令 | 功能 | 主要响应 | 产测 | 正常 |
 |---|---|---|:---:|:---:|
-| `AT+HELLO=1,<nonce>` | 发现设备、查询容量和当前模式 | `+HELLO:...`、`OK` | ✅ | ✅ |
+| `AT+HELLO=2,<nonce>` | 发现设备、查询容量和当前模式 | `+HELLO:...`、`OK` | ✅ | ✅ |
 | `AT+INFO?` | 查询设备信息及会话容量 | `+INFO:...`、`OK` | ✅ | ✅ |
 | `AT+MODE?` | 查询当前模式 | `+MODE:<FACTORY或NORMAL>`、`OK` | ✅ | ✅ |
 | `AT+MODE=FACTORY` / `AT+MODE=NORMAL` | 保存模式并重启 | `OK` | ✅ | ✅ |
@@ -23,7 +25,7 @@
 | `AT+TESTFONT=<8x8或8x16或10x18或12x22或16x32>` | ASCII 字体样张 | `OK` | ✅ | |
 | `AT+TESTAUTO=<0或1>` | 停止或启动自动轮播 | `OK` | ✅ | |
 | `AT+SYNCBEGIN=<epoch>,<sync_id>` | 开始逐条会话同步 | `OK` | | ✅ |
-| `AT+SESSION=<epoch>,<key>,<rev>,<provider>,<state>,<last_task>,<finished_at>,<task_seconds>,<ctx_used>,<ctx_window>,<ctx_pct_bp>,<ctx_updated_at>,<project_name>` | 新增或更新一条会话 | `OK` | | ✅ |
+| `AT+SESSION=<epoch>,<key>,<rev>,<provider>,<state>,<last_task>,<finished_at>,<task_seconds>,<ctx_used>,<ctx_window>,<ctx_pct_bp>,<ctx_updated_at>,<project_name>,<host_label>,<session_short_name>` | 新增或更新一条会话 | `OK` | | ✅ |
 | `AT+DELETE=<epoch>,<key>` | 删除一条会话 | `OK` | | ✅ |
 | `AT+SYNCEND=<epoch>,<sync_id>` | 结束同步并删除未出现的旧会话 | `OK` | | ✅ |
 | `AT+LIST?` | 查询全部会话键及版本 | `+LIST:...`、`+ITEM:...`、`OK` | | ✅ |
@@ -45,7 +47,7 @@
 
 `AT+PAIRBEGIN`、`AT+PAIRCOMMIT=...` 和 `AT+AUTH=...` 属于二期规划；当前固件收到这些命令会返回 `+ERR:UNSUPPORTED_FEATURE`、`ERROR`。
 
-本次一期 UI 扩展继续使用协议主版本 **1**；之前版本未发布，不协商旧格式。SESSION、USAGE、TIME 的新增字段必须下发，旧字段数量返回 `INVALID_ARG`。服务端须同步适配。
+主机标识与 Session 短名扩展使用协议主版本 **2**，不协商旧格式。SESSION、USAGE、TIME 的完整字段必须下发，旧字段数量返回 `INVALID_ARG`。服务端须同步适配。
 
 ## 2. 行格式与日志
 
@@ -57,23 +59,23 @@
 
 ## 3. 设备发现
 
-`AT+HELLO=1,<nonce>` 中的 nonce 为 32 位小写十六进制字符。响应格式为 `+HELLO:<protocol_version>,<protocol>,<nonce>,<device_id>,<model>,<software_version>,<max_sessions>,<max_usage_entries>,<mode>`，随后 `OK`。服务端检查协议标识、nonce 回显、设备 ID、容量和模式；只有 `NORMAL` 才开始同步。这些字段用于识别协议兼容设备，不提供加密身份保证。`AT+INFO?` 的字段定义见第 18 节。
+`AT+HELLO=2,<nonce>` 中的 nonce 为 32 位小写十六进制字符。响应格式为 `+HELLO:<protocol_version>,<protocol>,<nonce>,<device_id>,<model>,<software_version>,<max_sessions>,<max_usage_entries>,<mode>`，随后 `OK`。服务端检查协议标识、nonce 回显、设备 ID、容量和模式；只有 `NORMAL` 才开始同步。这些字段用于识别协议兼容设备，不提供加密身份保证。`AT+INFO?` 的字段定义见第 18 节。
 
 | 字段 | 格式和含义 |
 |---|---|
-| `protocol_version` | 协议主版本，一位十进制数字，当前固定为 `1`；其他值返回 `UNSUPPORTED_VERSION` |
+| `protocol_version` | 协议主版本，一位十进制数字，当前固定为 `2`；其他值返回 `UNSUPPORTED_VERSION` |
 | `protocol` | 协议标识，固定为 `agentmate` |
 | `nonce` | 原样回显请求中的 32 位小写十六进制字符 |
 | `device_id` | 设备 ID，32 位小写十六进制字符；首次启动生成并写入 NVS，之后保持不变 |
 | `model` | 设备型号，当前为 `AGM-C3` |
-| `software_version` | 软件版本，格式为 `v<主版本>.<次版本>`，取自根目录 `CMakeLists.txt` 的 `project()` `VERSION` 并在编译时写入；当前为 `v1.1` |
+| `software_version` | 软件版本，格式为 `v<主版本>.<次版本>`，取自根目录 `CMakeLists.txt` 的 `project()` `VERSION` 并在编译时写入；当前为 `v1.2` |
 | `max_sessions` | 会话槽上限，当前为 `8`；`SESSION` 超出时返回 `CAPACITY` |
 | `max_usage_entries` | 用量记录上限，当前为 `4`；`USAGE` 超出时返回 `CAPACITY` |
 | `mode` | 当前模式，`FACTORY` 或 `NORMAL` |
 
 ```text
-AT+HELLO=1,fe6d7e13d354eb1f8d45968587589c65
-+HELLO:1,agentmate,fe6d7e13d354eb1f8d45968587589c65,8d2b47e0a99347c7a976d386dc194fa2,AGM-C3,v1.1,8,4,NORMAL
+AT+HELLO=2,fe6d7e13d354eb1f8d45968587589c65
++HELLO:2,agentmate,fe6d7e13d354eb1f8d45968587589c65,8d2b47e0a99347c7a976d386dc194fa2,AGM-C3,v1.2,8,4,NORMAL
 OK
 ```
 
@@ -104,7 +106,7 @@ OK
 
 ## 8. `AT+SESSION`：新增或更新一条会话
 
-**格式**：`AT+SESSION=<epoch>,<key>,<rev>,<provider>,<state>,<last_task>,<finished_at>,<task_seconds>,<ctx_used>,<ctx_window>,<ctx_pct_bp>,<ctx_updated_at>,<project_name>`。
+**格式**：`AT+SESSION=<epoch>,<key>,<rev>,<provider>,<state>,<last_task>,<finished_at>,<task_seconds>,<ctx_used>,<ctx_window>,<ctx_pct_bp>,<ctx_updated_at>,<project_name>,<host_label>,<session_short_name>`。
 
 | 参数 | 格式和含义 |
 |---|---|
@@ -121,6 +123,8 @@ OK
 | `ctx_pct_bp` | Claude context 占用百分数 × 100，范围 `0–10000`；例如 `600` 是 6.00% |
 | `ctx_updated_at` | Claude context 读数的 Unix 秒 |
 | `project_name` | 工程 basename 的百分号编码 UTF-8；解码后最多 64 字节，未知为空字段 |
+| `host_label` | LOCAL 或用户配置的 3–8 位大写字母、数字、下划线 |
+| `session_short_name` | S 加 1–4294967295 的十进制编号，无前导零；按来源独立分配 |
 
 `task_seconds` 只描述当次任务，不表示会话从创建至今的寿命。进行中的 `working`、`thinking`、`waiting_for_input`、`permission_required` 填从该次任务开始累计的秒数；设备用单调时钟在这个基准上继续累加，服务端不必按秒重发。`stale` 填进入该状态前的累计秒数，设备不再累加。`task_success`、`task_canceled`、`task_failed` 是暂时展示的任务状态，服务端通常在 60 秒后下发 `ready`，新任务或其他有效状态可提前覆盖；设备不自行计时回退。`last_task` 为 `completed`、`failed` 或 `cancelled` 时，填该次任务的总秒数，并保持到下一次任务替换它。状态、任务结果或 context 变化而发送本命令时，带上当时的秒数。时长的自然增长不是新的会话变化。
 
@@ -129,9 +133,9 @@ Claude 有读数时，四个 context 字段均填数字；当前读数未知时�
 设备以 `(epoch,key,rev)` 幂等处理重试：相同版本返回 `OK` 且不重复产生变化，也不重置 `task_seconds` 的本地累加基准；较小版本返回 `STALE_REV`。服务端若要校正时长，必须递增 `rev`。新 key 占用一个会话槽，容量已满时返回 `CAPACITY`；服务端应先 `DELETE` 不再入选的会话。同步期间成功写入的 key 同时标记为“本轮已看到”。进程退出后服务端使用 `DELETE` 移除设备会话，服务端内存中的 `ended` 历史可继续保留。
 
 ```text
-AT+SESSION=629d8a7097154fb0a3e5d74ea00665c1,s1,7,claude,working,-,0,42,12000,200000,600,1790769600,agentmate_esp32
+AT+SESSION=629d8a7097154fb0a3e5d74ea00665c1,s1,7,claude,working,-,0,42,12000,200000,600,1790769600,agentmate_esp32,LOCAL,S1
 OK
-AT+SESSION=629d8a7097154fb0a3e5d74ea00665c1,s2,3,codex,permission_required,-,0,15,,,,,agentmate_service
+AT+SESSION=629d8a7097154fb0a3e5d74ea00665c1,s2,3,codex,permission_required,-,0,15,,,,,agentmate_service,LOCAL,S2
 OK
 ```
 
@@ -173,11 +177,11 @@ OK
 
 ## 12. `AT+GET`：查询一条会话
 
-**格式**：`AT+GET=<key>`。设备返回 `+SESSION:<epoch>,<key>,<rev>,<provider>,<state>,<last_task>,<finished_at>,<task_seconds>,<ctx_used>,<ctx_window>,<ctx_pct_bp>,<ctx_updated_at>,<project_name>`，然后 `OK`；字段顺序、空值语义与 `AT+SESSION` 完全相同。`task_seconds` 返回最近一次成功写入的基准秒数，不包含设备为显示而在本地累加的时间。key 不存在时返回 `NOT_FOUND`。此命令供内容核对和人工诊断，不需频繁轮询。
+**格式**：`AT+GET=<key>`。设备返回 `+SESSION:<epoch>,<key>,<rev>,<provider>,<state>,<last_task>,<finished_at>,<task_seconds>,<ctx_used>,<ctx_window>,<ctx_pct_bp>,<ctx_updated_at>,<project_name>,<host_label>,<session_short_name>`，然后 `OK`；字段顺序、空值语义与 `AT+SESSION` 完全相同。`task_seconds` 返回最近一次成功写入的基准秒数，不包含设备为显示而在本地累加的时间。key 不存在时返回 `NOT_FOUND`。此命令供内容核对和人工诊断，不需频繁轮询。
 
 ```text
 AT+GET=s1
-+SESSION:629d8a7097154fb0a3e5d74ea00665c1,s1,7,claude,working,-,0,42,12000,200000,600,1790769600,agentmate_esp32
++SESSION:629d8a7097154fb0a3e5d74ea00665c1,s1,7,claude,working,-,0,42,12000,200000,600,1790769600,agentmate_esp32,LOCAL,S1
 OK
 ```
 
@@ -284,13 +288,13 @@ OK
 |---|---|
 | `device_id` | 设备 ID，32 位小写十六进制字符；与 `HELLO` 返回的同一值 |
 | `model` | 设备型号，当前为 `AGM-C3` |
-| `software_version` | 软件版本，格式为 `v<主版本>.<次版本>`，与 `HELLO` 返回的同一值；当前为 `v1.1` |
-| `protocol_version` | 协议主版本，一位十进制数字，当前固定为 `1` |
+| `software_version` | 软件版本，格式为 `v<主版本>.<次版本>`，与 `HELLO` 返回的同一值；当前为 `v1.2` |
+| `protocol_version` | 协议主版本，一位十进制数字，当前固定为 `2` |
 | `max_sessions` | 会话槽上限，当前为 `8` |
 
 ```text
 AT+INFO?
-+INFO:8d2b47e0a99347c7a976d386dc194fa2,AGM-C3,v1.1,1,8
++INFO:8d2b47e0a99347c7a976d386dc194fa2,AGM-C3,v1.2,2,8
 OK
 ```
 

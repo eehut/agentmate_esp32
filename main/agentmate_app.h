@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-04 3.0      Codex         Add protocol 2 host labels and session display names.
 #
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
@@ -54,7 +55,7 @@
 #define AM_EVENT_CACHE_SIZE 32
 #define AM_LINE_BYTES 512
 #define AM_PROJECT_BYTES 64
-#define AM_PROTOCOL_VERSION_TEXT "1"
+#define AM_PROTOCOL_VERSION_TEXT "2"
 #define AM_PRODUCT_MODEL "AGM-C3"
 
 #ifndef AM_SOFTWARE_VERSION
@@ -86,6 +87,8 @@ typedef struct {
     char key[9];
     uint64_t rev;
     char provider[17];
+    char host_label[9];
+    char session_short_name[12];
     char state[24];
     char project_name[AM_PROJECT_BYTES + 1];
     char last_task[10];

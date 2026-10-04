@@ -60,7 +60,7 @@ def main():
                 expect_ok(port, 'AT+PING=a1')
                 result = {'task_success':'completed', 'task_failed':'failed', 'task_canceled':'cancelled'}.get(state, '-')
                 finished = int(time.time()) if result != '-' else 0
-                expect_ok(port, f'AT+SESSION={epoch},led,{rev},codex,{state},{result},{finished},10,,,,,led_v2')
+                expect_ok(port, f'AT+SESSION={epoch},led,{rev},codex,{state},{result},{finished},10,,,,,led_v2,LOCAL,S1')
                 rows = capture(port, mode, duration, sums, masks)
                 if mode in (4, 5):
                     assert all(r['mask'].bit_count() == 6 for r in rows)

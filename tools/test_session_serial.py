@@ -40,7 +40,7 @@ def main():
             def session(key, state, rev=1):
                 result = {'task_success':'completed','task_failed':'failed','task_canceled':'cancelled'}.get(state, '-')
                 finished = int(time.time()) if result != '-' else 0
-                expect_ok(port, f'AT+SESSION={epoch},{key},{rev},codex,{state},{result},{finished},10,,,,,led_test')
+                expect_ok(port, f'AT+SESSION={epoch},{key},{rev},codex,{state},{result},{finished},10,,,,,led_test,LOCAL,S1')
             # Stable slots: work=1, thinking=2, stale=3, success=4, failed=5, canceled=6, input=7, permission=8.
             session('w', 'working')
             session('t', 'thinking')

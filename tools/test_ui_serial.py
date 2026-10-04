@@ -16,7 +16,7 @@ from test_at_serial import expect_error, expect_ok, query_value
 
 
 def hello(port):
-    return query_value(port, 'AT+HELLO=1,' + secrets.token_hex(16), '+HELLO:')
+    return query_value(port, 'AT+HELLO=2,' + secrets.token_hex(16), '+HELLO:')
 
 
 def synchronize(port, epoch, sync_id=1):
@@ -62,17 +62,17 @@ def main():
                 finished = int(time.time()) if result != '-' else 0
                 if provider == 'codex':
                     context = ',,,'
-                command = f'AT+SESSION={epoch},{key},{rev},{provider},{state},{result},{finished},{duration},{context},{project}'
+                command = f'AT+SESSION={epoch},{key},{rev},{provider},{state},{result},{finished},{duration},{context},{project},LOCAL,S1'
                 return expect_ok(port, command)
             session('s1', 1, 'working')
             row = query_value(port, 'AT+GET=s1', '+SESSION:').split(',')
-            assert len(row) == 13 and row[12] == encoded and row[7] == '725'
+            assert len(row) == 15 and row[12] == encoded and row[7] == '725' and row[13:] == ['LOCAL', 'S1']
             session('s1', 1, 'working')
             assert query_value(port, 'AT+GET=s1', '+SESSION:').split(',')[2] == '1'
-            expect_error(port, f'AT+SESSION={epoch},bad,1,claude,working,-,0,10,1,100,100,1', 'INVALID_ARG')
-            expect_error(port, f'AT+SESSION={epoch},bad,1,codex,working,-,0,10,,,,,%GG', 'INVALID_ARG')
-            expect_error(port, f'AT+SESSION={epoch},bad,1,codex,working,-,0,10,,,,,%C0%AF', 'INVALID_ARG')
-            expect_error(port, f'AT+SESSION={epoch},bad,1,codex,working,-,0,10,,,,,' + 'a'*65, 'INVALID_ARG')
+            expect_error(port, f'AT+SESSION={epoch},bad,1,claude,working,-,0,10,1,100,100,1,LOCAL,S1', 'INVALID_ARG')
+            expect_error(port, f'AT+SESSION={epoch},bad,1,codex,working,-,0,10,,,,,%GG,LOCAL,S1', 'INVALID_ARG')
+            expect_error(port, f'AT+SESSION={epoch},bad,1,codex,working,-,0,10,,,,,%C0%AF,LOCAL,S1', 'INVALID_ARG')
+            expect_error(port, f'AT+SESSION={epoch},bad,1,codex,working,-,0,10,,,,,' + 'a'*65 + ',LOCAL,S1', 'INVALID_ARG')
             for value in ('', '-1', '61', '10.5'):
                 expect_error(port, f'AT+SHOWINFO={value}', 'INVALID_ARG')
             expect_ok(port, 'AT+SHOWINFO=10')
@@ -105,7 +105,7 @@ def main():
             session(f's{max_sessions}', 2, 'thinking', provider='codex')
             full_list = query_value(port, 'AT+LIST?', '+LIST:').split(',')
             assert full_list[1:] == [str(max_sessions), str(max_sessions)]
-            expect_error(port, f'AT+SESSION={epoch},s{max_sessions+1},1,codex,working,-,0,0,,,,,', 'CAPACITY')
+            expect_error(port, f'AT+SESSION={epoch},s{max_sessions+1},1,codex,working,-,0,0,,,,,,LOCAL,S1', 'CAPACITY')
             if args.demo: time.sleep(8)
             expect_ok(port, f'AT+DELETE={epoch},s4')
             session(f's{max_sessions+1}', 1, 'working', provider='codex')

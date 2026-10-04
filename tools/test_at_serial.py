@@ -64,8 +64,8 @@ def test(port):
     if mode not in ("FACTORY", "NORMAL"):
         raise AssertionError(f"unexpected mode: {mode!r}")
     nonce = secrets.token_hex(16)
-    hello = query_value(port, f"AT+HELLO=1,{nonce}", "+HELLO:").split(",")
-    if len(hello) != 9 or hello[:3] != ["1", "agentmate", nonce] or hello[-1] != mode:
+    hello = query_value(port, f"AT+HELLO=2,{nonce}", "+HELLO:").split(",")
+    if len(hello) != 9 or hello[:3] != ["2", "agentmate", nonce] or hello[-1] != mode:
         raise AssertionError(f"bad HELLO response: {hello!r}")
     print(f"Device {hello[3]}, mode {mode}")
 

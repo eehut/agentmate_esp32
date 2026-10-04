@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-04 2.0      Codex         Declare protocol 2 label validation.
 #
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
@@ -37,5 +38,8 @@ uint32_t am_utf8_next(const char **text);
 bool am_project_decode(const char *encoded, char *out);
 void am_project_encode(const char *text, char *out);
 bool am_parse_offset(const char *text, int16_t *offset);
+
+bool am_host_label_valid(const char *value);
+bool am_session_short_name_valid(const char *value);
 
 #endif

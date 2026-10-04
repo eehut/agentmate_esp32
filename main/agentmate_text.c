@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-04 2.0      Codex         Validate protocol 2 host and session labels.
 #
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
@@ -28,6 +29,7 @@
 */
 
 #include "agentmate_text.h"
+#include <string.h>
 
 #include <stddef.h>
 
@@ -148,4 +150,35 @@ bool am_parse_offset(const char *text, int16_t *offset)
     }
     *offset = (int16_t)(sign * value);
     return true;
+}
+
+
+bool am_host_label_valid(const char *value)
+{
+    size_t length = strlen(value);
+    if (length < 3 || length > 8) {
+        return false;
+    }
+    for (size_t i = 0; i < length; ++i) {
+        if (!((value[i] >= 'A' && value[i] <= 'Z') || (value[i] >= '0' && value[i] <= '9') || value[i] == '_')) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool am_session_short_name_valid(const char *value)
+{
+    size_t length = strlen(value);
+    if (length < 2 || length > 11 || value[0] != 'S' || value[1] < '1' || value[1] > '9') {
+        return false;
+    }
+    uint64_t number = 0;
+    for (size_t i = 1; i < length; ++i) {
+        if (value[i] < '0' || value[i] > '9') {
+            return false;
+        }
+        number = number * 10 + (uint64_t)(value[i] - '0');
+    }
+    return number <= UINT32_MAX;
 }

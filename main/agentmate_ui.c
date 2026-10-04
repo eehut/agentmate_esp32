@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-04 3.0      Codex         Add protocol 2 host labels and session display names.
 #
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
@@ -474,18 +475,25 @@ static void session_page(const am_session_t *session, const struct am_ui_selecti
     am_scene_bitmap(&s_scene, 27, 84, 36, 36, strcmp(session->provider, "claude") == 0 ? s_am_icon_claude : s_am_icon_codex);
     am_scene_rect(&s_scene, 69, 56, 1, 146, TFT_RGB565(86, 96, 135), 0);
     char identity[32];
-    snprintf(identity, sizeof(identity), "%s·%s", session->provider, session->key);
-    for (char *p = identity; *p; ++p) {
-        if ((unsigned char)*p < 128) {
-            *p = (char)toupper((unsigned char)*p);
+    snprintf(identity, sizeof(identity), "%s*%s", session->host_label, session->session_short_name);
+    static struct am_font s_identity_fonts[6];
+    const struct am_font *identity_font = &s_identity_fonts[0];
+    const uint8_t scales[][2] = {{1, 1}, {7, 8}, {3, 4}, {2, 3}, {1, 2}, {2, 5}};
+    for (size_t i = 0; i < sizeof(scales) / sizeof(scales[0]); ++i) {
+        if (s_identity_fonts[i].glyphs == NULL) {
+            s_identity_fonts[i] = g_am_font_identity;
+            s_identity_fonts[i].scale_num = scales[i][0];
+            s_identity_fonts[i].scale_den = scales[i][1];
+        }
+        identity_font = &s_identity_fonts[i];
+        if (am_text_width(identity_font, identity) <= 121 && am_text_ink_width(identity_font, identity) <= 121) {
+            break;
         }
     }
-    int bar_width = am_text_width(&g_am_font_identity, identity) + 16;
-    if (bar_width > 137) {
-        bar_width = 137;
-    }
+    int bar_width = am_text_width(identity_font, identity) + 16;
     am_scene_rect(&s_scene, 78, 58, bar_width, 24, title_color, 7);
-    am_scene_text(&s_scene, 86, 59, bar_width - 16, &g_am_font_identity, TFT_COLOR_WHITE, identity, -1);
+    am_scene_text(&s_scene, 86, 59 + (19 - (identity_font->height * identity_font->scale_num / identity_font->scale_den)) / 2,
+                  bar_width - 16, identity_font, TFT_COLOR_WHITE, identity, -1);
     bool large_directory = am_text_width(&g_am_font_directory_large, session->project_name) <= 137 &&
                            am_text_ink_width(&g_am_font_directory_large, session->project_name) <= 137;
     const struct am_font *directory_font = large_directory ?

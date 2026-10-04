@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-04 3.0      Codex         Add protocol 2 host labels and session display names.
 #
 # 2026-10-02 2.0      Codex         Implemented phase-one UI protocol extensions.
 # 2026-10-03 2.5      Codex         Report successful status animation frames in optional diagnostics.
@@ -435,12 +436,13 @@ static void handle_sync_begin(am_app_t *app, char *argument)
 
 static void handle_session(am_app_t *app, char *argument)
 {
-    char *f[13];
+    char *f[15];
     char project[AM_PROJECT_BYTES + 1];
     uint64_t rev, finished, duration, ctx_used = 0, ctx_window = 0, ctx_pct = 0, ctx_updated = 0;
-    if (split_csv(argument, f, 13) != 13 || !is_lower_hex(f[0], 32) || !is_short_key(f[1], 8) || !parse_u64(f[2], &rev) || rev == 0 || !valid_provider(f[3]) ||
+    if (split_csv(argument, f, 15) != 15 || !is_lower_hex(f[0], 32) || !is_short_key(f[1], 8) || !parse_u64(f[2], &rev) || rev == 0 || !valid_provider(f[3]) ||
         !valid_session_state(f[4]) || !valid_task(f[5]) || !parse_u64(f[6], &finished) || !parse_bounded(f[7], UINT32_MAX, &duration) ||
-        ((strcmp(f[5], "-") == 0) != (finished == 0)) || !am_project_decode(f[12], project)) {
+        ((strcmp(f[5], "-") == 0) != (finished == 0)) || !am_project_decode(f[12], project) ||
+        !am_host_label_valid(f[13]) || !am_session_short_name_valid(f[14])) {
         send_error("INVALID_ARG");
         return;
     }
@@ -493,6 +495,8 @@ static void handle_session(am_app_t *app, char *argument)
     memset(entry, 0, sizeof(*entry));
     entry->used = true;
     memcpy(entry->project_name, project, strlen(project) + 1);
+    memcpy(entry->host_label, f[13], strlen(f[13]) + 1);
+    memcpy(entry->session_short_name, f[14], strlen(f[14]) + 1);
     if (attention) {
         app->model.attention_sequence++;
         memcpy(app->model.attention_key, f[1], strlen(f[1]) + 1);
@@ -605,8 +609,9 @@ static void handle_get(am_app_t *app, char *key)
     }
     char project[AM_PROJECT_BYTES * 3 + 1];
     am_project_encode(s->project_name, project);
-    (void)write_line("+SESSION:%s,%s,%llu,%s,%s,%s,%llu,%u,%s,%s", app->model.epoch, s->key, (unsigned long long)s->rev, s->provider, s->state, s->last_task,
-                     (unsigned long long)s->finished_at, s->task_seconds, context, project);
+    (void)write_line("+SESSION:%s,%s,%llu,%s,%s,%s,%llu,%u,%s,%s,%s,%s", app->model.epoch, s->key,
+                     (unsigned long long)s->rev, s->provider, s->state, s->last_task,
+                     (unsigned long long)s->finished_at, s->task_seconds, context, project, s->host_label, s->session_short_name);
     (void)write_line("OK");
 }
 
