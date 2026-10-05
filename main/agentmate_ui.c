@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-05 3.1      Codex         Use a middle dot between host and session names.
 # 2026-10-04 3.0      Codex         Add protocol 2 host labels and session display names.
 #
 # Date       Version  Author       Description
@@ -475,7 +476,7 @@ static void session_page(const am_session_t *session, const struct am_ui_selecti
     am_scene_bitmap(&s_scene, 27, 84, 36, 36, strcmp(session->provider, "claude") == 0 ? s_am_icon_claude : s_am_icon_codex);
     am_scene_rect(&s_scene, 69, 56, 1, 146, TFT_RGB565(86, 96, 135), 0);
     char identity[32];
-    snprintf(identity, sizeof(identity), "%s*%s", session->host_label, session->session_short_name);
+    snprintf(identity, sizeof(identity), "%s·%s", session->host_label, session->session_short_name);
     static struct am_font s_identity_fonts[6];
     const struct am_font *identity_font = &s_identity_fonts[0];
     const uint8_t scales[][2] = {{1, 1}, {7, 8}, {3, 4}, {2, 3}, {1, 2}, {2, 5}};

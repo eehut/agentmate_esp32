@@ -587,7 +587,7 @@ static void test_render(const char *directory)
     memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true); session_page(&s, &sel, s_now, 0);
     bool identity_found = false;
     for (int i = 0; i < s_scene.count; ++i) {
-        if (s_scene.ops[i].kind == AM_OP_TEXT && strcmp(s_scene.ops[i].text, "WWWWWWWW*S4294967295") == 0) {
+        if (s_scene.ops[i].kind == AM_OP_TEXT && strcmp(s_scene.ops[i].text, "WWWWWWWW·S4294967295") == 0) {
             identity_found = true;
             assert(s_scene.ops[i].x >= 78 && s_scene.ops[i].x + s_scene.ops[i].width <= 215);
         }

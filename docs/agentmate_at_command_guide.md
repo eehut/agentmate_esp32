@@ -1,4 +1,4 @@
-> 协议 2 更新：SESSION 和 GET 新增主机标识与 Session 短名；设备页标题为 LOCAL*S1 / WSL*S1，provider 使用图标。必须配套升级主机服务；不接受旧版 13 字段 SESSION。
+> 协议 2 更新：SESSION 和 GET 新增主机标识与 Session 短名；设备页标题为 LOCAL·S1 / WSL·S1（中间为圆点），provider 使用图标。必须配套升级主机服务；不接受旧版 13 字段 SESSION。
 
 # AgentMate AT 指令指南
 
