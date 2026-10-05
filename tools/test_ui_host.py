@@ -13,7 +13,7 @@ def main():
     (out/'animation').mkdir(exist_ok=True)
     fonts=ROOT/'components/lcd_font'
     cmd=['cc','-std=c11','-g','-O1','-Wall','-Wextra','-Werror','-Wno-sign-compare','-fsanitize=address,undefined',
-         '-D_POSIX_C_SOURCE=200809L','-DAM_SOFTWARE_VERSION="v1.2"',
+         '-D_POSIX_C_SOURCE=200809L','-DAM_SOFTWARE_VERSION="v1.3"',
          '-DCONFIG_LCD_FONT_ASCII_10X18=1','-DCONFIG_LCD_FONT_SUN_ASCII_12X22=1','-DCONFIG_LCD_FONT_TER_ASCII_16X32=1',
          '-I'+str(ROOT/'tests/stubs'),'-I'+str(ROOT/'main'),'-I'+str(fonts),
          str(ROOT/'tests/test_ui.c'), str(ROOT/'tests/test_led.c'),*[str(ROOT/'main'/f) for f in ['agentmate_status.c','agentmate_led.c','agentmate_usage.c','agentmate_text.c','agentmate_ui_state.c','agentmate_ui_render.c','agentmate_ui_assets.c']],
