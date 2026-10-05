@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-06 3.2      Codex         Check larger quota numbers and lowered five-hour group.
 # 2026-10-06 3.1      Codex         Verify session quota progress bars and shared usage selection.
 # 2026-10-04 3.0      Codex         Add protocol 2 host labels and session display names.
 #
@@ -477,13 +478,15 @@ static void test_session_quota(const char *directory)
         assert(s_scene.count < AM_UI_OPS);
         const struct am_ui_op *bar = &s_scene.ops[s_scene.count - 4];
         const struct am_ui_op *value = bar + 1;
-        assert(bar->kind == AM_OP_PROGRESS && bar->x == 31 && bar->y == 147 && bar->width == 28 && bar->height == 3);
+        assert(bar->kind == AM_OP_PROGRESS && bar->x == 31 && bar->y == 150 && bar->width == 28 && bar->height == 3);
         assert(bar->remaining_bp == (s_cases[i].used_bp < 0 ? 0 : 10000 - s_cases[i].used_bp));
         assert(bar->color == s_cases[i].color && bar->track_color == C_LINE && bar->radius == 1);
         assert(value->kind == AM_OP_TEXT && strcmp(value->text, s_cases[i].text) == 0 && value->color == s_cases[i].color);
-        assert(value->x >= 32 && value->x + value->width <= 58 && value->y == 128 && value->font == &g_am_font_small);
+        assert(value->x >= 32 && value->x + value->width <= 58 && value->y == 131 && value->font == &g_am_font_label);
+        assert(value->height == 17 && value->y + value->height < bar->y);
         assert((bar + 2)->kind == AM_OP_PROGRESS && (bar + 2)->y == 182);
         assert(strcmp((bar + 3)->text, "8") == 0);
+        assert((bar + 3)->y == 163 && (bar + 3)->font == &g_am_font_label && (bar + 3)->height == 17);
         s_submitted_pixels = 0;
         assert(am_scene_render(&app, &previous, &s_scene, i == 0) == ESP_OK);
         if (i) {

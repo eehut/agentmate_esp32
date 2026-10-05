@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-06 3.3      Codex         Lower five-hour quota and enlarge both quota numbers.
 # 2026-10-06 3.2      Codex         Show Codex remaining quotas as two session-page progress bars.
 # 2026-10-05 3.1      Codex         Use a middle dot between host and session names.
 # 2026-10-04 3.0      Codex         Add protocol 2 host labels and session display names.
@@ -484,9 +485,9 @@ static void session_quota(const am_model_t *model, const struct am_ui_selection 
             snprintf(value, sizeof(value), "%d", percent);
             color = percent >= 50 ? C_MINT : percent >= 20 ? C_AMBER : C_CORAL;
         }
-        int y = 128 + i * 35;
+        int y = i ? 163 : 131;
         am_scene_progress(&s_scene, 31, y + 19, 28, 3, color, C_LINE, remaining_bp < 0 ? 0 : remaining_bp);
-        am_scene_text(&s_scene, 32, y, 26, &g_am_font_small, color, value, 0);
+        am_scene_text(&s_scene, 32, y, 26, &g_am_font_label, color, value, 0);
     }
 }
 
