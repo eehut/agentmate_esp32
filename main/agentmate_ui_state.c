@@ -22,6 +22,7 @@
 #
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
+# 2026-10-06 1.3      Codex         Select published Codex quota windows for session pages too.
 # 2026-10-03 1.2      Codex         Prioritize attention, results and work without same-group interruption.
 # 2026-10-03 1.1      Codex         Rotate usage and clock within standby every five seconds.
 # 2026-10-02 1.0      Codex         Created phase-one implementation.
@@ -127,6 +128,7 @@ void am_ui_select(const am_model_t *model, struct am_ui_schedule *schedule, int6
     memset(selection, 0, sizeof(*selection));
     selection->usage[0] = -1;
     selection->usage[1] = -1;
+    select_usage(model, selection->usage);
     if (schedule->remote_generation != model->remote_generation) {
         memset(schedule, 0, sizeof(*schedule));
         schedule->remote_generation = model->remote_generation;
@@ -148,7 +150,6 @@ void am_ui_select(const am_model_t *model, struct am_ui_schedule *schedule, int6
     selection->page = group == AM_GROUP_CONNECT ? AM_PAGE_CONNECT : group == AM_GROUP_IDLE ? AM_PAGE_IDLE :
                       group == AM_GROUP_RESULT ? AM_PAGE_RESULT : AM_PAGE_TASK;
     if (group == AM_GROUP_IDLE && model->usage_supported) {
-        select_usage(model, selection->usage);
         if (!schedule->idle_usage_supported) {
             schedule->page_since_us = now;
         }

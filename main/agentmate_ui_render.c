@@ -22,6 +22,7 @@
 #
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
+# 2026-10-06 1.3      Codex         Render quota progress tracks with bounded updates.
 # 2026-10-03 1.2      Codex         Composite animated borders and submit unchanged bounds once.
 # 2026-10-03 1.1      Codex         Render two directory sizes from cropped shared glyphs.
 # 2026-10-02 1.0      Codex         Created phase-one implementation.
@@ -157,6 +158,17 @@ void am_scene_disc(struct am_ui_scene *scene, int x, int y, int radius, uint16_t
     new_op(scene, AM_OP_DISC, x - radius, y - radius, radius * 2 + 1, radius * 2 + 1, color);
 }
 
+void am_scene_progress(struct am_ui_scene *scene, int x, int y, int width, int height, uint16_t color, uint16_t track_color,
+                       unsigned remaining_bp)
+{
+    struct am_ui_op *op = new_op(scene, AM_OP_PROGRESS, x, y, width, height, color);
+    if (op) {
+        op->radius = height / 2 < width / 2 ? height / 2 : width / 2;
+        op->track_color = track_color;
+        op->remaining_bp = remaining_bp > 10000 ? 10000 : remaining_bp;
+    }
+}
+
 void am_scene_mask(struct am_ui_scene *scene, int x, int y, const struct am_image *image, uint16_t color)
 {
     struct am_ui_op *op = new_op(scene, AM_OP_MASK, x, y, image->width, image->height, color);
@@ -257,6 +269,7 @@ static void paint_op(const struct am_ui_op *op, int bx, int by, int width, int h
     int end_y = op->y + op->height < by + height ? op->y + op->height : by + height;
     int start_x = op->x > bx ? op->x : bx;
     int end_x = op->x + op->width < bx + width ? op->x + op->width : bx + width;
+    int filled_width = op->kind == AM_OP_PROGRESS ? (op->width * op->remaining_bp + 5000) / 10000 : 0;
     for (int y = start_y; y < end_y; ++y) {
         for (int x = start_x; x < end_x; ++x) {
             unsigned alpha = opacity;
@@ -272,7 +285,7 @@ static void paint_op(const struct am_ui_op *op, int bx, int by, int width, int h
                 if (cx * cx + cy * cy > radius * radius) {
                     continue;
                 }
-            } else if (op->kind == AM_OP_RECT && op->radius) {
+            } else if ((op->kind == AM_OP_RECT || op->kind == AM_OP_PROGRESS) && op->radius) {
                 int r = op->radius;
                 int cx = dx < r ? r - dx : dx >= op->width - r ? dx - (op->width - r - 1) : 0;
                 int cy = dy < r ? r - dy : dy >= op->height - r ? dy - (op->height - r - 1) : 0;
@@ -285,6 +298,9 @@ static void paint_op(const struct am_ui_op *op, int bx, int by, int width, int h
                 alpha = (index % 2 ? packed & 15 : packed >> 4) * 17 * opacity / 255;
             } else if (op->kind == AM_OP_BITMAP) {
                 color = op->bitmap[dy * op->width + dx];
+            }
+            if (op->kind == AM_OP_PROGRESS) {
+                color = dx < filled_width ? op->color : op->track_color;
             }
             paint_pixel(x, y, bx, by, width, height, color, alpha);
         }

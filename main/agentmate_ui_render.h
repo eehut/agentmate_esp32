@@ -22,6 +22,7 @@
 #
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
+# 2026-10-06 1.3      Codex         Add remaining-quota progress scene operations.
 # 2026-10-03 1.2      Codex         Add bounded animated status border elements.
 # 2026-10-03 1.1      Codex         Expose ink bounds for complete directory font selection.
 # 2026-10-02 1.0      Codex         Created phase-one implementation.
@@ -39,11 +40,13 @@
 #define AM_UI_BG TFT_RGB565(20, 23, 51)
 #define AM_UI_OPS 48
 
-enum am_op_kind { AM_OP_TEXT, AM_OP_RECT, AM_OP_DISC, AM_OP_MASK, AM_OP_BITMAP, AM_OP_STATUS_FRAME };
+enum am_op_kind { AM_OP_TEXT, AM_OP_RECT, AM_OP_DISC, AM_OP_MASK, AM_OP_BITMAP, AM_OP_STATUS_FRAME, AM_OP_PROGRESS };
 struct am_ui_op {
     enum am_op_kind kind;
     int16_t x, y, width, height;
     uint16_t color;
+    uint16_t track_color;
+    uint16_t remaining_bp;
     uint8_t radius;
     uint8_t animation_frame;
     enum am_status_kind status_kind;
@@ -66,6 +69,8 @@ void am_scene_text(struct am_ui_scene *scene, int x, int y, int width, const str
                    const char *text, int alignment);
 void am_scene_rect(struct am_ui_scene *scene, int x, int y, int width, int height, uint16_t color, int radius);
 void am_scene_disc(struct am_ui_scene *scene, int x, int y, int radius, uint16_t color);
+void am_scene_progress(struct am_ui_scene *scene, int x, int y, int width, int height, uint16_t color, uint16_t track_color,
+                   unsigned remaining_bp);
 void am_scene_mask(struct am_ui_scene *scene, int x, int y, const struct am_image *image, uint16_t color);
 void am_scene_bitmap(struct am_ui_scene *scene, int x, int y, int width, int height, const uint16_t *bitmap);
 void am_scene_status(struct am_ui_scene *scene, const struct am_status_visual *visual);

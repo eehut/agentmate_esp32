@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-06 3.2      Codex         Show Codex remaining quotas as two session-page progress bars.
 # 2026-10-05 3.1      Codex         Use a middle dot between host and session names.
 # 2026-10-04 3.0      Codex         Add protocol 2 host labels and session display names.
 #
@@ -468,7 +469,29 @@ static void info_page(const am_app_t *app, const am_model_t *model, uint8_t tft,
     }
 }
 
-static void session_page(const am_session_t *session, const struct am_ui_selection *selection, int64_t now, uint32_t generation)
+static void session_quota(const am_model_t *model, const struct am_ui_selection *selection)
+{
+    for (int i = 0; i < 2; ++i) {
+        int slot = selection->usage[i];
+        const am_usage_t *usage = slot >= 0 && slot < AM_MAX_USAGE_ENTRIES ? &model->usages[slot] : NULL;
+        int remaining_bp = usage && usage->used && usage->used_bp >= 0 ? 10000 - usage->used_bp : -1;
+        uint16_t color = C_MUTED;
+        char value[4];
+        if (remaining_bp < 0) {
+            snprintf(value, sizeof(value), "--");
+        } else {
+            int percent = (remaining_bp + 50) / 100;
+            snprintf(value, sizeof(value), "%d", percent);
+            color = percent >= 50 ? C_MINT : percent >= 20 ? C_AMBER : C_CORAL;
+        }
+        int y = 128 + i * 35;
+        am_scene_progress(&s_scene, 31, y + 19, 28, 3, color, C_LINE, remaining_bp < 0 ? 0 : remaining_bp);
+        am_scene_text(&s_scene, 32, y, 26, &g_am_font_small, color, value, 0);
+    }
+}
+
+static void session_page(const am_model_t *model, const am_session_t *session, const struct am_ui_selection *selection,
+                         int64_t now, uint32_t generation)
 {
     bool claude = strcmp(session->provider, "claude") == 0;
     uint16_t provider_color = claude ? C_CLAUDE : C_CODEX;
@@ -549,7 +572,9 @@ static void session_page(const am_session_t *session, const struct am_ui_selecti
                           i == selection->current ? 3 : 2, i == selection->current ? color : TFT_RGB565(59, 64, 112));
         }
     }
-    if (session->context_mode == 2) {
+    if (!claude) {
+        session_quota(model, selection);
+    } else if (session->context_mode == 2) {
         char context[3][32];
         snprintf(context[0], sizeof(context[0]), "%u.%02u%%", session->ctx_pct_bp / 100, session->ctx_pct_bp % 100);
         snprintf(context[1], sizeof(context[1]), "%lluk", (unsigned long long)(session->ctx_used / 1000));
@@ -749,7 +774,7 @@ void am_ui_run(am_app_t *app)
             break;
         case AM_PAGE_TASK:
         case AM_PAGE_RESULT:
-            session_page(&s_snapshot.sessions[selection.slots[selection.current]], &selection, now, s_snapshot.remote_generation);
+            session_page(&s_snapshot, &s_snapshot.sessions[selection.slots[selection.current]], &selection, now, s_snapshot.remote_generation);
             break;
         case AM_PAGE_USAGE:
             usage_page(&s_snapshot, &selection, utc);

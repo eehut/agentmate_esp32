@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-06 3.1      Codex         Verify session quota progress bars and shared usage selection.
 # 2026-10-04 3.0      Codex         Add protocol 2 host labels and session display names.
 #
 # Date       Version  Author       Description
@@ -348,13 +349,14 @@ static const struct am_ui_op *project_op(void)
 
 static void test_directory_fonts(void)
 {
+    am_model_t model = {0};
     am_session_t current = session("s1", "working", "codex");
     struct am_ui_selection selection = {.count = 1};
     const char *names[] = {"agentmate", "工程目录", "agentmate-provider-registry-dashboard", ""};
     for (int i = 0; i < 4; ++i) {
         strcpy(current.project_name, names[i]);
         memset(&s_scene, 0, sizeof(s_scene));
-        session_page(&current, &selection, 1000000, 0);
+        session_page(&model, &current, &selection, 1000000, 0);
         if (i == 3) {
             continue;
         }
@@ -373,10 +375,10 @@ static void test_directory_fonts(void)
         strcat(name, "W");
     }
     strcpy(current.project_name, name);
-    memset(&s_scene, 0, sizeof(s_scene)); session_page(&current, &selection, 1000000, 0);
+    memset(&s_scene, 0, sizeof(s_scene)); session_page(&model, &current, &selection, 1000000, 0);
     assert(project_op()->font == &g_am_font_directory_large);
     strcat(name, "W"); strcpy(current.project_name, name);
-    memset(&s_scene, 0, sizeof(s_scene)); session_page(&current, &selection, 1000000, 0);
+    memset(&s_scene, 0, sizeof(s_scene)); session_page(&model, &current, &selection, 1000000, 0);
     assert(project_op()->font == &g_am_font_directory);
     assert(am_text_ink_width(&g_am_font_directory, "工程目录") < am_text_ink_width(&g_am_font_directory_large, "工程目录"));
 }
@@ -425,8 +427,131 @@ static void test_usage_colors(void)
 }
 
 
+static void test_session_quota(const char *directory)
+{
+    static const struct {
+        int used_bp;
+        const char *text;
+        uint16_t color;
+    } s_cases[] = {
+        {0, "100", C_MINT}, {4200, "58", C_MINT}, {5000, "50", C_MINT}, {5050, "50", C_MINT},
+        {5051, "49", C_AMBER}, {6500, "35", C_AMBER}, {8000, "20", C_AMBER}, {8050, "20", C_AMBER},
+        {8051, "19", C_CORAL}, {9200, "8", C_CORAL}, {9950, "1", C_CORAL}, {9951, "0", C_CORAL},
+        {10000, "0", C_CORAL}, {-1, "--", C_MUTED},
+    };
+    am_app_t app = {0};
+    am_model_t *model = &app.model;
+    model->link = AM_LINK_ONLINE;
+    model->sessions[0] = session("s1", "working", "codex");
+    model->usages[0] = (am_usage_t){.used = true, .used_bp = 4200, .window_seconds = 18000};
+    strcpy(model->usages[0].provider, "codex");
+    strcpy(model->usages[0].metric, "b");
+    strcpy(model->usages[0].window, "primary");
+    model->usages[1] = model->usages[0];
+    model->usages[1].window_seconds = 604800;
+    strcpy(model->usages[1].metric, "a");
+    struct am_ui_schedule schedule = {0};
+    struct am_ui_selection selection;
+    am_ui_select(model, &schedule, 1000000, &selection);
+    assert(selection.page == AM_PAGE_TASK && selection.usage[0] == -1 && selection.usage[1] == 1);
+    model->usages[2] = model->usages[0];
+    strcpy(model->usages[2].metric, "a");
+    model->usages[3] = model->usages[2];
+    strcpy(model->usages[3].window, "aaa");
+    am_ui_select(model, &schedule, 1000000, &selection);
+    assert(selection.usage[0] == 3 && selection.usage[1] == 1);
+    strcpy(model->usages[3].provider, "claude");
+    am_ui_select(model, &schedule, 1000000, &selection);
+    assert(selection.usage[0] == 2 && selection.usage[1] == 1);
+    int64_t page_since = schedule.page_since_us;
+    struct am_ui_scene previous = {0};
+    for (size_t i = 0; i < sizeof(s_cases) / sizeof(s_cases[0]); ++i) {
+        model->usages[2].used_bp = s_cases[i].used_bp;
+        model->usages[1].used_bp = 9200;
+        am_ui_select(model, &schedule, 1000000, &selection);
+        assert(selection.page == AM_PAGE_TASK && schedule.page_since_us == page_since);
+        memset(&s_scene, 0, sizeof(s_scene));
+        s_scene.body_alpha = 255;
+        business_header(true);
+        session_page(model, &model->sessions[0], &selection, 1000000, 0);
+        assert(s_scene.count < AM_UI_OPS);
+        const struct am_ui_op *bar = &s_scene.ops[s_scene.count - 4];
+        const struct am_ui_op *value = bar + 1;
+        assert(bar->kind == AM_OP_PROGRESS && bar->x == 31 && bar->y == 147 && bar->width == 28 && bar->height == 3);
+        assert(bar->remaining_bp == (s_cases[i].used_bp < 0 ? 0 : 10000 - s_cases[i].used_bp));
+        assert(bar->color == s_cases[i].color && bar->track_color == C_LINE && bar->radius == 1);
+        assert(value->kind == AM_OP_TEXT && strcmp(value->text, s_cases[i].text) == 0 && value->color == s_cases[i].color);
+        assert(value->x >= 32 && value->x + value->width <= 58 && value->y == 128 && value->font == &g_am_font_small);
+        assert((bar + 2)->kind == AM_OP_PROGRESS && (bar + 2)->y == 182);
+        assert(strcmp((bar + 3)->text, "8") == 0);
+        s_submitted_pixels = 0;
+        assert(am_scene_render(&app, &previous, &s_scene, i == 0) == ESP_OK);
+        if (i) {
+            assert(s_submitted_pixels < 2500);
+        }
+        check_incremental(&app, &previous);
+        if (i == 0 || i == 1 || i == 5 || i == 12 || i == 13) {
+            char name[48];
+            snprintf(name, sizeof(name), "codex_quota_%s", s_cases[i].text);
+            write_ppm(directory, name);
+        }
+    }
+    /* Pending batches stay invisible; completion updates the active session atomically. */
+    am_usage_t updated = model->usages[2];
+    updated.used_bp = 6500;
+    assert(am_usage_begin(&app, "codex", 1, 1000000) == AM_USAGE_OK);
+    assert(am_usage_write(&app, &updated) == AM_USAGE_OK);
+    assert(model->usages[2].used_bp == -1);
+    assert(am_usage_end(&app, "codex", 1) == AM_USAGE_OK);
+    am_ui_select(model, &schedule, 1000000, &selection);
+    assert(selection.usage[0] >= 0 && selection.usage[1] == -1 && selection.page == AM_PAGE_TASK);
+    memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true);
+    session_page(model, &model->sessions[0], &selection, 1000000, 0);
+    assert(strcmp(s_scene.ops[s_scene.count - 3].text, "35") == 0 && strcmp(s_scene.ops[s_scene.count - 1].text, "--") == 0);
+    check_incremental(&app, &previous); write_ppm(directory, "codex_quota_single");
+    am_usage_clear(&app, "codex");
+    am_ui_select(model, &schedule, 1000000, &selection);
+    assert(selection.usage[0] == -1 && selection.usage[1] == -1 && selection.page == AM_PAGE_TASK);
+    memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true);
+    session_page(model, &model->sessions[0], &selection, 1000000, 0);
+    assert(strcmp(s_scene.ops[s_scene.count - 3].text, "--") == 0 && strcmp(s_scene.ops[s_scene.count - 1].text, "--") == 0);
+    check_incremental(&app, &previous); write_ppm(directory, "codex_quota_missing");
+    static const char *const s_states[] = {"working", "thinking", "waiting_for_input", "permission_required", "stale",
+                                         "task_success", "task_failed", "task_canceled"};
+    selection.count = AM_MAX_SESSIONS;
+    for (size_t i = 0; i < sizeof(s_states) / sizeof(s_states[0]); ++i) {
+        strcpy(model->sessions[0].state, s_states[i]);
+        memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true);
+        session_page(model, &model->sessions[0], &selection, 1000000, 0);
+        assert(s_scene.count < AM_UI_OPS && s_scene.ops[s_scene.count - 4].kind == AM_OP_PROGRESS);
+        check_incremental(&app, &previous);
+    }
+    strcpy(model->sessions[0].provider, "claude");
+    model->sessions[0].context_mode = 2;
+    model->sessions[0].ctx_pct_bp = 600;
+    memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true);
+    session_page(model, &model->sessions[0], &selection, 1000000, 0);
+    for (int i = 0; i < s_scene.count; ++i) {
+        assert(s_scene.ops[i].kind != AM_OP_PROGRESS);
+    }
+    assert(strcmp(s_scene.ops[s_scene.count - 3].text, "6.00%") == 0);
+    check_incremental(&app, &previous);
+    /* Inspect left-to-right progress independently of the unchanged numeric font. */
+    const unsigned portions[] = {0, 2500, 5000, 7500, 10000};
+    for (size_t i = 0; i < sizeof(portions) / sizeof(portions[0]); ++i) {
+        memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255;
+        am_scene_progress(&s_scene, 31, 147, 28, 3, C_MINT, C_LINE, portions[i]);
+        check_incremental(&app, &previous);
+        assert(s_screen[146 * 240 + 45] == AM_UI_BG && s_screen[150 * 240 + 45] == AM_UI_BG);
+        for (int x = 0; x < 28; ++x) {
+            assert(s_screen[148 * 240 + 31 + x] == (x < (int)i * 7 ? C_MINT : C_LINE));
+        }
+    }
+}
+
 static void test_status_animation(const char *directory)
 {
+    am_model_t model = {0};
     static const char *s_states[] = {"working", "thinking", "waiting_for_input", "permission_required",
                                     "stale", "task_success", "task_failed", "task_canceled"};
     static const unsigned s_periods[] = {24, 40, 20, 20, 30, 40, 24, 40};
@@ -456,7 +581,7 @@ static void test_status_animation(const char *directory)
         memset(&s_status_animation, 0, sizeof(s_status_animation));
         for (unsigned frame = 0; frame <= s_periods[i]; ++frame) {
             memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true);
-            session_page(&current, &selection, 1000000 + frame * AM_STATUS_TICK_US, i + 10);
+            session_page(&model, &current, &selection, 1000000 + frame * AM_STATUS_TICK_US, i + 10);
             const struct am_ui_op *border = NULL;
             const struct am_ui_op *label = NULL;
             for (int op = 0; op < s_scene.count; ++op) {
@@ -580,11 +705,11 @@ static void test_render(const char *directory)
     const char *states[] = {"working","thinking","waiting_for_input","permission_required","stale","task_success","task_failed","task_canceled"};
     for (int i=0;i<8;++i) {
         memset(&s_scene,0,sizeof(s_scene)); s_scene.body_alpha=255; business_header(true);
-        strcpy(s.state,states[i]); session_page(&s,&sel,s_now, 0); check_incremental(&app,&previous); write_ppm(directory,states[i]);
+        strcpy(s.state,states[i]); session_page(&model, &s,&sel,s_now, 0); check_incremental(&app,&previous); write_ppm(directory,states[i]);
     }
     strcpy(s.host_label, "WWWWWWWW");
     strcpy(s.session_short_name, "S4294967295");
-    memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true); session_page(&s, &sel, s_now, 0);
+    memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true); session_page(&model, &s, &sel, s_now, 0);
     bool identity_found = false;
     for (int i = 0; i < s_scene.count; ++i) {
         if (s_scene.ops[i].kind == AM_OP_TEXT && strcmp(s_scene.ops[i].text, "WWWWWWWW·S4294967295") == 0) {
@@ -596,7 +721,7 @@ static void test_render(const char *directory)
     check_incremental(&app, &previous); write_ppm(directory, "long_host_title");
     strcpy(s.host_label, "WSL"); strcpy(s.session_short_name, "S1");
     sel.count = AM_MAX_SESSIONS; sel.current = AM_MAX_SESSIONS - 1;
-    memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true); session_page(&s, &sel, s_now, 0);
+    memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true); session_page(&model, &s, &sel, s_now, 0);
     check_incremental(&app, &previous); write_ppm(directory, "eight_sessions");
     sel.count = 2; sel.current = 0;
     const char *projects[] = {"agentmate", "工程目录", "agentmate-provider-registry-dashboard"};
@@ -604,16 +729,16 @@ static void test_render(const char *directory)
     am_session_t codex = session("s1", "working", "codex");
     for (int i = 0; i < 3; ++i) {
         strcpy(codex.project_name, projects[i]);
-        memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true); session_page(&codex, &sel, s_now, 0);
+        memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true); session_page(&model, &codex, &sel, s_now, 0);
         check_incremental(&app, &previous); write_ppm(directory, fixtures[i]);
     }
     strcpy(s.state,"working");
-    memset(&s_scene,0,sizeof(s_scene)); s_scene.body_alpha=255; business_header(true); session_page(&s,&sel,s_now, 0);
+    memset(&s_scene,0,sizeof(s_scene)); s_scene.body_alpha=255; business_header(true); session_page(&model, &s,&sel,s_now, 0);
     check_incremental(&app,&previous); s_submitted_pixels=0;
-    memset(&s_scene,0,sizeof(s_scene)); s_scene.body_alpha=255; business_header(true); session_page(&s,&sel,s_now+1000000, 0);
+    memset(&s_scene,0,sizeof(s_scene)); s_scene.body_alpha=255; business_header(true); session_page(&model, &s,&sel,s_now+1000000, 0);
     am_scene_render(&app,&previous,&s_scene,false); assert(s_submitted_pixels <= AM_STATUS_WIDTH * AM_STATUS_HEIGHT + 5000);
     s.context_mode=1; strcpy(s.project_name,"工程目录-agentmate-provider-registry-dashboard"); strcpy(s.key,"ABCDEFGH"); s.task_seconds=UINT32_MAX;
-    memset(&s_scene,0,sizeof(s_scene)); s_scene.body_alpha=255; business_header(true); session_page(&s,&sel,s_now, 0);
+    memset(&s_scene,0,sizeof(s_scene)); s_scene.body_alpha=255; business_header(true); session_page(&model, &s,&sel,s_now, 0);
     check_incremental(&app,&previous); write_ppm(directory,"long_session");
     memset(&s_scene,0,sizeof(s_scene)); s_scene.body_alpha=255; business_header(true); info_page(&app,&model,230,102,1790936702);
     check_incremental(&app,&previous); write_ppm(directory,"info");
@@ -777,6 +902,7 @@ int main(int argc,char **argv)
     test_led_patterns();
     write_led_preview(argv[1]);
     test_usage_colors();
+    test_session_quota(argv[1]);
     test_render(argv[1]);
     test_idle_clock(argv[1]);
     test_status_animation(argv[1]);
