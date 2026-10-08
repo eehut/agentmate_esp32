@@ -8,7 +8,7 @@ import secrets
 import time
 
 import serial
-from test_at_serial import expect_ok, query_value
+from test_at_serial import expect_error, expect_ok, query_value
 from test_idle_serial import diagnostic
 from test_ui_serial import hello, synchronize
 
@@ -68,10 +68,22 @@ def main():
                 assert check_refresh()['usage_supported'] == 1
             expect_ok(port, f'AT+USAGECLEAR={epoch},codex')
             assert check_refresh()['usage_supported'] == 1
-            expect_ok(port, f'AT+SESSION={epoch},s1,2,claude,working,-,0,10,12000,200000,600,{int(time.time())},quota_test,LOCAL,S1')
+            for rev, context in ((2, f'50000,200000,2500,{int(time.time())}'), (3, '?,?,?,?')):
+                expect_ok(port, f'AT+SESSION={epoch},s1,{rev},codex,working,-,0,10,{context},quota_test,LOCAL,S1')
+                fields = query_value(port, 'AT+GET=s1', '+SESSION:').split(',')
+                assert ','.join(fields[8:12]) == context, fields
+                check_refresh()
+            for context in ('?,200000,2500,0', ',200000,2500,0', '50000,0,2500,0', '50000,200000,10001,0'):
+                expect_error(port, f'AT+SESSION={epoch},s1,4,codex,working,-,0,10,{context},quota_test,LOCAL,S1', 'INVALID_ARG')
+            # Remain on the same page across both five-second phases; host tests certify pixels.
+            for _ in range(11):
+                expect_ok(port, f'AT+PING={secrets.token_hex(8)}')
+                check_refresh()
+                time.sleep(1)
+            expect_ok(port, f'AT+SESSION={epoch},s1,4,claude,working,-,0,10,12000,200000,600,{int(time.time())},quota_test,LOCAL,S1')
             time.sleep(.15)
             assert diagnostic(port)['page'] == 1
-            expect_ok(port, f'AT+SESSION={epoch},s1,3,codex,task_success,completed,{int(time.time())},10,,,,,quota_test,LOCAL,S1')
+            expect_ok(port, f'AT+SESSION={epoch},s1,5,codex,task_success,completed,{int(time.time())},10,,,,,quota_test,LOCAL,S1')
             row = wait_page(port, 2)
             print(f"PASS session quota batches, clear, provider/result transitions; render_max_us={row['render_max_us']}")
             expect_ok(port, f'AT+DELETE={epoch},s1')

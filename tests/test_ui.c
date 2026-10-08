@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-09 3.3      Codex         Verify Codex context rotation and incremental rendering.
 # 2026-10-06 3.2      Codex         Check larger quota numbers and lowered five-hour group.
 # 2026-10-06 3.1      Codex         Verify session quota progress bars and shared usage selection.
 # 2026-10-04 3.0      Codex         Add protocol 2 host labels and session display names.
@@ -529,6 +530,52 @@ static void test_session_quota(const char *directory)
         assert(s_scene.count < AM_UI_OPS && s_scene.ops[s_scene.count - 4].kind == AM_OP_PROGRESS);
         check_incremental(&app, &previous);
     }
+    /* Context rotation uses the selected session clock, independent of data revisions. */
+    memset(&schedule, 0, sizeof(schedule));
+    strcpy(model->sessions[0].state, "working");
+    model->sessions[0].context_mode = 2;
+    model->sessions[0].ctx_pct_bp = 2500;
+    model->sessions[0].ctx_used = 50000;
+    model->sessions[0].ctx_window = 200000;
+    am_ui_select(model, &schedule, 1000000, &selection);
+    assert(!selection.show_context);
+    am_ui_select(model, &schedule, 5999999, &selection);
+    assert(!selection.show_context);
+    model->revision++;
+    am_ui_select(model, &schedule, 6000000, &selection);
+    assert(selection.show_context && schedule.page_since_us == 1000000);
+    memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true);
+    session_page(model, &model->sessions[0], &selection, 6000000, 0);
+    assert(strcmp(s_scene.ops[s_scene.count - 3].text, "25.00%") == 0);
+    assert(strcmp(s_scene.ops[s_scene.count - 2].text, "50k") == 0);
+    assert(strcmp(s_scene.ops[s_scene.count - 1].text, "200k") == 0);
+    check_incremental(&app, &previous); write_ppm(directory, "codex_context_known");
+    model->sessions[0].context_mode = 1;
+    memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true);
+    session_page(model, &model->sessions[0], &selection, 6000000, 0);
+    for (int i = 1; i <= 3; ++i) {
+        assert(strcmp(s_scene.ops[s_scene.count - i].text, "--") == 0);
+    }
+    check_incremental(&app, &previous); write_ppm(directory, "codex_context_unknown");
+    model->sessions[0].context_mode = 0;
+    memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true);
+    session_page(model, &model->sessions[0], &selection, 6000000, 0);
+    assert(s_scene.ops[s_scene.count - 4].kind == AM_OP_PROGRESS);
+    check_incremental(&app, &previous);
+    am_ui_select(model, &schedule, 11000000, &selection);
+    assert(!selection.show_context);
+    model->sessions[1] = session("s2", "working", "codex");
+    am_ui_select(model, &schedule, 11000000, &selection);
+    assert(selection.current == 1 && !selection.show_context);
+    am_ui_select(model, &schedule, 16000000, &selection);
+    assert(selection.show_context);
+    strcpy(model->sessions[1].state, "task_success");
+    am_ui_select(model, &schedule, 16000001, &selection);
+    assert(selection.page == AM_PAGE_RESULT && !selection.show_context);
+    model->remote_generation++;
+    am_ui_select(model, &schedule, 22000000, &selection);
+    assert(!selection.show_context);
+    memset(&model->sessions[1], 0, sizeof(model->sessions[1]));
     strcpy(model->sessions[0].provider, "claude");
     model->sessions[0].context_mode = 2;
     model->sessions[0].ctx_pct_bp = 600;

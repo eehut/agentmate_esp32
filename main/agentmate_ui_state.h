@@ -22,6 +22,7 @@
 #
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
+# 2026-10-09 1.3      Codex         Expose the session context rotation phase.
 # 2026-10-03 1.2      Codex         Separate priority groups and use ten-second dwell.
 # 2026-10-03 1.1      Codex         Share standby rotation state without activity tracking.
 # 2026-10-02 1.0      Codex         Created phase-one implementation.
@@ -44,6 +45,7 @@ enum am_page {
     AM_PAGE_BOOT,
 };
 
+#define AM_CONTEXT_DWELL_US (5LL * 1000000)
 #define AM_PAGE_DWELL_US (10LL * 1000000)
 
 enum am_ui_group {
@@ -61,6 +63,7 @@ struct am_ui_selection {
     int count;
     int current;
     int usage[2];
+    bool show_context;
     bool preempted;
 };
 

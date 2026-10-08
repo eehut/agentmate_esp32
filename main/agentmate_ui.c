@@ -26,6 +26,7 @@
 #
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
+# 2026-10-09 3.4      Codex         Alternate Codex quota and context below the provider icon.
 # 2026-10-01 1.0      Liu Chuansen  Organized for project C style.
 # 2026-10-01 1.1      Liu Chuansen  Added circle-aware partial screen updates.
 # 2026-10-01 1.2      Codex         Added factory display and font diagnostics.
@@ -573,13 +574,19 @@ static void session_page(const am_model_t *model, const am_session_t *session, c
                           i == selection->current ? 3 : 2, i == selection->current ? color : TFT_RGB565(59, 64, 112));
         }
     }
-    if (!claude) {
+    if (!claude && (!selection->show_context || session->context_mode == 0)) {
         session_quota(model, selection);
-    } else if (session->context_mode == 2) {
+    } else if (session->context_mode == 2 || (!claude && session->context_mode == 1)) {
         char context[3][32];
-        snprintf(context[0], sizeof(context[0]), "%u.%02u%%", session->ctx_pct_bp / 100, session->ctx_pct_bp % 100);
-        snprintf(context[1], sizeof(context[1]), "%lluk", (unsigned long long)(session->ctx_used / 1000));
-        snprintf(context[2], sizeof(context[2]), "%lluk", (unsigned long long)(session->ctx_window / 1000));
+        if (session->context_mode == 2) {
+            snprintf(context[0], sizeof(context[0]), "%u.%02u%%", session->ctx_pct_bp / 100, session->ctx_pct_bp % 100);
+            snprintf(context[1], sizeof(context[1]), "%lluk", (unsigned long long)(session->ctx_used / 1000));
+            snprintf(context[2], sizeof(context[2]), "%lluk", (unsigned long long)(session->ctx_window / 1000));
+        } else {
+            for (int i = 0; i < 3; ++i) {
+                snprintf(context[i], sizeof(context[i]), "--");
+            }
+        }
         for (int i = 0; i < 3; ++i) {
             am_scene_text(&s_scene, 21, 128 + i * 13, 48, &g_am_font_small, C_MUTED, context[i], 0);
         }

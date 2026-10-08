@@ -30,6 +30,7 @@
 #
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
+# 2026-10-09 3.1      Codex         Accept Codex known and unavailable session context.
 # 2026-10-01 1.0      Liu Chuansen  Organized for project C style.
 # 2026-10-01 1.1      Codex         Added factory AT interaction and diagnostics.
 # 2026-10-01 1.2      Codex         Report the CMake project version on HELLO and INFO.
@@ -447,11 +448,7 @@ static void handle_session(am_app_t *app, char *argument)
         return;
     }
     uint8_t mode;
-    if (strcmp(f[3], "codex") == 0) {
-        if (f[8][0] || f[9][0] || f[10][0] || f[11][0]) {
-            send_error("INVALID_ARG");
-            return;
-        }
+    if (strcmp(f[3], "codex") == 0 && !f[8][0] && !f[9][0] && !f[10][0] && !f[11][0]) {
         mode = 0;
     } else if (strcmp(f[8], "?") == 0 && strcmp(f[9], "?") == 0 && strcmp(f[10], "?") == 0 && strcmp(f[11], "?") == 0) {
         mode = 1;

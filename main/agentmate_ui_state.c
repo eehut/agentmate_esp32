@@ -22,6 +22,7 @@
 #
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
+# 2026-10-09 1.4      Codex         Select session context every five seconds.
 # 2026-10-06 1.3      Codex         Select published Codex quota windows for session pages too.
 # 2026-10-03 1.2      Codex         Prioritize attention, results and work without same-group interruption.
 # 2026-10-03 1.1      Codex         Rotate usage and clock within standby every five seconds.
@@ -189,6 +190,7 @@ void am_ui_select(const am_model_t *model, struct am_ui_schedule *schedule, int6
         selection->current = current;
         schedule->current_slot = selection->slots[current];
     }
+    selection->show_context = current >= 0 && ((now - schedule->page_since_us) / AM_CONTEXT_DWELL_US) % 2;
     schedule->group = group;
     schedule->attention_sequence = model->attention_sequence;
     if (now < model->info_until_us) {

@@ -118,17 +118,17 @@ OK
 | `last_task` | `completed`、`failed`、`cancelled` 或 `-` |
 | `finished_at` | 最近任务结束的 Unix 秒；`last_task=-` 时为 `0` |
 | `task_seconds` | 当次任务到本命令生成时已持续的秒数，范围 `0–4294967295`；没有当次任务时为 `0` |
-| `ctx_used` | Claude 已使用 token 数；见下文的空值规则 |
-| `ctx_window` | Claude 窗口 token 数；已知读数时大于 `0` |
-| `ctx_pct_bp` | Claude context 占用百分数 × 100，范围 `0–10000`；例如 `600` 是 6.00% |
-| `ctx_updated_at` | Claude context 读数的 Unix 秒 |
+| `ctx_used` | 会话已使用 token 数；见下文的空值规则 |
+| `ctx_window` | 会话窗口 token 数；已知读数时大于 `0` |
+| `ctx_pct_bp` | 会话 context 占用百分数 × 100，范围 `0–10000`；例如 `600` 是 6.00% |
+| `ctx_updated_at` | 会话 context 读数的 Unix 秒 |
 | `project_name` | 工程 basename 的百分号编码 UTF-8；解码后最多 64 字节，未知为空字段 |
 | `host_label` | LOCAL 或用户配置的 3–8 位大写字母、数字、下划线 |
 | `session_short_name` | S 加 1–4294967295 的十进制编号，无前导零；按来源独立分配 |
 
 `task_seconds` 只描述当次任务，不表示会话从创建至今的寿命。进行中的 `working`、`thinking`、`waiting_for_input`、`permission_required` 填从该次任务开始累计的秒数；设备用单调时钟在这个基准上继续累加，服务端不必按秒重发。`stale` 填进入该状态前的累计秒数，设备不再累加。`task_success`、`task_canceled`、`task_failed` 是暂时展示的任务状态，服务端通常在 60 秒后下发 `ready`，新任务或其他有效状态可提前覆盖；设备不自行计时回退。`last_task` 为 `completed`、`failed` 或 `cancelled` 时，填该次任务的总秒数，并保持到下一次任务替换它。状态、任务结果或 context 变化而发送本命令时，带上当时的秒数。时长的自然增长不是新的会话变化。
 
-Claude 有读数时，四个 context 字段均填数字；当前读数未知时，四个字段都写 `?`。**Codex 会话的四个字段全部留空**，表示该设备会话协议不支持 Codex context，而非数值为零。例如末尾的 `0,15,,,,,agentmate_esp32` 中，`0` 是 `finished_at`，`15` 是 `task_seconds`，后面是四个空 context 字段及工程目录字段。字段不能混用空值、`?` 和数字。
+Claude 和 Codex 有读数时，四个 context 字段均填数字；当前读数未知时，四个字段都写 `?`。Codex 的四字段也可全空，表示不支持上下文，此时设备仅显示配额。字段不能混用空值、`?` 和数字。协议仍为 2，服务端与固件需同时升级到本实现；旧固件不接受 Codex 的数字或未知字段。
 
 设备以 `(epoch,key,rev)` 幂等处理重试：相同版本返回 `OK` 且不重复产生变化，也不重置 `task_seconds` 的本地累加基准；较小版本返回 `STALE_REV`。服务端若要校正时长，必须递增 `rev`。新 key 占用一个会话槽，容量已满时返回 `CAPACITY`；服务端应先 `DELETE` 不再入选的会话。同步期间成功写入的 key 同时标记为“本轮已看到”。进程退出后服务端使用 `DELETE` 移除设备会话，服务端内存中的 `ended` 历史可继续保留。
 
