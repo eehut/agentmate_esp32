@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentMate 圆形屏 · 全页面交互稿</title>
+<style>
+  :root {
+    --ink: #24362f; --ink-soft: #5d736b;
+    --screen: #000; --spruce: #1c3f38; --mint: #12b981; --leaf: #0e9a62;
+    --cap: #000;
+    --paper: #fff;
+    --rounded: ui-rounded, "SF Pro Rounded", "Yuanti SC", "PingFang SC", sans-serif;
+    --cond: "Avenir Next Condensed", "Avenir Next", "Helvetica Neue Condensed", "Helvetica Neue", sans-serif;
+    --time: "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; min-width: 320px; color: var(--ink); font-family: var(--rounded); -webkit-font-smoothing: antialiased;
+    background: radial-gradient(620px 420px at 6% -4%, #ffe7c4 0%, transparent 70%),
+      radial-gradient(560px 420px at 98% 2%, #d7f6e8 0%, transparent 68%), #f6fbf7; }
+  .wrap { max-width: 1332px; margin: 0 auto; padding: 42px 48px 72px; }
+  .board-head { display: flex; align-items: end; gap: 24px; }
+  .logo-dots { display: flex; gap: 7px; margin-bottom: 12px; }
+  .logo-dots i { width: 15px; height: 15px; border-radius: 50%; }
+  h1 { margin: 0; font-size: 40px; line-height: 1.15; letter-spacing: .5px; }
+  h1 em { font-style: normal; color: #12b981; }
+  .intro { margin: 12px 0 0; max-width: 840px; color: var(--ink-soft); font-size: 15px; line-height: 1.7; }
+  .intro a { color: #0e9a62; }
+  .version { margin-left: auto; min-width: 196px; padding: 13px 17px; border-radius: 16px; background: #fff;
+    color: var(--ink-soft); line-height: 1.65; text-align: right; box-shadow: 0 6px 18px #1c3f3814; }
+  .version strong { color: var(--ink); }
+  .ribbon { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 28px; }
+  .ribbon-item { min-height: 108px; padding: 16px 16px; border-radius: 18px; background: white; box-shadow: 0 8px 22px #1c3f3812; }
+  .ribbon-item b { display: block; font-size: 16px; }
+  .ribbon-item small { display: block; margin-top: 5px; color: var(--ink-soft); font-size: 12px; line-height: 1.45; }
+  section { margin-top: 42px; }
+  .sec-head { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 17px; }
+  .sec-num { display: grid; place-items: center; width: 35px; height: 35px; border-radius: 12px; color: #fff;
+    font-size: 17px; font-weight: 700; background: var(--accent); box-shadow: 0 6px 14px #1c3f3824; }
+  h2 { margin: 0; font-size: 23px; }
+  .sec-head p { margin: 0; color: var(--ink-soft); font-size: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 288px); gap: 25px 24px; }
+  .tile { min-height: 390px; padding: 16px 16px 14px; border-radius: 26px; background: var(--paper);
+    box-shadow: 0 10px 26px #1c3f3814; display: flex; flex-direction: column; align-items: center; }
+  .stage { position: relative; width: 256px; height: 256px; flex: none; }
+  .led { position: absolute; width: 11px; height: 11px; border-radius: 50%; left: 50%; top: 50%; }
+  .screen { position: absolute; left: 8px; top: 8px; width: 240px; height: 240px; overflow: hidden;
+    border-radius: 50%; background: var(--screen); color: var(--spruce);
+    box-shadow: 0 0 0 4px #24302c, 0 10px 20px #14143233; }
+  .safe { pointer-events: none; position: absolute; z-index: 20; left: 5px; top: 5px; width: 230px; height: 230px;
+    border-radius: 50%; border: 1px dashed #ffffff2e; }
+  .page-dot { position: absolute; border-radius: 50%; z-index: 4; }
+  .caption { align-self: stretch; margin-top: 13px; }
+  .caption h3 { display: flex; align-items: baseline; gap: 6px; margin: 0; font-size: 16px; line-height: 1.25; }
+  .caption h3 code { font-family: var(--cond); font-weight: 600; font-size: 12px; color: var(--ink-soft); }
+  .caption p { margin: 7px 0 0; color: #4d655c; font-size: 12px; line-height: 1.45; }
+  .caption .led-note::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px;
+    border-radius: 50%; background: var(--led); box-shadow: 0 0 8px var(--led); vertical-align: -1px; }
+  .caption .led-note { color: #3d5c50; }
+
+  .cap { position: absolute; z-index: 1; left: 0; top: 0; width: 240px; height: 76px; background: var(--cap);
+    border-radius: 0 0 40px 40px; }
+  .cap-border { position: absolute; inset: 0; width: 240px; height: 76px; overflow: visible;
+    fill: none; stroke: var(--provider); stroke-width: 2; pointer-events: none; }
+  .time { position: absolute; z-index: 2; top: 16px; left: 0; width: 240px; height: 28px;
+    display: flex; align-items: center; justify-content: center; color: #fff;
+    font: 700 24px/28px var(--rounded); letter-spacing: -.8px; font-variant-numeric: tabular-nums; }
+  .rounded-clock { height: 28px; width: auto; fill: currentColor; overflow: visible; }
+  .rounded-clock .clock-colon { animation: blink 1s steps(1, end) infinite; }
+
+  .path { position: absolute; z-index: 3; top: 48px; left: 30px; width: 180px; height: 22px;
+    display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .path p { position: relative; margin: 0; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    color: var(--provider); font: 400 17px/22px var(--rounded); letter-spacing: 0; }
+
+  .status { position: absolute; z-index: 2; top: 86px; left: 14px; width: 208px; height: 100px;
+    display: grid; grid-template-columns: 49px 14px 145px; align-items: start; }
+  .agent { width: 44px; height: 44px; margin-top: 28px; display: grid; place-items: center; }
+  .agent svg, .agent img { width: 38px; height: 38px; display: block; }
+  .status-split { width: 1px; height: 80px; margin-top: 10px; background: #35443f; }
+  .hero { position: relative; width: 145px; height: 56px; flex: none; border-radius: 16px; overflow: visible;
+    display: grid; place-items: center; color: var(--state); background: #000;
+    font: 750 28px/1.05 var(--rounded); letter-spacing: .4px; }
+  .hero.mid { font-size: 22px; }
+  .hero.long { font-size: 17px; letter-spacing: 0; }
+  .hero .firmware-border { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
+  .hero span { position: relative; z-index: 1; }
+
+  .rot { position: absolute; z-index: 2; top: 148px; left: 77px; width: 145px; height: 42px;
+    display: flex; align-items: center; justify-content: center; }
+  .rot.quota { width: 139px; --panel-body: #2c223b; --panel-head: #453254; --panel-label: #decdeb; }
+  .body { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; }
+  .rot.context { width: 139px; --panel-body: #152e3d; --panel-head: #224657; --panel-label: #c1d9e7;
+    --token-used: #e8f3fa; --token-total: #aac6d7; }
+  .context .body { gap: 6px; }
+  .ctx-panel { width: 67px; height: 42px; flex: none; display: flex; flex-direction: column; text-align: center;
+    overflow: hidden; border-radius: 9px; background: var(--panel-body); }
+  .context .vals { width: 64px; height: 42px; flex: none; align-items: stretch;
+    overflow: hidden; border-radius: 9px; background: var(--panel-body); }
+  .context .vals b { height: 21px; flex: none; padding: 0 5px; box-sizing: border-box;
+    line-height: 21px; background: var(--panel-head); color: var(--token-used); }
+  .context .vals b.total { background: var(--panel-body); color: var(--token-total); }
+  .context .sufficient { --tone: #56d6a1; color: var(--tone); }
+  .context .attention { --tone: #ffc36a; color: var(--tone); }
+  .context .low { --tone: #ff8fa6; color: var(--tone); }
+  .vals { display: flex; flex-direction: column; align-items: flex-end; text-align: right; min-width: 0; }
+  .vals b { font: 600 17px/20px var(--time); letter-spacing: -.2px; color: #f4f4f4; font-variant-numeric: tabular-nums; }
+  .vals b.total { color: #a3a3a3; font-weight: 500; }
+  .wins { width: 100%; height: 42px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+  .wins.single { width: 67px; grid-template-columns: 1fr; }
+  .wins .window { min-width: 0; display: flex; flex-direction: column; align-items: stretch; text-align: center;
+    overflow: hidden; border-radius: 9px; background: var(--panel-body); }
+  .wins .tag, .ctx-panel .tag { height: 15px; background: var(--panel-head); color: var(--panel-label); font: 650 11px/15px var(--cond); letter-spacing: .4px; }
+  .wins b, .ctx-panel .pct { height: 27px; font: 700 22px/27px var(--cond); letter-spacing: -.3px; font-variant-numeric: tabular-nums; }
+  .wins .sufficient { color: #56d6a1; }
+  .wins .attention { color: #ffc36a; }
+  .wins .low { color: #ff8fa6; }
+  .dur { color: #e0eae5; }
+  .dur .square-clock { display: block; height: 32px; max-width: 135px; }
+  .dur.wide .square-clock { height: 26px; }
+  .square-clock { height: 24px; width: auto; overflow: visible; fill: currentColor; }
+  .square-clock .clock-colon { animation: blink 1s steps(1, end) infinite; }
+  @media (prefers-reduced-motion: reduce) {
+    .rounded-clock .clock-colon, .square-clock .clock-colon { animation: none; }
+  }
+  .dur.frozen, .dur.frozen .colon { color: #8d8d8d; }
+  .dur .colon { margin: 0 1px; }
+  .sufficient { --tone: #0e9a62; color: #0e9a62; }
+  .attention { --tone: #e09212; color: #e09212; }
+  .low { --tone: #e85d78; color: #e85d78; }
+  .unknown { --tone: #8ea197; color: #8ea197; }
+  .rot b.unknown { font-family: var(--time); font-weight: 700; letter-spacing: .4px; }
+
+  .sname { position: absolute; z-index: 3; top: 208px; left: 0; width: 240px; height: 18px;
+    display: flex; justify-content: center; }
+  .sname span { max-width: 88px; height: 18px; padding: 0 8px; overflow: hidden; border-radius: 9px;
+    background: var(--title); color: #fff; font: 650 12px/18px var(--cond); letter-spacing: .15px;
+    white-space: nowrap; text-overflow: ellipsis; }
+
+  .notes { display: grid; grid-template-columns: 1.05fr .95fr; gap: 18px; margin-top: 42px; }
+  .note { padding: 20px 22px; border-radius: 22px; background: white; box-shadow: 0 10px 26px #1c3f3814; }
+  .note h2 { margin: 0 0 10px; font-size: 17px; }
+  .note p, .note li { color: #3e564c; font-size: 13px; line-height: 1.65; }
+  .note p { margin: 8px 0 0; }
+  .note ul { margin: 0; padding-left: 18px; }
+  .note code { font: 12px var(--cond); color: #2f6b56; }
+  .note table { width: 100%; border-collapse: collapse; font-size: 13px; color: #3e564c; }
+  .note th, .note td { padding: 5px 6px; text-align: left; border-bottom: 1px solid #e5f2eb; vertical-align: top; }
+  .note th { color: var(--ink); font-size: 12px; }
+  .note.wide { grid-column: span 2; background: #fff8ec; border: 1px solid #ffd89a; }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (max-width: 1270px) { .wrap { max-width: 1000px; } .grid { grid-template-columns: repeat(3, 288px); }
+    .ribbon { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 970px) { .wrap { max-width: 680px; } .grid { grid-template-columns: repeat(2, 288px); }
+    .ribbon { grid-template-columns: repeat(2, 1fr); } .notes { grid-template-columns: 1fr; } .note.wide { grid-column: auto; } }
+  @media (max-width: 650px) { .wrap { padding: 26px 16px 56px; } .board-head { align-items: start; flex-direction: column; }
+    h1 { font-size: 30px; } .version { margin: 0; text-align: left; } .grid { grid-template-columns: 288px; justify-content: center; }
+    .ribbon { grid-template-columns: 1fr; } .sec-head p { width: 100%; } }
+
+  /* Other page layouts are scoped so Session styles remain independent. */
+  .imported { --mono: "Avenir Next Condensed", "Avenir Next", "Helvetica Neue", sans-serif; }
+  .imported .screen { color: #f2f4ff; background: #000; }
+  .imported .safe { left: 12px; top: 12px; width: 216px; height: 216px; }
+  .imported .screen.factory-color .safe { display: none; }
+  .imported .hdr { position: absolute; inset: 0 0 auto; height: 39px; display: grid; place-items: start center;
+    padding-top: 8px; background: var(--link); border-radius: 0 0 96px 96px / 0 0 39px 39px; }
+  .imported .hdr svg { width: 26px; height: 26px; }
+  .imported .abs { position: absolute; left: 0; width: 240px; text-align: center; }
+  .imported .pill { display: inline-block; padding: 5px 11px; border-radius: 13px; background: #ffffff11; color: #bfc9eb; font-size: 12px; letter-spacing: .8px; }
+  .imported .tag { position: absolute; right: -2px; top: -4px; z-index: 30; padding: 4px 10px; border-radius: 10px;
+    color: #2b1830; background: var(--tag); font-size: 12px; font-weight: 700; transform: rotate(5deg); box-shadow: 0 4px 10px #5a468238; }
+  .imported .provider-icon { width: 34px; height: 34px; flex: none; }
+  .imported .provider-icon.codex { border-radius: 9px; }
+  .imported .boot .brand-mark { top: 47px; height: 67px; display: grid; place-items: center; }
+  .imported .boot .brand-mark .orb { position: relative; width: 54px; height: 54px; border-radius: 18px; transform: rotate(-15deg);
+    background: #2e3e71; border: 2px solid #798dff; }
+  .imported .boot .brand-mark .orb::before, .imported .boot .brand-mark .orb::after { content: ""; position: absolute; border-radius: 50%; }
+  .imported .boot .brand-mark .orb::before { width: 24px; height: 24px; left: 7px; top: 8px; background: #36e29a; box-shadow: 17px 13px 0 #ff5f8d; }
+  .imported .boot .brand-mark .orb::after { width: 7px; height: 7px; right: 7px; top: 8px; background: #fff; }
+  .imported .boot .brand { top: 125px; font: 700 25px var(--rounded); letter-spacing: -.4px; }
+  .imported .boot .model { top: 159px; color: #91a0cf; font: 13px var(--mono); }
+  .imported .boot .sw-version { top: 188px; color: #c2cae8; font: 15px var(--mono); }
+  .imported .connect .signal { top: 54px; height: 44px; display: grid; place-items: center; color: var(--state); }
+  .imported .connect .signal svg { width: 38px; height: 38px; }
+  .imported .connect .main-label { top: 111px; font-size: 25px; font-weight: 700; color: var(--state); }
+  .imported .connect .sub-label { top: 153px; font-size: 16px; color: #b5bfdf; }
+  .imported .connect .brandline { top: 188px; color: #7d87ad; font: 12px var(--mono); letter-spacing: 1px; }
+  .imported .info .info-rows { position: absolute; top: 51px; left: 34px; width: 172px; display: grid; }
+  .imported .info .info-row { display: grid; grid-template-columns: 1fr 1fr; align-items: baseline; column-gap: 14px;
+    height: 19px; white-space: nowrap; color: #e5e9fb; }
+  .imported .info .info-row span { justify-self: end; color: #9facd2; font-size: 16px; line-height: 20px; text-align: right; }
+  .imported .info .info-row b { justify-self: start; font: 600 16px/20px var(--mono); text-align: left; }
+  .imported .info .info-row:nth-child(7) { margin-top: 5px; }
+  .imported .pair .pair-title { top: 54px; color: #9cc9ff; font-size: 18px; }
+  .imported .pair .pin { top: 84px; color: #fff; font: 700 49px var(--mono); letter-spacing: 8px; padding-left: 8px; }
+  .imported .pair .pair-copy { top: 151px; color: #cad5ef; font-size: 16px; }
+  .imported .pair .expiry { top: 182px; color: #9cc9ff; font: 15px var(--mono); }
+  .imported .factory .factory-title { top: 55px; color: #fff; font-size: 25px; font-weight: 700; }
+  .imported .factory .factory-sub { top: 100px; color: #c4cbea; font: 13px var(--mono); }
+  .imported .factory .factory-sub2 { top: 128px; color: #c4cbea; font: 13px var(--mono); }
+  .imported .factory .factory-bottom { top: 180px; color: #8f9cc2; font-size: 16px; }
+  .imported .factory .sample { top: 98px; color: #f2f4ff; font: 18px var(--mono); }
+  .imported .factory .sample-zh { top: 133px; color: #f2f4ff; font-size: 18px; }
+  .imported .factory .sample-small { top: 168px; color: #c4cbea; font: 14px var(--mono); }
+  .imported .idle .locale { top: 54px; height: 23px; color: #92a4c9; font-size: 16px; font-weight: 650; }
+  .imported .idle .standby-clock { top: 82px; height: 62px; color: #f6f5ff; display: flex; align-items: center; justify-content: center; }
+  .imported .idle .square-clock { height: 52px; }
+  .imported .idle.placeholder .standby-clock, .imported .idle.placeholder .date-year,
+  .imported .idle.placeholder .date-day { color: #8d98b7; }
+  .imported .idle .date-rule { position: absolute; top: 147px; left: 83px; width: 74px; height: 1px; background: #354053; }
+  .imported .idle .date-year { top: 150px; height: 26px; color: #92a4c9; font: 600 20px/26px var(--rounded); }
+  .imported .idle .date-day { top: 177px; height: 44px; color: #e2e8f6; font: 650 36px/44px var(--rounded);
+    letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+  .imported .usage .usage-head { position: absolute; top: 51px; left: 28px; width: 184px; height: 34px;
+    display: flex; gap: 10px; justify-content: center; align-items: center; }
+  .imported .usage .usage-head .provider-icon { width: 28px; height: 28px; }
+  .imported .usage .usage-head b { font: 650 18px var(--rounded); }
+  .imported .usage .usage-rule { position: absolute; top: 89px; left: 28px; width: 184px; height: 1px; background: #6550c8; }
+  .imported .usage .quota-cards { position: absolute; top: 95px; left: 28px; width: 184px;
+    display: grid; grid-template-columns: repeat(2, 88px); gap: 8px; }
+  .imported .usage .quota-cards.single { left: 76px; width: 88px; grid-template-columns: 88px; }
+  .imported .usage .quota-card { position: relative; width: 88px; height: 110px; overflow: hidden;
+    border-radius: 14px; background: #2c223b; text-align: center; }
+  .imported .usage .quota-label { height: 24px; background: #453254; color: #decdeb; font: 650 17px/24px var(--rounded); }
+  .imported .usage .quota-value { display: block; height: 40px; color: var(--quota-tone);
+    font: 700 26px/40px var(--cond); white-space: nowrap; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
+  .imported .usage .quota-value.wide { font-size: 24px; }
+  .imported .usage .quota-value.unknown { font: 650 18px/40px var(--rounded); letter-spacing: 0; }
+  .imported .usage .quota-track { position: absolute; top: 64px; left: 11px; width: 66px; height: 4px;
+    border-radius: 2px; background: #ffffff18; overflow: hidden; }
+  .imported .usage .quota-track i { display: block; width: var(--remaining); height: 100%; background: var(--quota-tone); border-radius: inherit; }
+  .imported .usage .quota-reset { position: absolute; top: 73px; left: 0; width: 88px; height: 36px;
+    display: flex; flex-direction: column; justify-content: center; color: #c7bad8; }
+  .imported .usage .quota-reset span { font: 500 16px/18px var(--rounded); }
+  .imported .usage .quota-reset .reset-date { font-size: 14px; }
+  .jump-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+  .jump-links a { padding: 7px 12px; border-radius: 18px; background: #fff; color: #416454; font-size: 13px; text-decoration: none; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="board-head">
+    <div>
+      <div class="logo-dots"><i style="background:#ff8fab"></i><i style="background:#ffc857"></i><i style="background:#12b981"></i><i style="background:#7eb6ff"></i><i style="background:#8b7cf7"></i></div>
+      <h1>AgentMate · <em>全页面交互稿</em></h1>
+      <p class="intro">所有业务页面统一使用纯黑屏幕底色，Session 保留已确认的合并主区、agent 弧形下边框与分类配色。启动、连接、设备信息、配对与产测页直接引入 <a href="session_states_board.html">原全量设计稿</a> 的布局。两个待机页采用本次方案：时间日期页放大下半屏日期；Codex 用量页以深紫面板呈现窗口、剩余百分比和重置时间。配对仍为二期设计，产测纯色仍按测试内容显示。</p>
+    </div>
+    <div class="version">稿件 <strong>全页面方案 · v6.2</strong><br>视觉优化方案 · ESP32-C3<br>2026-10-12</div>
+  </header>
+  <div class="ribbon" aria-label="本版设计要点">
+    <div class="ribbon-item"><b>统一 · 纯黑底色</b><small>所有业务页面底色为 #000000。连接顶栏中央下沿仍在 y=39，两端使用明显的深弧过渡；agent 边框和产测纯色保留各自含义。</small></div>
+    <div class="ribbon-item"><b>Session · 保留新版</b><small>圆润时钟、ASCII 目录、合并主区与分类配色。时长 10 秒 → 有效 agent 用量 3 秒 → 有效上下文 3 秒。</small></div>
+    <div class="ribbon-item"><b>待机 · 时间日期</b><small>大号方正时钟，年份 20px、月日 36px。日期向下展开，充实下半屏，未知状态保留占位。</small></div>
+    <div class="ribbon-item"><b>待机 · Codex 用量</b><small>深紫独立面板，上方窗口标题、中部百分比与细进度条、下方重置时间。单档居中，尺寸与双档一致。</small></div>
+    <div class="ribbon-item"><b>其余 · 沿用原稿</b><small>启动、连接、设备信息、二期配对、工厂产测的原有布局与示例信息直接引入。</small></div>
+  </div>
+  <nav class="jump-links" id="page-nav" aria-label="页面分类"></nav>
+  <div id="board"></div>
+  <div class="notes">
+    <article class="note wide">
+      <h2>两个待机页 · 方案一</h2>
+      <p>日期时间页保留连接 header，把与 Session 工作时长相同的方正时钟放在中部，以 52px 高度显示，日期由原来的 18px 单行拆为 20px 年份和 36px 月日；月日下移至 y=177–221，减少下半屏空白，仍保留同一组日期信息。未知时间与日期继续使用占位，冒号静止。</p>
+      <p>Codex 用量页保留原来的窗口名称、剩余百分比与主机本地重置时间。每个窗口采用 88×110px 深紫面板，上方标题带略亮；中部大号百分比配合细进度条，下方显示重置时间，一周窗口保留日期与时间两行。单窗口保持原尺寸居中，未知读数保留「用量未知」；5 小时与一周分别判断剩余比例颜色。仅收到一周窗口时也可完整呈现。</p>
+      <p>待机两页仍按原规则每 10 秒轮播。非 Session 页的连接顶栏两侧采用更深的椭圆弧下边界，中央直线为 x=96–144、y=39，连接图标与正文位置保持原稿。其余导入页面保持原布局和示例信息；二期配对效果与产测用途在对应卡片中标注。</p>
+    </article>
+    <article class="note">
+      <h2>头部与轮换区的配色</h2>
+      <p>所有业务页面默认底色统一为 <code>#000000</code>。Session 头部也使用纯黑，以 2px 弧形下边框划分头部和主体。下边框与目录共用 agent 配色：Codex <code>#6550C8</code>，Claude <code>#D97757</code>。圆润时钟、ASCII 目录与黑底状态边框保持现有布局。</p>
+      <p>上下文的 CTX 百分比面板与右侧 token 面板统一使用深蓝青：标题／上半行 <code>#224657</code>，正文／下半行 <code>#152E3D</code>。Agent 的 5H、WEEK 面板统一使用深紫：标题 <code>#453254</code>，正文 <code>#2C223B</code>。单档与双档保持同一种类的配色；健康比例的绿、琥珀、珊瑚文字不变，工作时长继续直接显示在黑底上。</p>
+    </article>
+    <article class="note">
+      <h2>240 屏上的位置</h2>
+      <table>
+        <thead><tr><th>元素</th><th>位置</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>可视圆</td><td>直径 230，距边 5px</td><td>和三行稿相同</td></tr>
+          <tr><td>头部</td><td>y 0–76，<code>#000000</code></td><td>圆润数字 24px；下边框 2px，颜色随 agent</td></tr>
+          <tr><td>下半屏</td><td>其余区域</td><td>纯黑 <code>#000000</code></td></tr>
+          <tr><td>目录名</td><td>y 48–70，宽 180</td><td>头部 ASCII 文本，17px，非 ASCII 显示 ?</td></tr>
+          <tr><td>主状态</td><td>右侧 y 86–142</td><td>左图标 38px、无底座；状态三字 28px、四字 22px、五字 17px</td></tr>
+          <tr><td>轮换区</td><td>右侧 y 148–190，宽 145</td><td>方正计时 32px，四位分钟 26px；用量区 139×42px，双档间距 5px</td></tr>
+          <tr><td>会话名</td><td>y 208–226</td><td>胶囊宽最多 88px，大约 8–10 个字符</td></tr>
+        </tbody>
+      </table>
+    </article>
+    <article class="note wide">
+      <h2>固定和轮换</h2>
+      <ul>
+        <li>固定：当前时间、目录名、左侧 Agent 图标与分割线、右上主状态、会话名。右下内容轮换时这些元素不移位。</li>
+        <li>ESP32-C3 目录仅显示可打印 ASCII，中文、emoji 及其他非 ASCII 字符各替换为一个 ?；固定中文状态文案保留。主状态内部为黑色，仅保留文字和固件边框动效。</li>
+        <li>第一行是时钟，只显示时和分，中间冒号每秒闪一次。它不随工作时长冻结。</li>
+        <li>等待输入和需要批准的边框复用 <code>main/agentmate_status.c</code> 的双脉冲、周向柔光、边缘透明度算法：每 100ms 一帧，20 帧一周期。保留固件 143×48 的原始几何，显示时映射到本稿的状态块；不使用旋转锥形高光替代。柔光颜色分别为 <code>#FFB02E</code> 和 <code>#FF5F7A</code>。</li>
+        <li>第四行顺序是工作时长 10 秒、有效 agent 用量 3 秒、有效上下文 3 秒。未知、未获取、窗口无效的读数不参与轮换。只有一档有效 agent 用量时，仅显示该档单块面板；0%／100% 都是有效值。没有有效用量时，停在工作时长。</li>
+        <li>上下文左侧为 67×42px 的 CTX 面板，尺寸结构与 agent 用量一致，配色独立：上方 CTX 标题 11px，下方百分比 22px。两块上下文面板共用深蓝青主题。右侧 token 面板为 64×42px，与 CTX 面板间隔 6px，整体居中紧凑排列。token 面板两行各高 21px，共用一组外轮廓圆角，上半已用数值底色 #224657、文字 #E8F3FA，下半总量底色 #152E3D、文字 #AAC6D7；CTX 标题同用 #224657，百分比区域同用 #152E3D，标题文字 #C1D9E7。百分比按已用比例上色：低于 50% 绿，50–79% 琥珀，达到 80% 珊瑚。右侧两行是已用和总量，文本右对齐，总量不加斜杠。千位用大写 <code>K</code>；百万位用 <code>M</code>，数值保留 3 位有效数字，例如 <code>1.23M</code>、<code>12.3M</code>、<code>123M</code>。已用和总量各自选择单位；超出三位百万空间显示 &gt;999M；未知上下文直接跳过；有效的 0% 正常显示。</li>
+        <li>agent 用量是剩余比例，颜色仍是 ≥50% 绿、≥20% 琥珀、低于 20% 珊瑚。两档同时显示时，左侧标题 <code>5H</code>、右侧标题 <code>WEEK</code>。用量区为 139×42px，两个独立圆角面板间隔 5px，两档统一使用深紫面板底色 <code>#2C223B</code>，标题带为 <code>#453254</code>，标题文字 <code>#DECDEB</code>。标题 11px，下方百分比 22px。只有 WEEK 或只有 5H 时，单面板保持 67×42px，居中显示在用量区；标题 11px、百分比 22px，均与双档相同。展示窗口由实际数据决定。未知档不参与显示，独立用量页仍按原规则显示未知占位。</li>
+        <li>会话页之间仍按等待、完成、工作三组轮播，每页 10 秒。第四行按会话累计已展示时间，切回同一会话时继续原相位。10/3/3 秒明细轮换不重置会话页的 10 秒驻留，也不改灯环。</li>
+        <li>顶部时钟使用 24px 圆润字体；工作时长在右下使用 32px 方正等宽字形、笔画加粗，无秒表图标，冒号常亮。工作、思考、等待输入、需要批准继续累加；状态未更新和完成态冻结并转灰。四位分钟字高收到 26px。</li>
+        <li>会话名沿用 provider 色胶囊。Codex 紫，Claude 陶土色。贴着可视圆下沿，宽最多 88px，长名字直接省略。</li>
+        <li>连接状态不画在这一页。断线仍走原来的连接页。</li>
+      </ul>
+    </article>
+  </div>
+</main>
+<script>
+const P = {
+  mint: '#36e29a', leaf: '#36e29a', amber: '#ffb02e', coral: '#ff5f7a',
+  think: '#8b99ff', fail: '#ff3b30', cancel: '#4aa8ff', stale: '#a3afd3',
+};
+function mark(provider) {
+  const name = provider === 'claude' ? 'claude' : 'codex_ui';
+  return `<img src="../../assets/provider_icons/${name}.svg" alt="${provider}">`;
+}
+function dots(page, total, color) {
+  if (total < 2) return '';
+  const gap = 10;
+  const start = 120 - (total - 1) * gap / 2;
+  let out = '';
+  for (let k = 0; k < total; k++) {
+    const current = k + 1 === page;
+    const d = current ? 7 : 5;
+    const x = start + k * gap - d / 2;
+    out += `<i class="page-dot" style="left:${x}px;top:${200 - d / 2}px;width:${d}px;height:${d}px;background:${current ? color : '#4a4a4a'}"></i>`;
+  }
+  return out;
+}
+function ringLevels(mode, ms) {
+  const levels = Array(16).fill(0);
+  const fixed = (length, a, b) => { for (let i = 0; i < length; i++) { levels[i] = a; levels[i + 8] = b; } };
+  const moving = (head, values) => values.forEach((value, i) => { levels[(head - i + 16) % 16] = value; });
+  if (mode === 'permission') { if (ms % 2000 < 150 || (ms % 2000 >= 300 && ms % 2000 < 450)) levels.fill(55); }
+  else if (mode === 'input') { if (ms % 2000 < 600) fixed(4, 70, 70); }
+  else if (mode === 'working') moving(Math.floor(ms / 150) % 16, [100, 100, 75, 50, 30, 15]);
+  else if (mode === 'thinking') { const h = Math.floor(ms / 250) % 16; moving(h, [80, 40, 15]); moving((h + 8) % 16, [80, 40, 15]); }
+  else if (mode === 'stale') { const alternate = ms % 3000 >= 1500; fixed(3, alternate ? 15 : 60, alternate ? 60 : 15); }
+  else if (mode === 'success') { const p = ms % 2400, count = p < 450 ? (Math.floor(p / 150) + 1) * 4 : p < 1200 ? 16 : 0; levels.fill(55, 0, count); }
+  else if (mode === 'failed') { if (ms % 2400 < 200) levels.fill(55); }
+  else if (mode === 'canceled') { if (ms % 3000 < 300) fixed(4, 50, 50); }
+  return levels;
+}
+function ring(color, mode) {
+  let out = `<span class="led-ring" data-mode="${mode}" data-color="${color}">`;
+  for (let i = 0; i < 16; i++) {
+    const a = i * Math.PI / 8 - Math.PI / 2;
+    out += `<i class="led" style="transform:translate(${Math.cos(a) * 128 - 5.5}px,${Math.sin(a) * 128 - 5.5}px);background:#d5e5dc"></i>`;
+  }
+  return out + '</span>';
+}
+function usedGrade(pct) {
+  const n = parseInt(pct, 10);
+  if (Number.isNaN(n)) return 'unknown';
+  if (n >= 80) return 'low';
+  if (n >= 50) return 'attention';
+  return 'sufficient';
+}
+function formatTokens(count) {
+  if (!Number.isFinite(count) || count < 0) {
+    return '--';
+  }
+  if (count >= 999500000) return '&gt;999M';
+  if (count >= 999500) {
+    const quantum = count < 10000000 ? 10000 : count < 100000000 ? 100000 : 1000000;
+    const rounded = Math.round(count / quantum) * quantum / 1000000;
+    const decimals = rounded < 10 ? 2 : rounded < 100 ? 1 : 0;
+    return `${rounded.toFixed(decimals)}M`;
+  }
+  if (count >= 1000) {
+    return `${Math.round(count / 1000)}K`;
+  }
+  return `${Math.round(count)}`;
+}
+function contextPanel(context) {
+  const label = `${Math.round(percentValue(context.pct))}%`;
+  const grade = usedGrade(label);
+  return `<div class="ctx-panel" role="group" aria-label="上下文已用 ${label}"><span class="tag">CTX</span><b class="pct ${grade}">${label}</b></div>`;
+}
+function squareClock(value, options = {}) {
+  // Fixed-width, straight-sided clock glyphs; no external font dependency.
+  const glyphs = {
+    '-': 'M2 10H10',
+    '0': 'M3 2H9L11 4V16L9 18H3L1 16V4Z',
+    '1': 'M2 5L6 2H7V18M3 18H11',
+    '2': 'M1 2H9L11 4V8L1 13V18H11',
+    '3': 'M1 2H9L11 4V8L9 10H4M9 10L11 12V16L9 18H1',
+    '4': 'M1 2V10H11M9 2V18',
+    '5': 'M11 2H1V10H9L11 12V16L9 18H1',
+    '6': 'M11 2H3L1 4V16L3 18H9L11 16V12L9 10H1',
+    '7': 'M1 2H11V6L5 18',
+    '8': 'M3 2H9L11 4V8L9 10H3L1 8V4ZM3 10L1 12V16L3 18H9L11 16V12L9 10',
+    '9': 'M11 10H3L1 8V4L3 2H9L11 4V16L9 18H1'
+  };
+  let x = 0;
+  const shapes = [...value].map(char => {
+    const at = x;
+    x += char === ':' ? 7 : 16;
+    if (char === ':') {
+      return `<g class="${options.blink === false ? '' : 'clock-colon'}" transform="translate(${at},0)"><rect x="1" y="5" width="3" height="3"/><rect x="1" y="13" width="3" height="3"/></g>`;
+    }
+    return `<path transform="translate(${at},0)" d="${glyphs[char] || glyphs['0']}" fill="none" stroke="currentColor" stroke-width="${options.stroke || 2.8}" stroke-linejoin="bevel"/>`;
+  }).join('');
+  return `<svg class="square-clock" viewBox="-1 0 ${x - 1} 20" role="img" aria-label="${options.label || `当前时间 ${value}`}">${shapes}</svg>`;
+}
+// Exact 4-bit glyph masks from the firmware's 24px rounded clock; no installed font dependency.
+const roundedClockGlyphs = {"-":{"w":12,"h":28,"advance":12,"top":0,"mask":"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000455555300007ffffffe30009fffffff400029aaaaa7000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"},"0":{"w":17,"h":28,"advance":17,"top":0,"mask":"0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003552000000000006dffffb4000000009ffffffff50000007fffeabffff300001effc2005fffa00006fff400008ffe2000affc000003fff5000cff9000001eff8001dff8000000cff9001eff7000000cffa001eff7000000cffa000dff9000000dff8000bffb000002fff60007ffe200006fff30002fff90001dffc00000afffa56dfff5000001dffffffff900000002bffffff8000000000048a972000000000000000000000000000000000000000000000000000000000"},"1":{"w":17,"h":28,"advance":17,"top":0,"mask":"0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000025400000000000007eff700000000002bffffc0000000005efffffc000000004fffbcffc000000004ff80affc0000000004300affc0000000000000affc0000000000000affc0000000000000affc0000000000000affc0000000000000affc0000000000000affc0000000000000affc0000000000000affc0000000000000affc0000000000000affc00000000000006ff80000000000000044000000000000000000000000000000000000000000000000000000000000"},"2":{"w":17,"h":28,"advance":17,"top":0,"mask":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002454200000000004bffffeb300000007fffffffff4000003fffd758fffe100009ffd20006fff500008ff500001eff70000054000002fff60000000000009ffe2000000000006fff7000000000005fffa000000000006fffa000000000006fffa000000000007fff9000000000007fff8000000000007fff9111111000005ffffeeeeeed50000afffffffffffa00004deeeeeeeeed500000011111111110000000000000000000000000000000000000000000000000000000"},"3":{"w":17,"h":28,"advance":17,"top":0,"mask":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002454200000000004cfffffc500000006fffffffff7000003fffd758efff200007ffd10005fff600005ff500001eff70000033000003fff4000000000115dffa0000000009eeffc70000000000effffa400000000004aacfffb10000000000004eff800000310000009ffd00008fd2000007ffe1000cffb10001cffd00008fefc757dfff800001dfffffffffc1000001afffffffa100000000379a973000000000000000000000000000000000000000000000000000000000"},"4":{"w":17,"h":28,"advance":17,"top":0,"mask":"0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000035300000000000009fffa100000000007fffff50000000003ffeeff7000000000cff5dff7000000007ff90eff700000002efd11eff70000000bff501eff70000006ffb001eff7000001dff2001eff7000008ff80001eff700001efe21112eff810005fffeeeeefffee8004ffffffffffffff1009eeeeeeefffee800001111112eff81000000000001eff70000000000000bff4000000000000015300000000000000000000000000000000000000000000000000000000"},"5":{"w":17,"h":28,"advance":17,"top":0,"mask":"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001111111100000002beeeeeeeed4000008ffffffffff900000affcaaaaaa9200000bff40000000000000cff40000000000000dff20355200000001efe4bffffb3000002efeeffffffe300002ffff956bfffc00000bfd40000afff40000021000002fff60000220000001eff70003ef8000003fff50005fff40000affe20001dfff956bfff8000004effffffffa000000029effffd70000000000145530000000000000000000000000000000000000000000000000000000000"},"6":{"w":17,"h":28,"advance":17,"top":0,"mask":"0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003554100000000005cffffe9200000008ffffffffe3000006fffb659fffc00001effb00005ffe10006fff2000004950000affc0024530000000cff81aefffc500001dff8bfffffff50001effefb65afffe1001dfffa00008fff6000cfff200000dff9000affe100000cffa0006fff300001eff80001effb00008fff400006fffc65afffb0000008ffffffffc100000005cffffd71000000000034531000000000000000000000000000000000000000000000000000000000"},"7":{"w":17,"h":28,"advance":17,"top":0,"mask":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000035555555554000003effffffffff900005fffffffffffe100007aaaaaaadffc0000000000000dff70000000000008ffd1000000000002eff70000000000009ffd1000000000002fff7000000000000affd1000000000003fff6000000000000affd1000000000004fff6000000000000bffd0000000000004fff6000000000000cffd0000000000002fff50000000000001bfb0000000000000003000000000000000000000000000000000000000000000000000000000000000"},"8":{"w":17,"h":28,"advance":17,"top":0,"mask":"0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014553100000000029effffd810000003effffffffd200001dfffa56bfffa00004fff80000affe20005fff200105fff20002fff500008ffd100008ffd5126fff50000006dffeeffc500000004bfffffe920000009fffdabefff600006fff81002bfff2000cffc000003fff8001effa000001effa000dffd100005fff90008fffc4126efff40001cffffeeffff80000019effffffd6000000002689985100000000000000000000000000000000000000000000000000000000"},"9":{"w":17,"h":28,"advance":17,"top":0,"mask":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002454200000000003aefffea300000004efffffffe4000002efffcacfffe200009fff70006fffa0000cffb000009ffe2001eff7000005fff5001dff9000006fff8000bffe30002dfff90005fffe757dfeffa00009fffffff9bff9000007dfffe80dff80000001454202fff60000670000006fff20005ffb00000cffb00004fefa313bfff400000affffeffff700000009efffffe6000000000269a861000000000000000000000000000000000000000000000000000000000"},":":{"w":8,"h":28,"advance":8,"top":0,"mask":"0000000000000000000000000000000000000000000000000000000000000000000000000034000005ff90000afff10005ff900000340000000000000000000000000000000000000189200008ffc00009ffe10002cd6000000100000000000000000000000000000000000000000000"},"?":{"w":14,"h":28,"advance":14,"top":0,"mask":"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000003554100000005cffffe8100005ffffffffb1001dffd65bfff7003fff2000cffb001ae70010affc0000100002eff9000000004dfff300000007fffe500000005fffa200000000affb0000000000aff400000000003b9100000000000000000000000029920000000000cffc0000000001effe10000000005dd500000000000110000000000000000000000000000000000000000000000000"}};
+const roundedClockPaths = new Map();
+function roundedClock(value) {
+  let cursor = 0;
+  const shapes = [...value].map(char => {
+    const glyph = roundedClockGlyphs[char] || roundedClockGlyphs['?'];
+    if (!roundedClockPaths.has(char)) {
+      const paths = Array.from({ length: 16 }, () => []);
+      for (let y = 0; y < glyph.h; y++) {
+        for (let x = 0; x < glyph.w;) {
+          const alpha = parseInt(glyph.mask[y * glyph.w + x], 16);
+          let width = 1;
+          while (x + width < glyph.w && parseInt(glyph.mask[y * glyph.w + x + width], 16) === alpha) width++;
+          if (alpha) paths[alpha].push(`M${x} ${y + glyph.top}h${width}v1h-${width}Z`);
+          x += width;
+        }
+      }
+      roundedClockPaths.set(char, paths.map((runs, alpha) => runs.length ? `<path opacity="${alpha / 15}" d="${runs.join('')}"/>` : '').join(''));
+    }
+    const at = cursor;
+    cursor += glyph.advance;
+    const blink = char === ':' && !value.startsWith('-') ? 'clock-colon' : '';
+    return `<g class="${blink}" transform="translate(${at},0)">${roundedClockPaths.get(char)}</g>`;
+  }).join('');
+  return `<svg class="rounded-clock" viewBox="0 0 ${cursor} 28" role="img" aria-label="当前时间 ${value}">${shapes}</svg>`;
+}
+function percentValue(value) {
+  return typeof value === 'string' && /^\d+(?:\.\d+)?%$/.test(value) ? Number(value.slice(0, -1)) : NaN;
+}
+function remainingGrade(value) {
+  const n = percentValue(value);
+  return n >= 50 ? 'sufficient' : n >= 20 ? 'attention' : 'low';
+}
+function rotateHTML(t) {
+  const windowsValid = (t.provider === 'codex' ? t.quota || [] : []).filter(w => ['5H', 'WEEK'].includes(w.tag) &&
+    Number.isFinite(percentValue(w.value)) && percentValue(w.value) >= 0 && percentValue(w.value) <= 100);
+  const contextValid = t.context && !t.context.unknown && Number.isFinite(t.context.used) && t.context.used >= 0 &&
+    Number.isFinite(t.context.total) && t.context.total > 0 &&
+    Number.isFinite(percentValue(t.context.pct)) && percentValue(t.context.pct) >= 0 && percentValue(t.context.pct) <= 100;
+  const phase = t.phase === 'context' && !contextValid || t.phase === 'quota' && !windowsValid.length ? 'duration' : t.phase;
+  if (phase === 'duration') {
+    const wide = t.mm.length >= 4 ? ' wide' : '';
+    const frozen = t.counting ? '' : ' frozen';
+    const duration = `${t.mm}:${t.ss}`;
+    const digits = squareClock(duration, { label: `工作用时 ${duration}`, blink: false, stroke: 3.2 });
+    return `<div class="rot duration"><div class="body"><div class="dur${wide}${frozen}">${digits}</div></div></div>`;
+  }
+  if (phase === 'context') {
+    const panel = contextPanel(t.context);
+    return `<div class="rot context"><div class="body">${panel}<span class="vals"><b>${formatTokens(t.context.used)}</b><b class="total">${formatTokens(t.context.total)}</b></span></div></div>`;
+  }
+  const windows = windowsValid.sort((a, b) => (a.tag === '5H' ? 0 : 1) - (b.tag === '5H' ? 0 : 1));
+  const columns = windows.map(w => {
+    return `<div class="window"><span class="tag">${w.tag}</span><b class="${remainingGrade(`${Math.round(percentValue(w.value))}%`)}">${Math.round(percentValue(w.value))}%</b></div>`;
+  }).join('');
+  return `<div class="rot quota"><div class="wins${windows.length === 1 ? ' single' : ''}">${columns}</div></div>`;
+}
+function screenHTML(t) {
+  const n = [...t.state].length;
+  const size = n >= 5 ? ' long' : n >= 4 ? ' mid' : '';
+  const border = `<canvas class="firmware-border" width="145" height="56" data-mode="${t.motion}" aria-hidden="true"></canvas>`;
+  const project = [...t.project].map(c => c.codePointAt(0) >= 32 && c.codePointAt(0) <= 126 ? c : '?').join('');
+  return `<div class="cap"><svg class="cap-border" viewBox="0 0 240 76" aria-hidden="true"><path d="M0 36 A40 40 0 0 0 40 76 H200 A40 40 0 0 0 240 36"/></svg></div>
+    <div class="time">${roundedClock(t.clock || '19:47')}</div>
+    <div class="path"><p title="${project}">${project}</p></div>
+    <div class="status"><span class="agent">${mark(t.provider)}</span><i class="status-split"></i><div class="hero ${t.motion}${size}" style="--state:${t.color}">${border}<span>${t.state}</span></div></div>
+    ${rotateHTML(t)}
+    <div class="sname"><span>${t.identity}</span></div>
+    ${dots(t.page || 1, t.total || 1, t.color)}`;
+}
+function tile(t) {
+  const title = t.provider === 'claude' ? '#e07a5f' : '#6c5ce7';
+  return `<article class="tile"><div class="stage">${ring(t.ledColor || t.color, t.ledMode)}
+    <div class="screen" style="--title:${title};--state:${t.color};--provider:${t.provider === 'claude' ? '#D97757' : '#6550C8'}">${screenHTML(t)}<div class="safe"></div></div></div>
+    <div class="caption"><h3>${t.title}<code>${t.code || ''}</code></h3>
+      <p class="led-note" style="--led:${t.ledColor || t.color}">${t.led}</p><p>${t.note}</p></div></article>`;
+}
+const pair = (a, ag, b, bg) => [{ tag: '5H', value: a, grade: ag }, { tag: 'WEEK', value: b, grade: bg }];
+const one = (tag, value, grade) => [{ tag, value, grade }];
+const base = (extra) => Object.assign({
+  provider: 'codex', identity: 'LOCAL·S1', project: 'agentmate_esp32', state: '工作中', motion: 'working',
+  color: P.leaf, mm: '12', ss: '22', counting: true, page: 1, total: 2, ledMode: 'working',
+  led: '绿 · 连续六灯明暗尾迹', phase: 'context', context: { pct: '6%', used: 12000, total: 200000 }
+}, extra);
+const sections = [
+  { n: 'A', color: '#12b981', title: '右下区域的三相', subtitle: '时钟、目录、图标、状态和会话名不动。右下先显示工作时长 10 秒，再显示有效 agent 用量 3 秒、有效上下文 3 秒', tiles: [
+    base({ title: '工作时长', code: '第 1 相 · 10 秒', phase: 'duration', note: '右下直接用 32px 方正等宽数字显示分和秒，无秒表图标和额外竖线。上方时钟仍是 19:47，冒号自己闪，不跟着这段时长走。' }),
+    base({ title: 'agent 用量', code: '第 2 相 · 3 秒', ss: '27', phase: 'quota', quota: pair('58%', 'sufficient', '81%', 'sufficient'), note: '左侧 5H、右侧 WEEK，两档统一使用深紫主题，各自有独立面板。上方标题带略亮，下方显示百分比，按剩余比例上色。' }),
+    base({ title: '上下文', code: '第 3 相 · 3 秒', phase: 'context', note: '左侧 CTX 与右侧 token 共用深蓝青主题，百分比以 22px 显示 6%。与右侧 token 面板只隔 6px。12K、200K 两行等高、右对齐，上下底色略有差异，整体为一个面板。' }),
+    base({ title: '只有 WEEK', code: '单个用量窗口', phase: 'quota', quota: one('WEEK', '81%', 'sufficient'), note: '只有 WEEK 时，保持 67×42px 原尺寸，居中显示，上方 WEEK、下方 22px 百分比。' })
+  ]},
+  { n: 'B', color: '#6d78e8', title: '主状态', subtitle: '图标和分割线固定在左；右上主状态、右下计时或轮换数据', tiles: [
+    base({ title: '思考中', code: 'Claude · 上下文', provider: 'claude', identity: 'LOCAL·S2', project: 'agentmate_service', state: '思考中', motion: 'thinking', color: P.think, mm: '02', ss: '16', page: 2, total: 3, ledMode: 'thinking', ledColor: P.think, led: '淡紫 · 对向三灯尾迹', context: { pct: '62%', used: 124000, total: 200000 }, note: '已用 62% 落在琥珀档。Claude 没有 agent 用量，第四行只在时长和上下文之间换。' }),
+    base({ title: '等待输入', code: 'waiting_for_input', provider: 'claude', identity: 'LOCAL·S3', project: 'agentmate_web', state: '等待输入', motion: 'input', color: P.amber, mm: '03', ss: '41', ledMode: 'input', led: '琥珀 · 固定八灯长闪', context: { pct: '28%', used: 56000, total: 200000 }, note: '四字状态 22px。边框与固件一致：每 100ms 一帧，双脉冲后停顿，柔光沿边缘移动。' }),
+    base({ title: '需要批准', code: 'permission_required', identity: 'LOCAL·S4', state: '需要批准', motion: 'permission', color: P.coral, mm: '00', ss: '18', page: 2, ledMode: 'permission', led: '珊瑚 · 双闪后停顿', phase: 'quota', quota: pair('18%', 'low', '42%', 'attention'), note: '批准边框采用固件的双脉冲与移动柔光。用量仍左 5H、右 WEEK，独立按剩余比例上色。' }),
+    base({ title: '状态未更新', code: '时长冻结', provider: 'claude', identity: 'LOCAL·S5', project: 'agentmate_web', state: '状态未更新', motion: 'stale', color: P.stale, mm: '26', ss: '07', counting: false, page: 3, total: 3, ledMode: 'stale', ledColor: P.stale, led: '灰蓝 · 六灯交替明暗', phase: 'duration', note: '五字状态用 17px，主区布局不变。工作时长停止并转灰。时钟继续走。没有可显示的用量时，第四行就停在这里。' })
+  ]},
+  { n: 'C', color: '#e85d78', title: '完成态', subtitle: '没有等待组时优先显示。工作时长冻结，时钟不冻结', tiles: [
+    base({ title: '任务完成', code: 'task_success', provider: 'claude', identity: 'LOCAL·S1', state: '任务完成', motion: 'success', color: P.leaf, mm: '12', ss: '05', counting: false, ledMode: 'success', led: '绿 · 四扇区累加填满', note: '这一相仍是上下文。完成色只用于状态块，百分比按已用比例自己上色。' }),
+    base({ title: '任务失败', code: 'task_failed', identity: 'LOCAL·S2', project: 'agentmate_service', state: '任务失败', motion: 'failed', color: P.fail, mm: '08', ss: '52', counting: false, page: 2, ledMode: 'failed', ledColor: P.fail, led: '红 · 200 ms 单闪', phase: 'quota', quota: pair('64%', 'sufficient', '71%', 'sufficient'), note: '状态变红。两档剩余用量仍按自己的比例显示绿色。' }),
+    base({ title: '任务取消', code: 'task_canceled', provider: 'claude', identity: 'LOCAL·S3', project: 'agentmate_web', state: '任务取消', motion: 'canceled', color: P.cancel, mm: '04', ss: '30', counting: false, page: 1, total: 1, ledMode: 'canceled', ledColor: P.cancel, led: '蓝 · 固定八灯短亮', phase: 'duration', note: '只有一页时不画页点。工作时长已经冻结，上方时钟仍在闪。' })
+  ]},
+  { n: 'D', color: '#e09212', title: '边界', subtitle: '长目录、短会话名、四位分钟、未知读数', tiles: [
+    base({ title: '长目录', code: '单行省略', provider: 'claude', identity: 'ABCDEFGH·S4294967295', project: 'agentmate-provider-registry-dashboard', state: '需要批准', motion: 'permission', color: P.coral, mm: '9999', ss: '59', page: 4, total: 4, ledMode: 'permission', led: '珊瑚 · 双闪后停顿', phase: 'duration', note: '目录只留一行，末尾省略。四位分钟在右下使用 26px 方正字形。会话名胶囊最多约 10 个字符。' }),
+    base({ title: '上下文未知', code: 'Codex context_mode=1', mm: '12', ss: '09', phase: 'context', context: { unknown: true }, note: '上下文未知时不参加轮换，回到工作时长。' }),
+    base({ title: '一档未知', code: 'used_bp 未知', identity: 'DESK·S8', state: '思考中', motion: 'thinking', color: P.think, mm: '01', ss: '04', page: 2, ledMode: 'thinking', ledColor: P.think, led: '淡紫 · 对向三灯尾迹', phase: 'quota', quota: pair('--', 'unknown', '81%', 'sufficient'), note: '5H 未知时跳过，只显示有效的 WEEK，保持单块 67×42px 面板并居中。' }),
+    base({ title: '非 ASCII 目录', code: '逐字符替代', project: 'agent-中文-🚀', phase: 'duration', note: '设备显示 agent-??-?。每个非 ASCII 字符替换为一个 ?，目录仍按 Codex 紫色显示。' }),
+    base({ title: '全部用量无效', code: '只显示工作时长', phase: 'quota', quota: pair('--', 'unknown', '--', 'unknown'), context: { unknown: true }, note: 'Agent 用量和上下文都无效时不出现空面板，也不参加轮换，持续显示工作时长。' }),
+    base({ title: '有效的 0%', code: '0% 并非未知', phase: 'quota', quota: one('WEEK', '0%', 'low'), note: '有效的 0% 仍参加 3 秒 agent 用量展示，单个 WEEK 保持 67×42px。' }),
+    base({ title: '只有 5H', code: '缺一周窗口', ss: '09', phase: 'quota', quota: one('5H', '58%', 'sufficient'), note: '只有 5H 时，保持 67×42px 原尺寸，标题和百分比字号与双档相同，整体居中。' }),
+    base({ title: '百万上下文', code: 'K / M 混用', context: { pct: '62%', used: 768000, total: 1234567 }, note: '已用 768K、总量 1.23M，各自选择单位并右对齐。左侧 CTX 面板显示实际已用百分比，与右侧等高双行 token 面板紧凑排列。' }),
+    base({ title: '大上下文', code: '3 位有效数字', context: { pct: '62%', used: 7654300, total: 12345678 }, note: '右侧显示 7.65M、12.3M；小数点不占数字位。三位数百万量显示为 123M。' }),
+    base({ title: '上下文吃紧', code: '已用 ≥ 80%', ss: '41', context: { pct: '86%', used: 172000, total: 200000 }, note: '达到 80% 后百分比转成珊瑚。目录名直接融合在纯黑头部。' })
+  ]}
+];
+// Non-Session content imported from session_states_board.html; scoped to preserve the current Session design.
+const otherPages = (() => {
+
+const P = {
+  bg: '#000000', on: '#1fbf74', off: '#e8445c', blue: '#4aa8ff',
+  mint: '#36e29a', sky: '#56ccf2', amber: '#ffb02e', coral: '#ff5f7a',
+  stale: '#d2a76b', teal: '#36d8b4', gray: '#8793bb'
+};
+const CODEX_SHAPE = 'M9.064 3.344a4.578 4.578 0 012.285-.312c1 .115 1.891.54 2.673 1.275.01.01.024.017.037.021a.09.09 0 00.043 0 4.55 4.55 0 013.046.275l.047.022.116.057a4.581 4.581 0 012.188 2.399c.209.51.313 1.041.315 1.595a4.24 4.24 0 01-.134 1.223.123.123 0 00.03.115c.594.607.988 1.33 1.183 2.17.289 1.425-.007 2.71-.887 3.854l-.136.166a4.548 4.548 0 01-2.201 1.388.123.123 0 00-.081.076c-.191.551-.383 1.023-.74 1.494-.9 1.187-2.222 1.846-3.711 1.838-1.187-.006-2.239-.44-3.157-1.302a.107.107 0 00-.105-.024c-.388.125-.78.143-1.204.138a4.441 4.441 0 01-1.945-.466 4.544 4.544 0 01-1.61-1.335c-.152-.202-.303-.392-.414-.617a5.81 5.81 0 01-.37-.961 4.582 4.582 0 01-.014-2.298.124.124 0 00.006-.056.085.085 0 00-.027-.048 4.467 4.467 0 01-1.034-1.651 3.896 3.896 0 01-.251-1.192 5.189 5.189 0 01.141-1.6c.337-1.112.982-1.985 1.933-2.618.212-.141.413-.251.601-.33.215-.089.43-.164.646-.227a.098.098 0 00.065-.066 4.51 4.51 0 01.829-1.615 4.535 4.535 0 011.837-1.388zm3.482 10.565a.637.637 0 000 1.272h3.636a.637.637 0 100-1.272h-3.636zM8.462 9.23a.637.637 0 00-1.106.631l1.272 2.224-1.266 2.136a.636.636 0 101.095.649l1.454-2.455a.636.636 0 00.005-.64L8.462 9.23z';
+function mark(provider) {
+  if (provider === 'claude') { return '<img class="provider-icon" src="../../assets/provider_icons/claude.svg" alt="">'; }
+  return `<svg class="provider-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${CODEX_SHAPE}" fill="#6550c8"/></svg>`;
+}
+function header(connected) {
+  const icon = connected
+    ? '<path d="M11 5H9a8 8 0 0 0 0 16h2"/><path d="M17 5h2a8 8 0 0 1 0 16h-2"/><path d="M10 13h8"/>'
+    : '<path d="M10 5H9a8 8 0 0 0 0 16h1"/><path d="M18 5h1a8 8 0 0 1 0 16h-1"/><path d="m15.5 9-3 8"/>';
+  return `<div class="hdr" style="--link:${connected ? P.on : P.off}"><svg viewBox="0 0 28 28" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg></div>`;
+}
+function icon(kind) {
+  const common = 'fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"';
+  const shapes = {
+    work: '<path d="M20 12a8 8 0 1 0-3.2 6.4"/><circle cx="20" cy="12" r="2.4" fill="currentColor"/>',
+    thinking: '<circle cx="12" cy="12" r="8"/><path d="M8 12h8M12 8v8"/>',
+    wait: '<path d="M4 7a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3h-6l-4 3v-3a3 3 0 0 1-3-3z"/>',
+    perm: '<path d="M6 17c1-2 1-4 1-6a5 5 0 0 1 10 0c0 2 0 4 1 6zM10 20h4"/>',
+    stale: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
+    success: '<circle cx="12" cy="12" r="8"/><path d="m8 12 3 3 5-6"/>',
+    failed: '<circle cx="12" cy="12" r="8"/><path d="m9 9 6 6m0-6-6 6"/>',
+    canceled: '<circle cx="12" cy="12" r="8"/><path d="M8 12h8"/>',
+    ready: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/>',
+    signal: '<path d="M4 12a8 8 0 0 1 16 0"/><path d="M7 12a5 5 0 0 1 10 0"/><circle cx="12" cy="13" r="1.5"/>',
+    sync: '<path d="M20 12a8 8 0 0 0-13-6l-2 2M4 12a8 8 0 0 0 13 6l2-2"/><path d="M4 4v4h4m12 12v-4h-4"/>',
+    link: '<path d="M9 15l6-6M8 9H6a4 4 0 0 0 0 8h3m6-10h3a4 4 0 0 1 0 8h-3"/>',
+    lock: '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>'
+  };
+  return `<svg viewBox="0 0 24 24" ${common}>${shapes[kind] || shapes.signal}</svg>`;
+}
+function content(t) {
+  if (t.type === 'boot') {
+    return `<div class="abs brand-mark"><span class="orb"></span></div><div class="abs brand">AgentMate</div>
+      <div class="abs model">AGM-C3</div><div class="abs sw-version">${t.version || 'v1.0'}</div>`;
+  }
+  if (t.type === 'connect') {
+    return `<div class="abs signal">${icon(t.glyph || 'signal')}</div><div class="abs main-label">${t.label}</div>
+      <div class="abs sub-label">${t.sub}</div><div class="abs brandline">AGENTMATE · USB</div>`;
+  }
+  if (t.type === 'info') {
+    const rows = [
+      ['设备 ID', 'dc194fa2'], ['型号', 'AGM-C3'],
+      ['软件版本', 'v1.0'], ['协议版本', '1'],
+      ['屏幕亮度', '90%'], ['灯环亮度', '40%'],
+      ['日期', t.invalid ? '---- -- --' : '2026-06-13'],
+      ['时间', t.invalid ? '--:--:--' : '22:00:02']
+    ];
+    return `<div class="info-rows">${rows.map(r=>`<div class="info-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('')}</div>`;
+  }
+  if (t.type === 'pair') {
+    return `<div class="abs pair-title">配对码</div><div class="abs pin">${t.pin}</div>
+      <div class="abs pair-copy">${t.copy}</div><div class="abs expiry">${t.expiry}</div>`;
+  }
+  if (t.type === 'factory') {
+    if (t.variant === 'color') { return ''; }
+    if (t.variant === 'font') { return `<div class="abs factory-title">字体样张</div><div class="abs sample">ABC 0123 45.67%</div><div class="abs sample-zh">工作中　等待输入</div><div class="abs sample-small">AaBbCc / 16 px</div>`; }
+    return `<div class="abs factory-title">${t.label}</div><div class="abs factory-sub">${t.sub}</div><div class="abs factory-sub2">${t.sub2 || ''}</div><div class="abs factory-bottom">${t.bottom || ''}</div>`;
+  }
+  if (t.type === 'idle') {
+    const date = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t.date || '');
+    return `<div class="abs locale">日期/时间</div><div class="abs standby-clock">${squareClock(t.clock, { stroke: 3.2, blink: !t.invalid && !t.clock.startsWith('-') })}</div>
+      <i class="date-rule"></i><div aria-label="${t.date}"><div class="abs date-year">${date ? date[1] : '----'}</div>
+      <div class="abs date-day">${date ? `${date[2]}-${date[3]}` : '-- --'}</div></div>`;
+  }
+  if (t.type === 'usage') {
+    const cards = t.windows.map(w => {
+      const parsed = /^(\d+(?:\.\d+)?)%$/.exec(w.value);
+      const percent = parsed ? Number(parsed[1]) : NaN;
+      const valid = Number.isFinite(percent) && percent >= 0 && percent <= 100;
+      const tone = !valid ? '#a3afd3' : percent >= 50 ? '#56d6a1' : percent >= 20 ? '#ffc36a' : '#ff8fa6';
+      const parts = w.reset.split(' '), clock = parts[parts.length - 1];
+      const reset = w.label === '一周'
+        ? `<span class="reset-date">${parts.length > 1 ? parts[0] : '未知'}</span><span>${clock}</span>`
+        : `<span>${clock}</span>`;
+      return `<div class="quota-card" style="--quota-tone:${tone};--remaining:${valid ? percent : 0}%">
+        <div class="quota-label">${w.label}</div><b class="quota-value ${valid ? (w.value.length >= 6 ? 'wide' : '') : 'unknown'}">${w.value}</b>
+        <div class="quota-track" aria-hidden="true"><i></i></div><div class="quota-reset">${reset}</div></div>`;
+    }).join('');
+    return `<div class="usage-head">${mark('codex')}<b>剩余用量</b></div><i class="usage-rule"></i>
+      <div class="quota-cards ${t.windows.length === 1 ? 'single' : ''}">${cards}</div>`;
+  }
+  return '';
+}
+function tile(t) {
+  const color = t.color || P.sky;
+  const body = t.type === 'boot' || t.type === 'factory' ? '' : header(t.connected !== false);
+  const screenStyle = `--state:${color};${t.screenColor ? `background:${t.screenColor};` : ''}`;
+  return `<article class="tile imported"><div class="stage">${ring(t.ledColor || color, t.ledMode || 'steady')}
+    <div class="screen ${t.type} ${t.type === 'session' ? `provider-${t.provider}` : ''} ${t.invalid && t.type === 'idle' ? 'placeholder' : ''} ${t.variant === 'color' ? 'factory-color' : ''}" style="${screenStyle}">${body}${content(t)}<div class="safe"></div></div>
+    ${t.tag ? `<span class="tag" style="--tag:${t.tagColor || color}">${t.tag}</span>` : ''}</div>
+    <div class="caption"><h3>${t.title}<code>${t.code || ''}</code></h3>
+      <p class="led-note" style="--led:${t.ledColor || color}">${t.led}</p><p>${t.note}</p></div></article>`;
+}
+const sections = [
+  {
+    "n": "A",
+    "color": "#9b7bff",
+    "title": "启动动画 · Boot",
+    "subtitle": "无 header；2–5 秒后进入连接页，灯环熄灭",
+    "tiles": [
+      {
+        "type": "boot",
+        "title": "品牌进入",
+        "code": "0–2 s",
+        "version": "v1.0",
+        "ledMode": "off",
+        "color": "#9b7bff",
+        "led": "启动期间熄灭",
+        "note": "Logo 前 200–400 ms 淡入；版本号随 Logo 稳定后出现。"
+      },
+      {
+        "type": "boot",
+        "title": "稳定关键帧",
+        "code": "2–5 s",
+        "version": "v1.0",
+        "ledMode": "off",
+        "color": "#9b7bff",
+        "led": "启动期间熄灭",
+        "note": "满 2 秒且连接页已就绪可退出；5 秒为最晚退出点。"
+      }
+    ]
+  },
+  {
+    "n": "B",
+    "color": "#56ccf2",
+    "title": "连接状态 · Connecting",
+    "subtitle": "四种链路状态共用断开 header；不显示时钟或校时状态",
+    "tiles": [
+      {
+        "type": "connect",
+        "title": "等待主机",
+        "code": "WAIT_HOST",
+        "label": "等待主机",
+        "sub": "USB 串口就绪",
+        "glyph": "signal",
+        "color": "#56ccf2",
+        "connected": false,
+        "ledMode": "disconnected",
+        "ledColor": "#ff3b30",
+        "led": "红 · 固定六灯，500 ms／4 秒周期",
+        "note": "长驻超过约 60 秒可降低对比度或极慢位移。"
+      },
+      {
+        "type": "connect",
+        "title": "正在握手",
+        "code": "HANDSHAKE",
+        "label": "正在握手",
+        "sub": "发现设备中",
+        "glyph": "link",
+        "color": "#56ccf2",
+        "connected": false,
+        "ledMode": "connecting",
+        "ledColor": "#ff9f1c",
+        "led": "橙 · 对向四灯尾迹，100 ms 步进",
+        "note": "连接图标仍为断开态；不出现 Session 内容。"
+      },
+      {
+        "type": "connect",
+        "title": "正在同步",
+        "code": "SYNCING",
+        "label": "正在同步",
+        "sub": "会话写入中",
+        "glyph": "sync",
+        "color": "#56ccf2",
+        "connected": false,
+        "ledMode": "connecting",
+        "ledColor": "#ff9f1c",
+        "led": "橙 · 对向四灯尾迹，100 ms 步进",
+        "note": "同步完成后按最高会话组规则重新选页。"
+      },
+      {
+        "type": "connect",
+        "title": "需要配对",
+        "code": "UNPAIRED · 二期",
+        "label": "需要配对",
+        "sub": "请在网页输入配对码",
+        "glyph": "lock",
+        "color": "#9cc9ff",
+        "connected": false,
+        "ledMode": "breathe",
+        "ledColor": "#586b91",
+        "led": "配对页启动前按连接灯效",
+        "note": "四位 PIN 生效后转入配对页。"
+      }
+    ]
+  },
+  {
+    "n": "F",
+    "color": "#56ccf2",
+    "title": "待机 · Codex 用量 · 优先级 4",
+    "subtitle": "方案一：独立深紫面板，百分比为主、重置时间为辅；仅 Codex，与日期时间每 10 秒轮播",
+    "tiles": [
+      {
+        "type": "usage",
+        "title": "双窗口用量",
+        "code": "5 小时 + 一周",
+        "windows": [
+          {
+            "label": "5小时",
+            "value": "58.0%",
+            "reset": "20:30"
+          },
+          {
+            "label": "一周",
+            "value": "81.5%",
+            "reset": "10月9日 18:00"
+          }
+        ],
+        "color": "#56ccf2",
+        "ledColor": "#4aa8ff",
+        "ledMode": "off",
+        "led": "待机灯环熄灭",
+        "note": "两列依次为 5 小时与一周；大字显示剩余百分比，底行显示主机本地重置时间。 每档使用 88×110px 面板，标题带与正文有明暗差，细进度条对应剩余比例。"
+      },
+      {
+        "type": "usage",
+        "title": "注意与偏低",
+        "code": "三档颜色 · 独立判断",
+        "windows": [
+          {
+            "label": "5小时",
+            "value": "35.0%",
+            "reset": "20:30"
+          },
+          {
+            "label": "一周",
+            "value": "8.0%",
+            "reset": "10月9日 18:00"
+          }
+        ],
+        "color": "#56ccf2",
+        "ledColor": "#4aa8ff",
+        "ledMode": "off",
+        "led": "待机灯环熄灭",
+        "note": "剩余 ≥50% 为薄荷绿，20%–49.9% 为琥珀色，<20% 为珊瑚红；每列独立判断。 每档使用 88×110px 面板，标题带与正文有明暗差，细进度条对应剩余比例。"
+      },
+      {
+        "type": "usage",
+        "title": "用量未知",
+        "code": "used_bp=-",
+        "windows": [
+          {
+            "label": "5小时",
+            "value": "用量未知",
+            "reset": "未知"
+          },
+          {
+            "label": "一周",
+            "value": "81.5%",
+            "reset": "10月9日 18:00"
+          }
+        ],
+        "color": "#56ccf2",
+        "ledColor": "#4aa8ff",
+        "ledMode": "off",
+        "led": "待机灯环熄灭",
+        "note": "未知档保留，不画 0%；有效的一周剩余用量照常显示。 每档使用 88×110px 面板，标题带与正文有明暗差，细进度条对应剩余比例。"
+      },
+      {
+        "type": "usage",
+        "title": "单窗口可用",
+        "code": "一周窗口缺失",
+        "windows": [
+          {
+            "label": "5小时",
+            "value": "58.0%",
+            "reset": "00:30"
+          }
+        ],
+        "color": "#56ccf2",
+        "ledColor": "#4aa8ff",
+        "ledMode": "off",
+        "led": "待机灯环熄灭",
+        "note": "缺少一周窗口时只显示 5 小时，单列居中；5 小时重置仅显示时间，不添加跨日标识。 每档使用 88×110px 面板，标题带与正文有明暗差，细进度条对应剩余比例。"
+      },
+      {
+        "type": "usage",
+        "title": "仅一周用量",
+        "code": "WEEK · 单窗口",
+        "windows": [
+          {
+            "label": "一周",
+            "value": "81.5%",
+            "reset": "10月9日 18:00"
+          }
+        ],
+        "color": "#56ccf2",
+        "ledColor": "#4aa8ff",
+        "ledMode": "off",
+        "led": "待机灯环熄灭",
+        "note": "仅收到一周窗口时，保留 88×110px 面板原尺寸并居中；百分比与重置日期、时间完整显示。"
+      },
+      {
+        "type": "usage",
+        "title": "百分比边界",
+        "code": "100% / 0%",
+        "windows": [
+          {
+            "label": "5小时",
+            "value": "100.0%",
+            "reset": "20:30"
+          },
+          {
+            "label": "一周",
+            "value": "0.0%",
+            "reset": "10月9日 18:00"
+          }
+        ],
+        "color": "#56ccf2",
+        "ledColor": "#4aa8ff",
+        "ledMode": "off",
+        "led": "待机灯环熄灭",
+        "note": "100.0% 略缩为 24px 以完整显示；0.0% 为有效读数，进度条为空，未知读数保留文字占位。"
+      }
+    ]
+  },
+  {
+    "n": "G",
+    "color": "#9b7bff",
+    "title": "待机 · 日期时间 · 优先级 4",
+    "subtitle": "方案一：大号方正时钟，年份与月日分层，下半屏突出 36px 日期",
+    "tiles": [
+      {
+        "type": "idle",
+        "title": "正常待机",
+        "code": "日期/时间",
+        "clock": "18:25",
+        "date": "2026-10-12",
+        "lowline": "",
+        "color": "#9b7bff",
+        "ledColor": "#4aa8ff",
+        "ledMode": "off",
+        "led": "待机灯环熄灭",
+        "note": "52px 方正时间占据中部；年份 20px、月日 36px 分层显示，下沿留出圆屏安全空间。冒号每秒闪烁，数字不移位。"
+      },
+      {
+        "type": "idle",
+        "title": "全部 ready",
+        "code": "待机轮播 · 10 秒",
+        "clock": "18:35",
+        "date": "2026-10-12",
+        "lowline": "",
+        "color": "#9b7bff",
+        "ledColor": "#4aa8ff",
+        "ledMode": "off",
+        "led": "待机灯环熄灭",
+        "note": "已收到用量时，与用量页每 10 秒轮播，不受活动时间影响。"
+      },
+      {
+        "type": "idle",
+        "title": "仅 Claude 就绪",
+        "code": "忽略非 Codex 用量",
+        "clock": "18:37",
+        "date": "2026-10-12",
+        "lowline": "",
+        "color": "#9b7bff",
+        "ledColor": "#4aa8ff",
+        "ledMode": "off",
+        "led": "待机灯环熄灭",
+        "note": "Claude 用量不启用本期用量页；已收到 Codex 用量时照常轮播。"
+      },
+      {
+        "type": "idle",
+        "title": "时钟或偏移未知",
+        "code": "time / offset invalid",
+        "clock": "--:--",
+        "date": "---- -- --",
+        "invalid": true,
+        "color": "#9b7bff",
+        "ledColor": "#4aa8ff",
+        "ledMode": "off",
+        "led": "待机灯环熄灭",
+        "note": "任一未同步即占位；冒号保持静止，不暗示正在计时。"
+      }
+    ]
+  },
+  {
+    "n": "H",
+    "color": "#6b7fea",
+    "title": "设备信息 · AT 拉起",
+    "subtitle": "单屏完整信息；默认 10 秒关闭；灯环保持进入前的效果",
+    "tiles": [
+      {
+        "type": "info",
+        "title": "设备信息",
+        "code": "AT+SHOWINFO=10",
+        "color": "#6b7fea",
+        "ledColor": "#36e29a",
+        "ledMode": "working",
+        "led": "沿用进入前灯效（示例：工作追逐）",
+        "note": "首行从 y=51 px 开始，与 header 保留 12 px 间距；日期与时间在最下方。中心线两侧各留 7 px，同一行文字基线对齐。"
+      },
+      {
+        "type": "info",
+        "title": "时钟或偏移未知",
+        "code": "占位态",
+        "invalid": true,
+        "color": "#6b7fea",
+        "ledColor": "#36e29a",
+        "ledMode": "working",
+        "led": "沿用进入前灯效（示例：工作追逐）",
+        "note": "任一未同步即占位；本页不显示剩余 10 秒、旋转角或校时文案。"
+      }
+    ]
+  },
+  {
+    "n": "I",
+    "color": "#4aa8ff",
+    "title": "配对 · 二期设计",
+    "subtitle": "尚未配对时使用断开 header；PIN 与过期倒计时是主体",
+    "tiles": [
+      {
+        "type": "pair",
+        "title": "配对进行中",
+        "code": "PAIRING",
+        "pin": "0427",
+        "copy": "请在网页输入配对码",
+        "expiry": "42 秒后过期 · dc194fa2",
+        "connected": false,
+        "color": "#9cc9ff",
+        "ledColor": "#4aa8ff",
+        "ledMode": "breathe",
+        "led": "蓝灯慢呼吸",
+        "note": "4 位码保留前导零；二期功能，一期仅交付设计。"
+      },
+      {
+        "type": "pair",
+        "title": "配对过期",
+        "code": "EXPIRED",
+        "pin": "----",
+        "copy": "配对码已过期",
+        "expiry": "dc194fa2",
+        "connected": false,
+        "color": "#9cc9ff",
+        "ledColor": "#4aa8ff",
+        "ledMode": "breathe",
+        "led": "蓝灯慢呼吸",
+        "note": "过期短态后回连接页；不再暴露旧 PIN。"
+      }
+    ]
+  },
+  {
+    "n": "J",
+    "color": "#ffb02e",
+    "title": "工厂产测 · Factory",
+    "subtitle": "无业务 header；仅灯珠测试项点亮 LED",
+    "tiles": [
+      {
+        "type": "factory",
+        "title": "产测首页",
+        "code": "FACTORY",
+        "label": "产测模式",
+        "sub": "AT+TESTAUTO=1",
+        "sub2": "AT+MODE=NORMAL",
+        "bottom": "串口就绪",
+        "color": "#ffb02e",
+        "ledMode": "off",
+        "led": "首页灯环熄灭",
+        "note": "退出工厂模式需命令保存并重启。"
+      },
+      {
+        "type": "factory",
+        "title": "纯色测试",
+        "code": "TESTTFT · RED",
+        "variant": "color",
+        "screenColor": "#ff0000",
+        "color": "#ff0000",
+        "ledMode": "off",
+        "led": "纯色屏时灯环熄灭",
+        "note": "六步：黑 #000000、白 #FFFFFF、红 #FF0000、绿 #00FF00、蓝 #0000FF、灰 #808080；每步约 2 秒。"
+      },
+      {
+        "type": "factory",
+        "title": "整圈灯测试",
+        "code": "TESTLED · ALL",
+        "label": "LED 全灯",
+        "sub": "RED / GREEN",
+        "sub2": "BLUE / WHITE",
+        "bottom": "4 色测试",
+        "color": "#ff5f7a",
+        "ledColor": "#ff5f7a",
+        "ledMode": "steady",
+        "led": "本帧为整圈红灯",
+        "note": "红、绿、蓝、白依次点亮，每步约 2 秒。"
+      },
+      {
+        "type": "factory",
+        "title": "逐颗灯测试",
+        "code": "TESTLED · #05",
+        "label": "LED 05 / 16",
+        "sub": "WHITE",
+        "bottom": "灯珠测试",
+        "color": "#e1e6ff",
+        "ledColor": "#e1e6ff",
+        "ledMode": "single",
+        "led": "本帧仅第 5 颗灯亮",
+        "note": "实际产测按指令逐颗点亮；其余测试页不套用业务灯色。"
+      },
+      {
+        "type": "factory",
+        "title": "背光测试",
+        "code": "TESTBACKLIGHT",
+        "label": "背光 128",
+        "sub": "32 / 128 / 255",
+        "bottom": "亮度测试",
+        "color": "#56ccf2",
+        "ledMode": "off",
+        "led": "背光测试灯环熄灭",
+        "note": "三档亮度依次目视检查，每步约 2 秒。"
+      },
+      {
+        "type": "factory",
+        "title": "字体样张",
+        "code": "TESTFONT",
+        "variant": "font",
+        "color": "#56ccf2",
+        "ledMode": "off",
+        "led": "字体测试灯环熄灭",
+        "note": "标题与三行字样分别排在 y=55 / 98 / 133 / 168 px，互不重叠；自动模式按测试项轮播。"
+      }
+    ]
+  }
+];
+return {sections, tile, content};
+})();
+const allSections = [
+  ...otherPages.sections.filter(s => ['boot', 'connect'].includes(s.tiles[0].type)),
+  ...sections,
+  ...otherPages.sections.filter(s => !['boot', 'connect'].includes(s.tiles[0].type))
+];
+allSections.forEach((s, i) => { s.n = String.fromCharCode(65 + i); s.id = 'page-' + s.n.toLowerCase(); });
+document.getElementById('page-nav').innerHTML = allSections.map(s => `<a href="#${s.id}">${s.n} · ${s.title}</a>`).join('');
+document.getElementById('board').innerHTML = allSections.map(s =>
+  `<section id="${s.id}" style="--accent:${s.color}"><div class="sec-head"><span class="sec-num">${s.n}</span><h2>${s.title}</h2><p>${s.subtitle}</p></div><div class="grid">${s.tiles.map(t => t.type ? otherPages.tile(t) : tile(t)).join('')}</div></section>`
+).join('');
+const rings = [...document.querySelectorAll('.led-ring')];
+// Port of main/agentmate_status.c geometry, pulse table and alpha math.
+// Preserve the firmware's 143×48 geometry and 100ms tick; scale only for this layout.
+const firmwareGeometry = new Uint16Array(143 * 48);
+firmwareGeometry.fill(65535);
+function prepareFirmwareGeometry() {
+  const arc = 15.70796327;
+  const perimeter = 2 * (116 + 21) + 4 * arc;
+  for (let y = 0; y < 48; y++) {
+    for (let x = 0; x < 143; x++) {
+      const dx = Math.abs(x - 71) - 58, dy = Math.abs(y - 23.5) - 10.5;
+      const u = Math.max(dx, 0), v = Math.max(dy, 0);
+      const distance = Math.abs(Math.sqrt(u * u + v * v) + Math.min(Math.max(dx, dy), 0) - 10);
+      if (distance > 3.5) continue;
+      let position;
+      if (dx > 0 && dy > 0) {
+        if (x >= 71 && y < 23.5) position = 116 + 10 * Math.atan2(u, v);
+        else if (x >= 71) position = 116 + arc + 21 + 10 * Math.atan2(v, u);
+        else if (y >= 23.5) position = 232 + 2 * arc + 21 + 10 * Math.atan2(u, v);
+        else position = 232 + 3 * arc + 42 + 10 * Math.atan2(v, u);
+      } else if (dy >= dx) {
+        position = y < 23.5 ? x - 13 : 116 + 2 * arc + 21 + 129 - x;
+      } else {
+        position = x >= 71 ? 116 + arc + y - 13 : 232 + 3 * arc + 21 + 34 - y;
+      }
+      const phase = Math.floor(position * 256 / perimeter + 256) % 256;
+      firmwareGeometry[y * 143 + x] = (phase << 8) | Math.floor(distance * 32 + .5);
+    }
+  }
+}
+const firmwarePeriods = { working: 24, thinking: 40, input: 20, permission: 20, stale: 30, success: 40, failed: 24, canceled: 40 };
+const firmwareColors = { working: [54, 226, 154], thinking: [139, 153, 255], input: [255, 176, 46], permission: [255, 95, 122],
+  stale: [163, 175, 211], success: [54, 226, 154], failed: [255, 59, 48], canceled: [74, 168, 255] };
+function firmwareTrail(position, head, length, reverse) {
+  const distance = reverse ? (position + 256 - head) % 256 : (head + 256 - position) % 256;
+  return distance < length ? Math.floor((length - distance) * 255 / length) : 0;
+}
+function firmwareBand(position, center) {
+  let distance = (position + 256 - center) % 256;
+  if (distance > 128) distance = 256 - distance;
+  return distance < 64 ? Math.floor((64 - distance) * 255 / 64) : 0;
+}
+function firmwareBorderAlpha(frame, geometry, mode = 'input') {
+  if (geometry === 65535) return 0;
+  const position = geometry >> 8;
+  let light;
+  if (mode === 'working') {
+    light = firmwareTrail(position, Math.floor(frame * 256 / 24), 48, false);
+  } else if (mode === 'thinking') {
+    const head = Math.floor(frame * 256 / 40);
+    light = Math.max(firmwareTrail(position, head, 32, false), firmwareTrail(position, (head + 128) % 256, 32, false));
+  } else if (mode === 'input' || mode === 'permission') {
+    const pulse = [160, 255, 160, 40, 160, 255, 160, 40, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 40];
+    const fog = firmwareBand(position, Math.floor(frame * 256 / 20));
+    light = Math.floor((pulse[frame % 20] * (128 + Math.floor(fog / 2)) + 32 * fog) / 287);
+  } else if (mode === 'stale' || mode === 'failed') {
+    const period = firmwarePeriods[mode], half = period / 2;
+    const amount = frame <= half ? Math.floor(frame * 255 / half) : Math.floor((period - frame) * 255 / (period - half));
+    const center = mode === 'stale' ? 64 : 0;
+    light = Math.floor((firmwareBand(position, center) * amount + firmwareBand(position, center + 128) * (255 - amount)) / 255);
+  } else {
+    const reverse = mode === 'canceled';
+    const head = reverse ? (256 - Math.floor(frame * 256 / 40)) % 256 : Math.floor(frame * 256 / 40);
+    light = firmwareTrail(position, head, 28, reverse);
+  }
+  const distance = geometry & 255;
+  const edge = distance <= 16 ? 255 : distance < 48 ? Math.floor((48 - distance) * 255 / 32) : 0;
+  const glow = distance < 112 ? Math.floor((112 - distance) ** 2 * 80 / (112 * 112)) : 0;
+  return Math.min(255, Math.floor((edge * (65 + Math.floor(light * 190 / 255)) + glow * light) / 255));
+}
+prepareFirmwareGeometry();
+const firmwareBorders = [...document.querySelectorAll('.firmware-border')].map(canvas => {
+  const context = canvas.getContext('2d');
+  return { canvas, context, pixels: context.createImageData(145, 56), frame: -1 };
+});
+function animateFirmwareBorders(ms) {
+  const tick = matchMedia('(prefers-reduced-motion: reduce)').matches ? 1 : Math.floor(ms / 100);
+  for (const border of firmwareBorders) {
+    const mode = border.canvas.dataset.mode;
+    const frame = tick % firmwarePeriods[mode];
+    if (border.frame === frame) continue;
+    const rgb = firmwareColors[mode];
+    for (let y = 0; y < 56; y++) {
+      for (let x = 0; x < 145; x++) {
+        const geometry = firmwareGeometry[Math.floor(y * 48 / 56) * 143 + Math.floor(x * 143 / 145)];
+        border.pixels.data.set([...rgb, firmwareBorderAlpha(frame, geometry, mode)], (y * 145 + x) * 4);
+      }
+    }
+    border.context.putImageData(border.pixels, 0, 0);
+    border.frame = frame;
+  }
+}
+const ringStarted = performance.now();
+function animateRings(now) {
+  const ms = Math.floor(now - ringStarted);
+  animateFirmwareBorders(ms);
+  for (const el of rings) {
+    const levels = ringLevels(el.dataset.mode, ms);
+    const hex = el.dataset.color.replace('#', '');
+    const baseColor = [0, 2, 4].map(offset => parseInt(hex.slice(offset, offset + 2), 16));
+    [...el.children].forEach((dot, i) => {
+      const color = `rgb(${baseColor.map(c => Math.round(c * levels[i] / 100)).join(',')})`;
+      dot.style.background = levels[i] ? color : '#d5e5dc';
+      dot.style.boxShadow = levels[i] ? `0 0 6px ${color}` : 'none';
+    });
+  }
+  requestAnimationFrame(animateRings);
+}
+requestAnimationFrame(animateRings);
+</script>
+</body>
+</html>

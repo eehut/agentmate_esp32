@@ -19,6 +19,8 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-11 1.6      Codex         Skip invalid Session metrics and use ten/three/three-second phases.
+# 2026-10-11 1.5      Codex         Rotate Session duration, context and available quota independently.
 #
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
@@ -99,12 +101,24 @@ bool am_event_in_group(const am_model_t *model)
     return false;
 }
 
-static void select_usage(const am_model_t *model, int *windows)
+bool am_session_context_available(const am_session_t *session)
+{
+    return session->context_mode == 2 && session->ctx_window > 0 && session->ctx_pct_bp <= 10000;
+}
+
+bool am_session_quota_available(const am_usage_t *usage)
+{
+    return usage->used && strcmp(usage->provider, "codex") == 0 &&
+           (usage->window_seconds == 18000 || usage->window_seconds == 604800) && usage->used_bp >= 0 && usage->used_bp <= 10000;
+}
+
+static void select_usage(const am_model_t *model, int *windows, bool valid_only)
 {
     const char *metric = NULL;
     for (int i = 0; i < AM_MAX_USAGE_ENTRIES; ++i) {
         const am_usage_t *u = &model->usages[i];
-        if (u->used && strcmp(u->provider, "codex") == 0 && (u->window_seconds == 18000 || u->window_seconds == 604800) &&
+        if (u->used && (!valid_only || am_session_quota_available(u)) && strcmp(u->provider, "codex") == 0 &&
+            (u->window_seconds == 18000 || u->window_seconds == 604800) &&
             (!metric || strcmp(u->metric, metric) < 0)) {
             metric = u->metric;
         }
@@ -114,7 +128,7 @@ static void select_usage(const am_model_t *model, int *windows)
     }
     for (int i = 0; i < AM_MAX_USAGE_ENTRIES; ++i) {
         const am_usage_t *u = &model->usages[i];
-        if (!u->used || strcmp(u->provider, "codex") != 0 || strcmp(u->metric, metric) != 0) {
+        if (!u->used || (valid_only && !am_session_quota_available(u)) || strcmp(u->provider, "codex") != 0 || strcmp(u->metric, metric) != 0) {
             continue;
         }
         int slot = u->window_seconds == 18000 ? 0 : u->window_seconds == 604800 ? 1 : -1;
@@ -129,7 +143,7 @@ void am_ui_select(const am_model_t *model, struct am_ui_schedule *schedule, int6
     memset(selection, 0, sizeof(*selection));
     selection->usage[0] = -1;
     selection->usage[1] = -1;
-    select_usage(model, selection->usage);
+    select_usage(model, selection->usage, false);
     if (schedule->remote_generation != model->remote_generation) {
         memset(schedule, 0, sizeof(*schedule));
         schedule->remote_generation = model->remote_generation;
@@ -137,6 +151,11 @@ void am_ui_select(const am_model_t *model, struct am_ui_schedule *schedule, int6
     enum am_ui_group group = model->link == AM_LINK_ONLINE ? highest_group(model) : AM_GROUP_CONNECT;
     selection->group = group;
     bool session_group_active = group == AM_GROUP_ATTENTION || group == AM_GROUP_RESULT || group == AM_GROUP_WORK;
+    if (session_group_active) {
+        selection->usage[0] = -1;
+        selection->usage[1] = -1;
+        select_usage(model, selection->usage, true);
+    }
     for (int i = 0; i < AM_MAX_SESSIONS; ++i) {
         if (model->sessions[i].used && session_group_active && session_group(model->sessions[i].state) == group) {
             selection->slots[selection->count++] = i;
@@ -147,7 +166,15 @@ void am_ui_select(const am_model_t *model, struct am_ui_schedule *schedule, int6
         selection->preempted = session_group_active && (group < schedule->group || group == AM_GROUP_ATTENTION);
         schedule->current_key[0] = 0;
         schedule->page_since_us = now;
+        memset(schedule->detail_elapsed_us, 0, sizeof(schedule->detail_elapsed_us));
+        memset(schedule->detail_keys, 0, sizeof(schedule->detail_keys));
+    } else if (session_group_active && schedule->current_key[0]) {
+        int slot = schedule->current_slot;
+        if (now > schedule->detail_updated_us && strcmp(schedule->detail_keys[slot], model->sessions[slot].key) == 0) {
+            schedule->detail_elapsed_us[slot] += now - schedule->detail_updated_us;
+        }
     }
+    schedule->detail_updated_us = now;
     selection->page = group == AM_GROUP_CONNECT ? AM_PAGE_CONNECT : group == AM_GROUP_IDLE ? AM_PAGE_IDLE :
                       group == AM_GROUP_RESULT ? AM_PAGE_RESULT : AM_PAGE_TASK;
     if (group == AM_GROUP_IDLE && model->usage_supported) {
@@ -190,7 +217,35 @@ void am_ui_select(const am_model_t *model, struct am_ui_schedule *schedule, int6
         selection->current = current;
         schedule->current_slot = selection->slots[current];
     }
-    selection->show_context = current >= 0 && ((now - schedule->page_since_us) / AM_CONTEXT_DWELL_US) % 2;
+    if (current >= 0) {
+        int slot = selection->slots[current];
+        const am_session_t *session = &model->sessions[slot];
+        if (strcmp(schedule->detail_keys[slot], session->key) != 0) {
+            memcpy(schedule->detail_keys[slot], session->key, sizeof(schedule->detail_keys[slot]));
+            schedule->detail_elapsed_us[slot] = 0;
+        }
+        bool codex = strcmp(session->provider, "codex") == 0;
+        enum am_session_detail details[3] = {AM_DETAIL_DURATION};
+        int64_t dwell[3] = {AM_SESSION_DURATION_US, AM_SESSION_USAGE_US, AM_SESSION_USAGE_US};
+        int count = 1;
+        if (codex && (selection->usage[0] >= 0 || selection->usage[1] >= 0)) {
+            details[count++] = AM_DETAIL_QUOTA;
+        }
+        if (am_session_context_available(session)) {
+            details[count++] = AM_DETAIL_CONTEXT;
+        }
+        /* Resume each session's visible time on its next visit, including groups of three or six. */
+        int64_t age = schedule->detail_elapsed_us[slot];
+        int64_t cycle = AM_SESSION_DURATION_US + (count - 1) * AM_SESSION_USAGE_US;
+        int64_t phase = age % cycle;
+        for (int i = 0; i < count; ++i) {
+            if (phase < dwell[i]) {
+                selection->detail = details[i];
+                break;
+            }
+            phase -= dwell[i];
+        }
+    }
     schedule->group = group;
     schedule->attention_sequence = model->attention_sequence;
     if (now < model->info_until_us) {

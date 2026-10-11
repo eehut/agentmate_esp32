@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentMate 圆形屏 · Session 三行页</title>
+<style>
+  :root {
+    --ink: #24362f; --ink-soft: #5d736b;
+    --screen: #e7f6ef; --spruce: #1c3f38; --mint: #12b981; --leaf: #0e9a62;
+    --paper: #fff;
+    --rounded: ui-rounded, "SF Pro Rounded", "Yuanti SC", "PingFang SC", sans-serif;
+    --cond: "Avenir Next Condensed", "Avenir Next", "Helvetica Neue Condensed", "Helvetica Neue", sans-serif;
+    --time: "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; min-width: 320px; color: var(--ink); font-family: var(--rounded); -webkit-font-smoothing: antialiased;
+    background: radial-gradient(620px 420px at 6% -4%, #ffe7c4 0%, transparent 70%),
+      radial-gradient(560px 420px at 98% 2%, #d7f6e8 0%, transparent 68%), #f6fbf7; }
+  .wrap { max-width: 1332px; margin: 0 auto; padding: 42px 48px 72px; }
+  .board-head { display: flex; align-items: end; gap: 24px; }
+  .logo-dots { display: flex; gap: 7px; margin-bottom: 12px; }
+  .logo-dots i { width: 15px; height: 15px; border-radius: 50%; }
+  h1 { margin: 0; font-size: 40px; line-height: 1.15; letter-spacing: .5px; }
+  h1 em { font-style: normal; color: #12b981; }
+  .intro { margin: 12px 0 0; max-width: 840px; color: var(--ink-soft); font-size: 15px; line-height: 1.7; }
+  .intro a { color: #0e9a62; }
+  .version { margin-left: auto; min-width: 196px; padding: 13px 17px; border-radius: 16px; background: #fff;
+    color: var(--ink-soft); line-height: 1.65; text-align: right; box-shadow: 0 6px 18px #1c3f3814; }
+  .version strong { color: var(--ink); }
+  .ribbon { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 28px; }
+  .ribbon-item { min-height: 96px; padding: 16px 18px; border-radius: 18px; background: white; box-shadow: 0 8px 22px #1c3f3812; }
+  .ribbon-item b { display: block; font-size: 17px; }
+  .ribbon-item small { display: block; margin-top: 5px; color: var(--ink-soft); font-size: 12px; line-height: 1.45; }
+  section { margin-top: 42px; }
+  .sec-head { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 17px; }
+  .sec-num { display: grid; place-items: center; width: 35px; height: 35px; border-radius: 12px; color: #fff;
+    font-size: 17px; font-weight: 700; background: var(--accent); box-shadow: 0 6px 14px #1c3f3824; }
+  h2 { margin: 0; font-size: 23px; }
+  .sec-head p { margin: 0; color: var(--ink-soft); font-size: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 288px); gap: 25px 24px; }
+  .tile { min-height: 359px; padding: 16px 16px 14px; border-radius: 26px; background: var(--paper);
+    box-shadow: 0 10px 26px #1c3f3814; display: flex; flex-direction: column; align-items: center; }
+  .stage { position: relative; width: 256px; height: 256px; flex: none; }
+  .led { position: absolute; width: 11px; height: 11px; border-radius: 50%; left: 50%; top: 50%; }
+  .screen { position: absolute; left: 8px; top: 8px; width: 240px; height: 240px; overflow: hidden;
+    border-radius: 50%; background: var(--screen); color: var(--spruce);
+    box-shadow: 0 0 0 4px #24302c, 0 10px 20px #14143233; }
+  .safe { pointer-events: none; position: absolute; z-index: 20; left: 5px; top: 5px; width: 230px; height: 230px;
+    border-radius: 50%; border: 1px dashed #1c3f3838; }
+  .page-dot { position: absolute; border-radius: 50%; z-index: 4; }
+  .caption { align-self: stretch; margin-top: 13px; }
+  .caption h3 { display: flex; align-items: baseline; gap: 6px; margin: 0; font-size: 16px; line-height: 1.25; }
+  .caption h3 code { font-family: var(--cond); font-weight: 600; font-size: 12px; color: var(--ink-soft); }
+  .caption p { margin: 7px 0 0; color: #4d655c; font-size: 12px; line-height: 1.45; }
+  .caption .led-note::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px;
+    border-radius: 50%; background: var(--led); box-shadow: 0 0 8px var(--led); vertical-align: -1px; }
+  .caption .led-note { color: #3d5c50; }
+
+  .identity { position: absolute; top: 40px; left: 28px; width: 184px; height: 32px;
+    display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .identity .mark { width: 30px; height: 30px; flex: none; display: grid; place-items: center; }
+  .identity .mark svg, .identity .mark img { width: 30px; height: 30px; display: block; }
+  .identity .pill { max-width: 124px; height: 24px; padding: 0 9px; border-radius: 12px; background: var(--title); color: #fff;
+    font: 650 15px/24px var(--cond); letter-spacing: .2px; }
+  .identity .pill span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .main { position: absolute; top: 76px; left: 16px; width: 208px; height: 66px; display: flex; align-items: center; gap: 8px; }
+  .hero { position: relative; width: 128px; height: 62px; flex: none; border-radius: 18px; overflow: hidden;
+    display: grid; place-items: center; color: var(--state); background: var(--plate);
+    font: 750 30px/1.05 var(--rounded); letter-spacing: .5px; }
+  .hero.mid { font-size: 24px; }
+  .hero.long { font-size: 18px; letter-spacing: 0; }
+  .hero .spin { position: absolute; inset: -80%;
+    background: conic-gradient(from 0deg, transparent 0 68%, var(--state) 84%, #fff 90%, transparent 100%);
+    animation: spin var(--spin, 2.4s) linear infinite; opacity: .85; }
+  .hero.reverse .spin { animation-direction: reverse; }
+  .hero .fill { position: absolute; inset: 3px; border-radius: 16px; background: var(--plate); }
+  .hero span { position: relative; z-index: 1; }
+  .clock { width: 68px; height: 62px; flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: var(--spruce); font-variant-numeric: tabular-nums; }
+  .clock b { font: 300 28px/26px var(--time); letter-spacing: -1px; }
+  .clock.wide b { font-size: 20px; letter-spacing: -.4px; }
+  .clock .colon { height: 12px; margin: -2px 0; color: var(--mint); font: 300 16px/12px var(--time); }
+  .clock.frozen { color: #8ea197; }
+  .clock.frozen .colon { color: #b7c6be; }
+
+  .rot { position: absolute; top: 148px; left: 26px; width: 188px; height: 54px; overflow: hidden;
+    display: flex; align-items: center; justify-content: center; text-align: center; }
+  .dir-box { width: 180px; }
+  .rot.dir p { margin: 0; width: 180px; max-height: 52px; overflow: hidden; color: var(--spruce);
+    font: 500 26px/26px var(--cond); letter-spacing: -.2px; overflow-wrap: anywhere;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+  .rot.context, .rot.quota { gap: 14px; }
+  .rot.context { flex-direction: column; gap: 0; }
+  .rot .col { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+  .rot small { color: #5e7a72; font: 650 13px/15px var(--rounded); }
+  .rot b { font: 560 30px/32px var(--cond); letter-spacing: -.4px; color: var(--spruce); }
+  .rot b.pct { font-size: 28px; line-height: 28px; }
+  .rot b.ratio { color: #3d6b5e; font-size: 22px; line-height: 24px; }
+  .rot b.sufficient { color: var(--leaf); }
+  .rot b.attention { color: #e09212; }
+  .rot b.low { color: #e85d78; }
+  .rot b.unknown { color: #8ea197; font-family: var(--time); font-weight: 300; letter-spacing: 1px; font-size: 28px; }
+
+  .notes { display: grid; grid-template-columns: 1.05fr .95fr; gap: 18px; margin-top: 42px; }
+  .note { padding: 20px 22px; border-radius: 22px; background: white; box-shadow: 0 10px 26px #1c3f3814; }
+  .note h2 { margin: 0 0 10px; font-size: 17px; }
+  .note p, .note li { color: #3e564c; font-size: 13px; line-height: 1.65; }
+  .note p { margin: 8px 0 0; }
+  .note ul { margin: 0; padding-left: 18px; }
+  .note code { font: 12px var(--cond); color: #2f6b56; }
+  .note table { width: 100%; border-collapse: collapse; font-size: 13px; color: #3e564c; }
+  .note th, .note td { padding: 5px 6px; text-align: left; border-bottom: 1px solid #e5f2eb; vertical-align: top; }
+  .note th { color: var(--ink); font-size: 12px; }
+  .note.wide { grid-column: span 2; background: #fff8ec; border: 1px solid #ffd89a; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (max-width: 1270px) { .wrap { max-width: 1000px; } .grid { grid-template-columns: repeat(3, 288px); } }
+  @media (max-width: 970px) { .wrap { max-width: 680px; } .grid { grid-template-columns: repeat(2, 288px); }
+    .ribbon { grid-template-columns: repeat(2, 1fr); } .notes { grid-template-columns: 1fr; } .note.wide { grid-column: auto; } }
+  @media (max-width: 650px) { .wrap { padding: 26px 16px 56px; } .board-head { align-items: start; flex-direction: column; }
+    h1 { font-size: 30px; } .version { margin: 0; text-align: left; } .grid { grid-template-columns: 288px; justify-content: center; }
+    .ribbon { grid-template-columns: 1fr; } .sec-head p { width: 100%; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="board-head">
+    <div>
+      <div class="logo-dots"><i style="background:#ff8fab"></i><i style="background:#ffc857"></i><i style="background:#12b981"></i><i style="background:#7eb6ff"></i><i style="background:#8b7cf7"></i></div>
+      <h1>AgentMate · <em>Session 三行页</em></h1>
+      <p class="intro">Session 状态页不再画连接带。未连接时本来就有专用连接页，连上之后图标、会话名、主状态和时长固定不动，底部一块区域每 5 秒轮换目录、上下文和 agent 用量。内容落在直径 230px 的可视圆里。全量其他页面仍以 <a href="session_states_board.html">session_states_board.html</a> 为准。</p>
+    </div>
+    <div class="version">稿件 <strong>Session 三行 · v3</strong><br>只含状态页<br>2026-10-11</div>
+  </header>
+  <div class="ribbon" aria-label="三行结构">
+    <div class="ribbon-item"><b>第一行 · 固定</b><small>Agent 图标和会话名。不随底部轮换改变。</small></div>
+    <div class="ribbon-item"><b>第二行 · 固定主区</b><small>左侧主状态，右侧窄列是时长。这一行最高。</small></div>
+    <div class="ribbon-item"><b>第三行 · 轮换</b><small>目录最多两行，上下文一行两档，agent 用量一组或两组。</small></div>
+    <div class="ribbon-item"><b>浅底</b><small>薄荷绿底。状态用浅色底块，读起来轻一点。</small></div>
+  </div>
+  <div id="board"></div>
+  <div class="notes">
+    <article class="note">
+      <h2>为什么三行放得下</h2>
+      <p>去掉 39px 连接带之后，圆顶可以留给图标和会话名。主状态行放在圆的最宽处，高度 66px，仍是三行里最高的一块。时长在右侧 68px 窄列里上下分排，两位分钟用 28px，四位分钟收到 20px。</p>
+      <p>底部轮换区高 54px，上沿贴近状态行，这样两行目录仍落在直径 230 的圆内。目录用 26px，一行放得下就居中，放不下折成两行，最多两行，第二行末尾省略。上下文是百分比加已用／总量。agent 用量一组时居中，两组时左右并排。</p>
+    </article>
+    <article class="note">
+      <h2>240 屏上的位置</h2>
+      <table>
+        <thead><tr><th>元素</th><th>位置</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>可视圆</td><td>直径 230，距边 5px</td><td>不再以 216 为内容边界</td></tr>
+          <tr><td>图标 + 会话名</td><td>y 40–72</td><td>图标 30px，名字 15px</td></tr>
+          <tr><td>主状态</td><td>y 76–142，宽 128</td><td>三字 30px，四字 24px，五字 18px</td></tr>
+          <tr><td>时长</td><td>右侧宽 68，与状态同高</td><td>分在上、秒在下，冒号居中</td></tr>
+          <tr><td>轮换区</td><td>y 148–202，宽 188</td><td>目录、上下文、用量共用</td></tr>
+          <tr><td>页点</td><td>半径 110</td><td>贴着可视圆下沿，不压住轮换文字</td></tr>
+        </tbody>
+      </table>
+    </article>
+    <article class="note wide">
+      <h2>固定和轮换</h2>
+      <ul>
+        <li>固定：provider 图标、会话名（<code>主机·短名</code>）、主状态、工作时长。底部换内容时这四项不移位、不改字号。</li>
+        <li>轮换顺序是目录、上下文、agent 用量，每项 5 秒。进入会话先看目录。没有目录、Codex 不支持上下文、Claude 上下文未知、或没有 Codex 用量时，跳过该项。只剩一项时就停在那一项。</li>
+        <li>会话页之间仍按等待、完成、工作三组轮播，每页 10 秒。底部 5 秒轮换不重置这 10 秒，也不改灯环。</li>
+        <li>时长规则不变：工作、思考、等待输入、需要批准继续累加；状态未更新和完成态冻结。显示仍是分和秒，只是窄列里改成上下排列。</li>
+        <li>上下文百分比仍按 <code>ctx_pct_bp</code> 四舍五入成整数。未知显示 <code>--</code>，不画 0%。配额颜色仍是 ≥50% 绿、≥20% 琥珀、低于 20% 珊瑚。</li>
+        <li>连接状态不画在这一页。断线仍走原来的连接页。</li>
+      </ul>
+    </article>
+  </div>
+</main>
+<script>
+const P = {
+  mint: '#12b981', leaf: '#0e9a62', amber: '#e09212', coral: '#e85d78',
+  think: '#6d78e8', fail: '#e5484d', cancel: '#3b8eed', stale: '#8b95a7',
+  plate: { working: '#d9f8e8', thinking: '#e7e9ff', input: '#fff3d8', permission: '#ffe4ea', stale: '#eef1f4', success: '#d9f8e8', failed: '#ffe4e6', canceled: '#e5f2ff' }
+};
+const CODEX_SHAPE = 'M9.064 3.344a4.578 4.578 0 012.285-.312c1 .115 1.891.54 2.673 1.275.01.01.024.017.037.021a.09.09 0 00.043 0 4.55 4.55 0 013.046.275l.047.022.116.057a4.581 4.581 0 012.188 2.399c.209.51.313 1.041.315 1.595a4.24 4.24 0 01-.134 1.223.123.123 0 00.03.115c.594.607.988 1.33 1.183 2.17.289 1.425-.007 2.71-.887 3.854l-.136.166a4.548 4.548 0 01-2.201 1.388.123.123 0 00-.081.076c-.191.551-.383 1.023-.74 1.494-.9 1.187-2.222 1.846-3.711 1.838-1.187-.006-2.239-.44-3.157-1.302a.107.107 0 00-.105-.024c-.388.125-.78.143-1.204.138a4.441 4.441 0 01-1.945-.466 4.544 4.544 0 01-1.61-1.335c-.152-.202-.303-.392-.414-.617a5.81 5.81 0 01-.37-.961 4.582 4.582 0 01-.014-2.298.124.124 0 00.006-.056.085.085 0 00-.027-.048 4.467 4.467 0 01-1.034-1.651 3.896 3.896 0 01-.251-1.192 5.189 5.189 0 01.141-1.6c.337-1.112.982-1.985 1.933-2.618.212-.141.413-.251.601-.33.215-.089.43-.164.646-.227a.098.098 0 00.065-.066 4.51 4.51 0 01.829-1.615 4.535 4.535 0 011.837-1.388zm3.482 10.565a.637.637 0 000 1.272h3.636a.637.637 0 100-1.272h-3.636zM8.462 9.23a.637.637 0 00-1.106.631l1.272 2.224-1.266 2.136a.636.636 0 101.095.649l1.454-2.455a.636.636 0 00.005-.64L8.462 9.23z';
+function mark(provider) {
+  if (provider === 'claude') return '<img src="../../assets/provider_icons/claude.svg" alt="">';
+  return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${CODEX_SHAPE}" fill="#6c5ce7"/></svg>`;
+}
+function dots(page, total, color) {
+  if (total < 2) return '';
+  let out = '';
+  for (let k = 0; k < total; k++) {
+    const a = (90 - (k - (total - 1) / 2) * 13) * Math.PI / 180;
+    const x = 120 + Math.cos(a) * 110, y = 120 + Math.sin(a) * 110;
+    const current = k + 1 === page, d = current ? 7 : 5;
+    out += `<i class="page-dot" style="left:${x - d / 2}px;top:${y - d / 2}px;width:${d}px;height:${d}px;background:${current ? color : '#c5ddd4'}"></i>`;
+  }
+  return out;
+}
+function ringLevels(mode, ms) {
+  const levels = Array(16).fill(0);
+  const fixed = (length, a, b) => { for (let i = 0; i < length; i++) { levels[i] = a; levels[i + 8] = b; } };
+  const moving = (head, values) => values.forEach((value, i) => { levels[(head - i + 16) % 16] = value; });
+  if (mode === 'permission') { if (ms % 2000 < 150 || (ms % 2000 >= 300 && ms % 2000 < 450)) levels.fill(55); }
+  else if (mode === 'input') { if (ms % 2000 < 600) fixed(4, 70, 70); }
+  else if (mode === 'working') moving(Math.floor(ms / 150) % 16, [100, 100, 75, 50, 30, 15]);
+  else if (mode === 'thinking') { const h = Math.floor(ms / 250) % 16; moving(h, [80, 40, 15]); moving((h + 8) % 16, [80, 40, 15]); }
+  else if (mode === 'stale') { const alternate = ms % 3000 >= 1500; fixed(3, alternate ? 15 : 60, alternate ? 60 : 15); }
+  else if (mode === 'success') { const p = ms % 2400, count = p < 450 ? (Math.floor(p / 150) + 1) * 4 : p < 1200 ? 16 : 0; levels.fill(55, 0, count); }
+  else if (mode === 'failed') { if (ms % 2400 < 200) levels.fill(55); }
+  else if (mode === 'canceled') { if (ms % 3000 < 300) fixed(4, 50, 50); }
+  return levels;
+}
+function ring(color, mode) {
+  let out = `<span class="led-ring" data-mode="${mode}" data-color="${color}">`;
+  for (let i = 0; i < 16; i++) {
+    const a = i * Math.PI / 8 - Math.PI / 2;
+    out += `<i class="led" style="transform:translate(${Math.cos(a) * 128 - 5.5}px,${Math.sin(a) * 128 - 5.5}px);background:#d5e5dc"></i>`;
+  }
+  return out + '</span>';
+}
+function rotateHTML(t) {
+  if (t.phase === 'dir') return `<div class="rot dir"><div class="dir-box"><p title="${t.project}">${t.project}</p></div></div>`;
+  if (t.phase === 'context') {
+    if (t.context.unknown) return '<div class="rot context"><b class="unknown">--</b></div>';
+    return `<div class="rot context"><b class="pct">${t.context.pct}</b><b class="ratio">${t.context.ratio}</b></div>`;
+  }
+  const cols = t.quota.map(w => `<div class="col"><small>${w.label}</small><b class="${w.grade}">${w.value}</b></div>`).join('');
+  return `<div class="rot quota${t.quota.length === 1 ? ' single' : ''}">${cols}</div>`;
+}
+function screenHTML(t) {
+  const n = [...t.state].length;
+  const size = n >= 5 ? ' long' : n >= 4 ? ' mid' : '';
+  const spin = { working: '2.4s', thinking: '4s', input: '2s', permission: '2s', stale: '3s', success: '4s', failed: '2.4s', canceled: '4s' }[t.motion];
+  const reverse = t.motion === 'canceled' ? ' reverse' : '';
+  const plate = P.plate[t.motion];
+  return `<div class="identity"><span class="mark">${mark(t.provider)}</span><span class="pill"><span>${t.identity}</span></span></div>
+    <div class="main">
+      <div class="hero ${t.motion}${reverse}${size}" style="--state:${t.color};--plate:${plate};--spin:${spin}"><i class="spin"></i><i class="fill"></i><span>${t.state}</span></div>
+      <div class="clock${t.counting ? '' : ' frozen'}${t.mm.length >= 4 ? ' wide' : ''}"><b>${t.mm}</b><span class="colon">:</span><b>${t.ss}</b></div>
+    </div>
+    ${rotateHTML(t)}
+    ${dots(t.page || 1, t.total || 1, t.color)}`;
+}
+function tile(t) {
+  const title = t.provider === 'claude' ? '#e07a5f' : '#6c5ce7';
+  return `<article class="tile"><div class="stage">${ring(t.ledColor || t.color, t.ledMode)}
+    <div class="screen" style="--title:${title};--state:${t.color}">${screenHTML(t)}<div class="safe"></div></div></div>
+    <div class="caption"><h3>${t.title}<code>${t.code || ''}</code></h3>
+      <p class="led-note" style="--led:${t.ledColor || t.color}">${t.led}</p><p>${t.note}</p></div></article>`;
+}
+const pair = (a, ag, b, bg) => [{ label: '5小时', value: a, grade: ag }, { label: '一周', value: b, grade: bg }];
+const one = (label, value, grade) => [{ label, value, grade }];
+const base = (extra) => Object.assign({
+  provider: 'codex', identity: 'LOCAL·S1', project: 'agentmate_esp32', state: '工作中', motion: 'working',
+  color: P.leaf, mm: '12', ss: '12', counting: true, page: 1, total: 2, ledMode: 'working',
+  led: '绿 · 连续六灯明暗尾迹', phase: 'dir'
+}, extra);
+const sections = [
+  { n: 'A', color: '#12b981', title: '同一会话的三相位', subtitle: '上面两行不动。底部每 5 秒换一项，进入会话先看目录', tiles: [
+    base({ title: '目录', code: '第 1 相 · 5 秒', phase: 'dir', note: '短目录一行居中。图标、会话名、状态和时长保持不动。' }),
+    base({ title: '上下文', code: '第 2 相 · 5 秒', phase: 'context', ss: '17', context: { pct: '6%', ratio: '12k/200k' }, note: '百分比在上，已用／总量在下。整数百分比，方便在这块区域里看清。' }),
+    base({ title: 'agent 用量', code: '第 3 相 · 5 秒', phase: 'quota', ss: '22', quota: pair('58%', 'sufficient', '81%', 'sufficient'), note: '两组都在时左右并排。颜色仍按剩余比例各自判断。' })
+  ]},
+  { n: 'B', color: '#6d78e8', title: '主状态', subtitle: '状态和时长固定在第二行。底部只是当时轮到的那一项', tiles: [
+    base({ title: '思考中', code: 'Claude · 上下文', provider: 'claude', identity: 'LOCAL·S2', project: 'agentmate_service', state: '思考中', motion: 'thinking', color: P.think, mm: '02', ss: '16', page: 2, total: 3, ledMode: 'thinking', ledColor: P.think, led: '淡紫 · 对向三灯尾迹', phase: 'context', context: { pct: '42%', ratio: '84k/200k' }, note: 'Claude 没有 agent 用量，轮换只在目录和上下文之间。' }),
+    base({ title: '等待输入', code: 'waiting_for_input', provider: 'claude', identity: 'LOCAL·S3', project: 'agentmate_web', state: '等待输入', motion: 'input', color: P.amber, mm: '03', ss: '41', ledMode: 'input', led: '琥珀 · 固定八灯长闪', phase: 'dir', note: '状态是琥珀底。时长仍是深色数字，冒号是薄荷绿。' }),
+    base({ title: '需要批准', code: 'permission_required', identity: 'LOCAL·S4', project: 'kernel_driver', state: '需要批准', motion: 'permission', color: P.coral, mm: '00', ss: '18', page: 2, ledMode: 'permission', led: '珊瑚 · 双闪后停顿', phase: 'quota', quota: pair('18%', 'low', '42%', 'attention'), note: '四字状态略收一号。用量颜色不跟着状态一起变红。' }),
+    base({ title: '状态未更新', code: '时长冻结', provider: 'claude', identity: 'LOCAL·S5', project: 'agentmate_web', state: '状态未更新', motion: 'stale', color: P.stale, mm: '26', ss: '07', counting: false, page: 3, total: 3, ledMode: 'stale', ledColor: P.stale, led: '灰蓝 · 六灯交替明暗', phase: 'dir', note: '五字状态用 18px。时长停止并转灰。Claude 未知上下文不进入轮换。' })
+  ]},
+  { n: 'C', color: '#e85d78', title: '完成态', subtitle: '没有等待组时优先显示。时长冻结', tiles: [
+    base({ title: '任务完成', code: 'task_success', provider: 'claude', identity: 'LOCAL·S1', state: '任务完成', motion: 'success', color: P.leaf, mm: '12', ss: '05', counting: false, ledMode: 'success', led: '绿 · 四扇区累加填满', phase: 'context', context: { pct: '6%', ratio: '12k/200k' }, note: '完成色只用于状态块。上下文数字保持自己的深绿色。' }),
+    base({ title: '任务失败', code: 'task_failed', identity: 'LOCAL·S2', project: 'agentmate_service', state: '任务失败', motion: 'failed', color: P.fail, mm: '08', ss: '52', counting: false, page: 2, ledMode: 'failed', ledColor: P.fail, led: '红 · 200 ms 单闪', phase: 'quota', quota: pair('64%', 'sufficient', '71%', 'sufficient'), note: '状态变红，两档用量仍按剩余比例显示绿色。' }),
+    base({ title: '任务取消', code: 'task_canceled', provider: 'claude', identity: 'LOCAL·S3', project: 'agentmate_web', state: '任务取消', motion: 'canceled', color: P.cancel, mm: '04', ss: '30', counting: false, page: 1, total: 1, ledMode: 'canceled', ledColor: P.cancel, led: '蓝 · 固定八灯短亮', phase: 'dir', note: '只有一页时不画页点。未知上下文被跳过，这里停在目录。' })
+  ]},
+  { n: 'D', color: '#e09212', title: '轮换区边界', subtitle: '两行目录、单组用量、未知读数、四位分钟', tiles: [
+    base({ title: '两行目录', code: '超出后省略', provider: 'claude', identity: 'ABCDEFGH·S4294967295', project: 'agentmate-provider-registry-dashboard', state: '需要批准', motion: 'permission', color: P.coral, mm: '9999', ss: '59', page: 4, total: 4, ledMode: 'permission', led: '珊瑚 · 双闪后停顿', phase: 'dir', note: '目录折成两行，第二行末尾省略。四位分钟在窄列里收到 20px。最长会话名仍在第一行内省略。' }),
+    base({ title: '一组用量', code: '只有 5 小时', project: 'kernel_driver', state: '工作中', mm: '00', ss: '09', phase: 'quota', quota: one('5小时', '58%', 'sufficient'), note: '缺一周窗口时只居中显示 5 小时，不留空列。' }),
+    base({ title: '上下文未知', code: 'Codex context_mode=1', mm: '12', ss: '09', phase: 'context', context: { unknown: true }, note: '这一相显示 28px 的 --。5 秒后离开，不沿用上一次百分比。' }),
+    base({ title: '一档未知', code: 'used_bp 未知', identity: 'DESK·S8', state: '思考中', motion: 'thinking', color: P.think, mm: '01', ss: '04', page: 2, ledMode: 'thinking', ledColor: P.think, led: '淡紫 · 对向三灯尾迹', phase: 'quota', quota: pair('--', 'unknown', '81%', 'sufficient'), note: '未知的那一档是 --，另一档照常上色。不画成 0%。' })
+  ]}
+];
+document.getElementById('board').innerHTML = sections.map(s =>
+  `<section style="--accent:${s.color}"><div class="sec-head"><span class="sec-num">${s.n}</span><h2>${s.title}</h2><p>${s.subtitle}</p></div><div class="grid">${s.tiles.map(tile).join('')}</div></section>`
+).join('');
+const rings = [...document.querySelectorAll('.led-ring')];
+const ringStarted = performance.now();
+function animateRings(now) {
+  const ms = Math.floor(now - ringStarted);
+  for (const el of rings) {
+    const levels = ringLevels(el.dataset.mode, ms);
+    const hex = el.dataset.color.replace('#', '');
+    const baseColor = [0, 2, 4].map(offset => parseInt(hex.slice(offset, offset + 2), 16));
+    [...el.children].forEach((dot, i) => {
+      const color = `rgb(${baseColor.map(c => Math.round(c * levels[i] / 100)).join(',')})`;
+      dot.style.background = levels[i] ? color : '#d5e5dc';
+      dot.style.boxShadow = levels[i] ? `0 0 6px ${color}` : 'none';
+    });
+  }
+  requestAnimationFrame(animateRings);
+}
+requestAnimationFrame(animateRings);
+</script>
+</body>
+</html>

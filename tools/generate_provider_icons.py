@@ -18,23 +18,23 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "assets" / "provider_icons"
 OUTPUT = ROOT / "main" / "provider_icons.h"
 SIZE = 36
-BACKGROUND = (20, 23, 51, 255)
+BACKGROUND = (0, 0, 0, 255)
 
 
 def rgb565(red: int, green: int, blue: int) -> int:
     return ((red & 0xF8) << 8) | ((green & 0xFC) << 3) | (blue >> 3)
 
 
-def render(name: str) -> list[int]:
+def render(name: str, size: int = SIZE, background=BACKGROUND, suffix: str = '') -> list[int]:
     png = cairosvg.svg2png(
         url=str(SOURCE / ("codex_ui.svg" if name == "codex" else f"{name}.svg")),
-        output_width=SIZE,
-        output_height=SIZE,
+        output_width=size,
+        output_height=size,
     )
     foreground = Image.open(BytesIO(png)).convert("RGBA")
-    image = Image.new("RGBA", (SIZE, SIZE), BACKGROUND)
+    image = Image.new("RGBA", (size, size), background)
     image.alpha_composite(foreground)
-    image.convert("RGB").save(SOURCE / f"{name}.bmp", format="BMP")
+    image.convert("RGB").save(SOURCE / f"{name}{suffix}.bmp", format="BMP")
     return [rgb565(r, g, b) for r, g, b, _ in image.get_flattened_data()]
 
 
@@ -54,6 +54,17 @@ def main() -> None:
         for start in range(0, len(pixels), 12):
             lines.append("    " + ", ".join(f"0x{pixel:04x}" for pixel in pixels[start : start + 12]) + ",")
         lines.append("};")
+    for name in ("codex", "claude"):
+        pixels = render(name, 38, (0, 0, 0, 255), '_session')
+        lines.append(f"static const uint16_t s_am_icon_{name}_session[{38 * 38}] = {{")
+        for start in range(0, len(pixels), 12):
+            lines.append("    " + ", ".join(f"0x{pixel:04x}" for pixel in pixels[start:start + 12]) + ",")
+        lines.append("};")
+    pixels = render('codex', 28, (0, 0, 0, 255), '_usage')
+    lines.append('static const uint16_t s_am_icon_codex_usage[784] = {')
+    for start in range(0, len(pixels), 12):
+        lines.append("    " + ", ".join(f"0x{pixel:04x}" for pixel in pixels[start:start + 12]) + ",")
+    lines.append('};')
     lines.extend(["", "#endif /* PROVIDER_ICONS_H */"])
     OUTPUT.write_text("\n".join(lines) + "\n", encoding="ascii")
 

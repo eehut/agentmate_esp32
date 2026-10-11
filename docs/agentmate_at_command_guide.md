@@ -68,14 +68,14 @@
 | `nonce` | 原样回显请求中的 32 位小写十六进制字符 |
 | `device_id` | 设备 ID，32 位小写十六进制字符；首次启动生成并写入 NVS，之后保持不变 |
 | `model` | 设备型号，当前为 `AGM-C3` |
-| `software_version` | 软件版本，格式为 `v<主版本>.<次版本>`，取自根目录 `CMakeLists.txt` 的 `project()` `VERSION` 并在编译时写入；当前为 `v1.3` |
+| `software_version` | 软件版本，格式为 `v<主版本>.<次版本>`，取自根目录 `CMakeLists.txt` 的 `project()` `VERSION` 并在编译时写入；当前为 `v2.0` |
 | `max_sessions` | 会话槽上限，当前为 `8`；`SESSION` 超出时返回 `CAPACITY` |
 | `max_usage_entries` | 用量记录上限，当前为 `4`；`USAGE` 超出时返回 `CAPACITY` |
 | `mode` | 当前模式，`FACTORY` 或 `NORMAL` |
 
 ```text
 AT+HELLO=2,fe6d7e13d354eb1f8d45968587589c65
-+HELLO:2,agentmate,fe6d7e13d354eb1f8d45968587589c65,8d2b47e0a99347c7a976d386dc194fa2,AGM-C3,v1.3,8,4,NORMAL
++HELLO:2,agentmate,fe6d7e13d354eb1f8d45968587589c65,8d2b47e0a99347c7a976d386dc194fa2,AGM-C3,v2.0,8,4,NORMAL
 OK
 ```
 
@@ -288,13 +288,13 @@ OK
 |---|---|
 | `device_id` | 设备 ID，32 位小写十六进制字符；与 `HELLO` 返回的同一值 |
 | `model` | 设备型号，当前为 `AGM-C3` |
-| `software_version` | 软件版本，格式为 `v<主版本>.<次版本>`，与 `HELLO` 返回的同一值；当前为 `v1.3` |
+| `software_version` | 软件版本，格式为 `v<主版本>.<次版本>`，与 `HELLO` 返回的同一值；当前为 `v2.0` |
 | `protocol_version` | 协议主版本，一位十进制数字，当前固定为 `2` |
 | `max_sessions` | 会话槽上限，当前为 `8` |
 
 ```text
 AT+INFO?
-+INFO:8d2b47e0a99347c7a976d386dc194fa2,AGM-C3,v1.3,2,8
++INFO:8d2b47e0a99347c7a976d386dc194fa2,AGM-C3,v2.0,2,8
 OK
 ```
 

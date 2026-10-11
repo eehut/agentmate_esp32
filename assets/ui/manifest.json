@@ -18,8 +18,74 @@
     12
   ],
   "directory_shared_glyphs": true,
+  "session": {
+    "design": "session_page_five_rows v6.2",
+    "directory_px": 17,
+    "directory_charset": "ASCII",
+    "status_background": "black",
+    "clock_px": 24,
+    "clock_style": "rounded",
+    "header_rgb": "#000000",
+    "header_border": "provider 2px",
+    "quota_panel_colors": [
+      "#453254",
+      "#2C223B"
+    ],
+    "context_panel_colors": [
+      "#224657",
+      "#152E3D"
+    ],
+    "directory_color": "provider",
+    "duration_px": [
+      32,
+      26
+    ],
+    "status_px": [
+      28,
+      22,
+      17
+    ],
+    "status_draw_bounds": [
+      77,
+      86,
+      145,
+      56
+    ],
+    "quota_panel": [
+      67,
+      42
+    ],
+    "token_panel": [
+      64,
+      42
+    ],
+    "detail_dwell_ms": {
+      "duration": 10000,
+      "quota": 3000,
+      "context": 3000
+    },
+    "invalid_details": "skip"
+  },
+  "screen_background": "#000000",
+  "connection_header": {
+    "height": 39,
+    "radius_x": 96,
+    "radius_y": 39
+  },
+  "standby": {
+    "clock_px": 52,
+    "clock_style": "square",
+    "year_px": 20,
+    "date_px": 36,
+    "quota_panel": [
+      88,
+      110
+    ],
+    "quota_heading_px": 17,
+    "single_window": "same size centered"
+  },
   "mask_bits": 4,
-  "dynamic_directory": "ASCII + GB2312; unsupported glyphs use ?",
+  "dynamic_directory": "Printable ASCII; non-ASCII code points display as ?; ellipsis reserved for clipping",
   "boot": [
     {
       "ms": 0,
@@ -38,6 +104,32 @@
       "exit": true
     }
   ],
+  "status_border": {
+    "bounds": [
+      78,
+      113,
+      137,
+      42
+    ],
+    "radius": 10,
+    "draw_bounds": [
+      75,
+      110,
+      143,
+      48
+    ],
+    "fps": 10,
+    "period_ms": {
+      "working": 2400,
+      "thinking": 4000,
+      "waiting_for_input": 2000,
+      "permission_required": 2000,
+      "stale": 3000,
+      "task_success": 4000,
+      "task_failed": 2400,
+      "task_canceled": 4000
+    }
+  },
   "led": {
     "version": 2,
     "direction": "increasing_index",
@@ -114,31 +206,5 @@
     ],
     "canceled_level": 50,
     "page_dwell_ms": 10000
-  },
-  "status_border": {
-    "bounds": [
-      78,
-      113,
-      137,
-      42
-    ],
-    "radius": 10,
-    "draw_bounds": [
-      75,
-      110,
-      143,
-      48
-    ],
-    "fps": 10,
-    "period_ms": {
-      "working": 2400,
-      "thinking": 4000,
-      "waiting_for_input": 2000,
-      "permission_required": 2000,
-      "stale": 3000,
-      "task_success": 4000,
-      "task_failed": 2400,
-      "task_canceled": 4000
-    }
   }
 }

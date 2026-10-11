@@ -19,6 +19,8 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-12 1.5      Codex         Render cached antialiased curved headers and outlines.
+# 2026-10-11 1.4      Codex         Add Session panels, black background and mapped status borders.
 #
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
@@ -34,6 +36,7 @@
 #include "agentmate_text.h"
 
 #include <string.h>
+#include <math.h>
 
 uint16_t g_am_ui_pixels[240 * 32];
 
@@ -153,9 +156,29 @@ void am_scene_rect(struct am_ui_scene *scene, int x, int y, int width, int heigh
     }
 }
 
+void am_scene_cap(struct am_ui_scene *scene, int height, int radius_x, int radius_y, uint16_t color, int border_width)
+{
+    struct am_ui_op *op = new_op(scene, AM_OP_CAP, 0, 0, 240, height, color);
+    if (op) {
+        op->radius = radius_x;
+        op->split_y = radius_y;
+        op->border_width = border_width;
+    }
+}
+
 void am_scene_disc(struct am_ui_scene *scene, int x, int y, int radius, uint16_t color)
 {
     new_op(scene, AM_OP_DISC, x - radius, y - radius, radius * 2 + 1, radius * 2 + 1, color);
+}
+
+void am_scene_panel(struct am_ui_scene *scene, int x, int y, int width, int height, int split_y, uint16_t upper, uint16_t lower)
+{
+    struct am_ui_op *op = new_op(scene, AM_OP_PANEL, x, y, width, height, upper);
+    if (op) {
+        op->radius = 9;
+        op->split_y = split_y;
+        op->track_color = lower;
+    }
 }
 
 void am_scene_progress(struct am_ui_scene *scene, int x, int y, int width, int height, uint16_t color, uint16_t track_color,
@@ -187,7 +210,7 @@ void am_scene_bitmap(struct am_ui_scene *scene, int x, int y, int width, int hei
 
 void am_scene_status(struct am_ui_scene *scene, const struct am_status_visual *visual)
 {
-    struct am_ui_op *op = new_op(scene, AM_OP_STATUS_FRAME, 75, 110, AM_STATUS_WIDTH, AM_STATUS_HEIGHT, visual->color);
+    struct am_ui_op *op = new_op(scene, AM_OP_STATUS_FRAME, 77, 86, 145, 56, visual->color);
     if (op) {
         op->status_kind = visual->kind;
         op->animation_frame = visual->frame;
@@ -227,11 +250,58 @@ static unsigned glyph_mask(const struct am_font *font, const struct am_glyph *gl
     /* Bilinear sampling of the native 14 px masks keeps the 12 px fallback smooth. */
     int sx = ((2 * x + 1) * font->scale_den - font->scale_num) * 128 / font->scale_num;
     int sy = ((2 * y + 1) * font->scale_den - font->scale_num) * 128 / font->scale_num;
+    sx = sx < 0 ? 0 : sx;
+    sy = sy < 0 ? 0 : sy;
     int ix = sx / 256, iy = sy / 256;
     unsigned fx = sx % 256, fy = sy % 256;
     unsigned upper = glyph_sample(font, glyph, ix, iy) * (256 - fx) + glyph_sample(font, glyph, ix + 1, iy) * fx;
     unsigned lower = glyph_sample(font, glyph, ix, iy + 1) * (256 - fx) + glyph_sample(font, glyph, ix + 1, iy + 1) * fx;
     return (upper * (256 - fy) + lower * fy + 32768) / 65536;
+}
+
+/* Two compact boundary caches cover the business cap and Session outline.
+ * Reuse the geometry across frames; no full-screen bitmap or per-pixel square roots.
+ */
+struct cap_edges {
+    int height, radius_x, radius_y, border;
+    uint16_t outer[240], inner[240];
+};
+
+static uint16_t cap_edge(const struct am_ui_op *op, int x, int inset)
+{
+    float rx = op->radius - inset;
+    float ry = op->split_y - inset;
+    float at = x + 0.5f;
+    float dx = at < op->radius ? op->radius - at : at > 240 - op->radius ? at - (240 - op->radius) : 0;
+    if (rx <= 0 || ry <= 0 || at < inset || at > 240 - inset || dx > rx) {
+        return 0;
+    }
+    float edge = op->height - op->split_y + ry * sqrtf(1.0f - dx * dx / (rx * rx));
+    return (uint16_t)(edge * 256.0f + 0.5f);
+}
+
+static const struct cap_edges *cap_geometry(const struct am_ui_op *op)
+{
+    static struct cap_edges s_edges[2];
+    struct cap_edges *edges = &s_edges[op->border_width ? 1 : 0];
+    if (edges->height != op->height || edges->radius_x != op->radius ||
+        edges->radius_y != op->split_y || edges->border != op->border_width) {
+        edges->height = op->height;
+        edges->radius_x = op->radius;
+        edges->radius_y = op->split_y;
+        edges->border = op->border_width;
+        for (int x = 0; x < 240; ++x) {
+            edges->outer[x] = cap_edge(op, x, 0);
+            edges->inner[x] = op->border_width ? cap_edge(op, x, op->border_width) : 0;
+        }
+    }
+    return edges;
+}
+
+static unsigned cap_coverage(uint16_t edge, int y)
+{
+    int coverage = edge - y * 256;
+    return coverage <= 0 ? 0 : coverage >= 256 ? 255 : (unsigned)coverage * 255 / 256;
 }
 
 static void paint_op(const struct am_ui_op *op, int bx, int by, int width, int height, unsigned opacity)
@@ -269,6 +339,7 @@ static void paint_op(const struct am_ui_op *op, int bx, int by, int width, int h
     int end_y = op->y + op->height < by + height ? op->y + op->height : by + height;
     int start_x = op->x > bx ? op->x : bx;
     int end_x = op->x + op->width < bx + width ? op->x + op->width : bx + width;
+    const struct cap_edges *edges = op->kind == AM_OP_CAP ? cap_geometry(op) : NULL;
     int filled_width = op->kind == AM_OP_PROGRESS ? (op->width * op->remaining_bp + 5000) / 10000 : 0;
     for (int y = start_y; y < end_y; ++y) {
         for (int x = start_x; x < end_x; ++x) {
@@ -276,8 +347,15 @@ static void paint_op(const struct am_ui_op *op, int bx, int by, int width, int h
             uint16_t color = op->color;
             int dx = x - op->x;
             int dy = y - op->y;
-            if (op->kind == AM_OP_STATUS_FRAME) {
-                alpha = am_status_border_alpha(op->status_kind, op->animation_frame, dx, dy) * opacity / 255;
+            if (edges) {
+                unsigned coverage = cap_coverage(edges->outer[dx], dy);
+                if (op->border_width) {
+                    coverage -= cap_coverage(edges->inner[dx], dy);
+                }
+                alpha = coverage * opacity / 255;
+            } else if (op->kind == AM_OP_STATUS_FRAME) {
+                alpha = am_status_border_alpha(op->status_kind, op->animation_frame,
+                                               dx * AM_STATUS_WIDTH / op->width, dy * AM_STATUS_HEIGHT / op->height) * opacity / 255;
             } else if (op->kind == AM_OP_DISC) {
                 int radius = op->width / 2;
                 int cx = dx - radius;
@@ -285,7 +363,7 @@ static void paint_op(const struct am_ui_op *op, int bx, int by, int width, int h
                 if (cx * cx + cy * cy > radius * radius) {
                     continue;
                 }
-            } else if ((op->kind == AM_OP_RECT || op->kind == AM_OP_PROGRESS) && op->radius) {
+            } else if ((op->kind == AM_OP_RECT || op->kind == AM_OP_PROGRESS || op->kind == AM_OP_PANEL) && op->radius) {
                 int r = op->radius;
                 int cx = dx < r ? r - dx : dx >= op->width - r ? dx - (op->width - r - 1) : 0;
                 int cy = dy < r ? r - dy : dy >= op->height - r ? dy - (op->height - r - 1) : 0;
@@ -301,6 +379,8 @@ static void paint_op(const struct am_ui_op *op, int bx, int by, int width, int h
             }
             if (op->kind == AM_OP_PROGRESS) {
                 color = dx < filled_width ? op->color : op->track_color;
+            } else if (op->kind == AM_OP_PANEL) {
+                color = dy < op->split_y ? op->color : op->track_color;
             }
             paint_pixel(x, y, bx, by, width, height, color, alpha);
         }
@@ -337,13 +417,13 @@ static esp_err_t render_rect(am_app_t *app, const struct am_ui_scene *scene, int
 esp_err_t am_scene_render(am_app_t *app, struct am_ui_scene *previous, const struct am_ui_scene *next, bool clear)
 {
     esp_err_t err;
-    if (clear) {
+    if (clear || !previous || previous->session_background != next->session_background) {
         err = render_rect(app, next, 0, 0, 240, 240);
         if (err != ESP_OK) {
             return err;
         }
     } else if (previous->body_alpha != next->body_alpha) {
-        if (previous->count < 2 || next->count < 2 || memcmp(previous->ops, next->ops, sizeof(next->ops[0]) * 2) != 0) {
+        if (next->session_background || previous->count < 2 || next->count < 2 || memcmp(previous->ops, next->ops, sizeof(next->ops[0]) * 2) != 0) {
             err = render_rect(app, next, 0, 0, 240, 39);
             if (err != ESP_OK) {
                 return err;
@@ -376,6 +456,8 @@ esp_err_t am_scene_render(am_app_t *app, struct am_ui_scene *previous, const str
             }
         }
     }
-    *previous = *next;
+    if (previous) {
+        *previous = *next;
+    }
     return ESP_OK;
 }

@@ -19,6 +19,10 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-12 3.8      Codex         Implement v6.2 black pages, curved headers and standby panels.
+# 2026-10-11 3.7      Codex         Restore rounded header time and provider-colored directories; skip invalid metrics.
+# 2026-10-11 3.6      Codex         Display ASCII directories and restore black status panels.
+# 2026-10-11 3.5      Codex         Implement five-row Session layout and rotating detail panels.
 # 2026-10-06 3.3      Codex         Lower five-hour quota and enlarge both quota numbers.
 # 2026-10-06 3.2      Codex         Show Codex remaining quotas as two session-page progress bars.
 # 2026-10-05 3.1      Codex         Use a middle dot between host and session names.
@@ -61,35 +65,12 @@
 #include "agentmate_ui_state.h"
 #include "agentmate_led.h"
 #include "agentmate_ui_render.h"
+#include "agentmate_text.h"
 
-#define BG TFT_RGB565(12, 17, 28)
 #define FG TFT_RGB565(234, 240, 249)
-#define MUTED TFT_RGB565(125, 143, 163)
-#define ACCENT TFT_RGB565(84, 203, 190)
-#define WARNING TFT_RGB565(255, 185, 72)
 #define UI_SIZE 240
 #define UI_CENTER_TWICE (UI_SIZE - 1)
 #define UI_SAFE_RADIUS_TWICE 232
-#define UI_FONT_WIDTH 8
-#define UI_FONT_HEIGHT 16
-#define UI_MAX_LINES 16
-#define UI_CENTERED_X -1
-
-typedef struct {
-    int x;
-    int y;
-    int clear_x;
-    int right;
-    uint16_t color;
-    char text[64];
-} ui_line_t;
-
-typedef struct {
-    ui_line_t lines[UI_MAX_LINES];
-    int line_count;
-} ui_frame_t;
-
-static ui_frame_t s_next_frame;
 
 static bool circle_span(int y, int height, int *left, int *right)
 {
@@ -117,66 +98,6 @@ static bool circle_span(int y, int height, int *left, int *right)
     *left = safe_left;
     *right = UI_CENTER_TWICE - safe_left;
     return true;
-}
-
-static void label(int requested_x, int y, const char *value, uint16_t color)
-{
-    if (s_next_frame.line_count >= UI_MAX_LINES) {
-        return;
-    }
-    int left;
-    int right;
-    if (!circle_span(y, UI_FONT_HEIGHT, &left, &right)) {
-        return;
-    }
-    int clear_x = requested_x == UI_CENTERED_X ? left : requested_x;
-    if (clear_x < left) {
-        clear_x = left;
-    }
-    if (clear_x > right) {
-        return;
-    }
-    size_t count = strlen(value);
-    size_t capacity = (size_t)(right - clear_x + 1) / UI_FONT_WIDTH;
-    if (count > capacity) {
-        count = capacity;
-    }
-    ui_line_t *line = &s_next_frame.lines[s_next_frame.line_count++];
-    if (count >= sizeof(line->text)) {
-        count = sizeof(line->text) - 1;
-    }
-    memcpy(line->text, value, count);
-    line->text[count] = 0;
-    line->clear_x = clear_x;
-    line->right = right;
-    line->x = requested_x == UI_CENTERED_X ? (UI_SIZE - (int)count * UI_FONT_WIDTH) / 2 : clear_x;
-    line->y = y;
-    line->color = color;
-}
-
-static esp_err_t draw_line(am_app_t *app, const ui_line_t *line)
-{
-    int width = line->right - line->clear_x + 1;
-    size_t pixels = (size_t)width * UI_FONT_HEIGHT;
-    for (size_t i = 0; i < pixels; ++i) {
-        g_am_ui_pixels[i] = BG;
-    }
-    const lcd_font_t *font = &g_lcd_font_ascii_8x16;
-    size_t count = strlen(line->text);
-    int text_x = line->x - line->clear_x;
-    for (size_t column = 0; column < count; ++column) {
-        unsigned char ch = (unsigned char)line->text[column];
-        const uint8_t *glyph = font->get_code_data(font, ch >= 32 && ch <= 126 ? ch : '?');
-        for (int row = 0; row < UI_FONT_HEIGHT; ++row) {
-            uint8_t bits = glyph ? glyph[row] : 0;
-            for (int bit = 0; bit < UI_FONT_WIDTH; ++bit) {
-                if (bits & (0x80U >> bit)) {
-                    g_am_ui_pixels[(size_t)row * width + text_x + (int)column * UI_FONT_WIDTH + bit] = line->color;
-                }
-            }
-        }
-    }
-    return tft_display_draw_bitmap_rgb565(app->display, line->clear_x, line->y, width, UI_FONT_HEIGHT, g_am_ui_pixels);
 }
 
 esp_err_t am_ui_apply_rotation(am_app_t *app, uint16_t degrees)
@@ -209,6 +130,9 @@ esp_err_t am_ui_apply_led_brightness(am_app_t *app, uint8_t value)
     return err;
 }
 
+static esp_err_t render_factory_page(am_app_t *app, am_test_t test, uint8_t led_index, rgb_led_color_t led,
+                                      uint8_t brightness, uint8_t backlight, uint8_t font_index);
+
 static const lcd_font_t *factory_font(uint8_t index)
 {
     static const lcd_font_t *const s_fonts[] = {
@@ -221,62 +145,38 @@ static const lcd_font_t *factory_font(uint8_t index)
 static esp_err_t render_font_sample(am_app_t *app, uint8_t index, int page)
 {
     const lcd_font_t *font = factory_font(index);
-    esp_err_t err = tft_display_fill(app->display, BG);
+    esp_err_t err = render_factory_page(app, AM_TEST_FONT, 0, (rgb_led_color_t){0}, 0, 0, index);
     if (err != ESP_OK) {
         return err;
     }
-    int rows = (UI_SIZE - 48) / (font->height + 4);
-    int columns = (UI_SIZE - 56) / font->width;
-    int bytes_per_row = (font->width + 7) / 8;
-    int per_page = 0;
-    for (int line = 0; line < rows; ++line) {
-        int left, right;
-        if (circle_span(28 + line * (font->height + 4), font->height, &left, &right)) {
-            int count = (right - left + 1) / font->width;
-            per_page += count < columns ? count : columns;
-        }
+    int left, right;
+    if (!circle_span(98, font->height, &left, &right)) {
+        return ESP_OK;
     }
-    int pages = (95 + per_page - 1) / per_page;
+    int count = (right - left + 1 < 184 ? right - left + 1 : 184) / font->width;
+    int pages = 1 + (95 + count - 1) / count;
     page %= pages;
-    int ordinal = 0;
-    for (int line = 0; line < rows; ++line) {
-        int y = 28 + line * (font->height + 4);
-        int left, right;
-        if (!circle_span(y, font->height, &left, &right)) {
+    static const char s_sample[] = "ABC 0123 45.67%";
+    int width = count * font->width;
+    memset(g_am_ui_pixels, 0, (size_t)width * font->height * sizeof(*g_am_ui_pixels));
+    for (int column = 0; column < count; ++column) {
+        int ch = page ? 32 + (page - 1) * count + column : column < sizeof(s_sample) - 1 ? s_sample[column] : ' ';
+        if (ch > 126) {
+            break;
+        }
+        const uint8_t *glyph = font->get_code_data(font, ch);
+        if (!glyph) {
             continue;
         }
-        int count = (right - left + 1) / font->width;
-        if (count > columns) {
-            count = columns;
-        }
-        int width = count * font->width;
-        int x = (UI_SIZE - width) / 2;
-        for (int i = 0; i < width * font->height; ++i) {
-            g_am_ui_pixels[i] = BG;
-        }
-        for (int column = 0; column < count; ++column) {
-            int character = 32 + page * per_page + ordinal++;
-            if (character > 126) {
-                break;
-            }
-            const uint8_t *glyph = font->get_code_data(font, character);
-            if (glyph == NULL) {
-                continue;
-            }
-            for (int row = 0; row < font->height; ++row) {
-                for (int bit = 0; bit < font->width; ++bit) {
-                    if (glyph[row * bytes_per_row + bit / 8] & (0x80U >> (bit % 8))) {
-                        g_am_ui_pixels[row * width + column * font->width + bit] = FG;
-                    }
+        for (int row = 0; row < font->height; ++row) {
+            for (int bit = 0; bit < font->width; ++bit) {
+                if (glyph[row * ((font->width + 7) / 8) + bit / 8] & (0x80U >> (bit % 8))) {
+                    g_am_ui_pixels[row * width + column * font->width + bit] = FG;
                 }
             }
         }
-        err = tft_display_draw_bitmap_rgb565(app->display, x, y, width, font->height, g_am_ui_pixels);
-        if (err != ESP_OK) {
-            return err;
-        }
     }
-    return ESP_OK;
+    return tft_display_draw_bitmap_rgb565(app->display, (240 - width) / 2, 98, width, font->height, g_am_ui_pixels);
 }
 
 static esp_err_t render_factory(am_app_t *app, const am_model_t *model, int64_t now)
@@ -343,40 +243,15 @@ static esp_err_t render_factory(am_app_t *app, const am_model_t *model, int64_t 
         int page = (int)(now / 2000000);
         return render_font_sample(app, font, page);
     }
-    memset(&s_next_frame, 0, sizeof(s_next_frame));
-    label(UI_CENTERED_X, 37, "FACTORY TEST", ACCENT);
-    label(UI_CENTERED_X, 77, test == AM_TEST_LED ? "LED TEST" : test == AM_TEST_BACKLIGHT ? "BACKLIGHT TEST" : "USB SERIAL READY", FG);
-    char value[32];
-    if (test == AM_TEST_LED) {
-        snprintf(value, sizeof(value), "LED %s RGB %u", led_index == 16 ? "ALL" : "ONE", led_brightness);
-        label(UI_CENTERED_X, 108, value, MUTED);
-    } else if (test == AM_TEST_BACKLIGHT) {
-        snprintf(value, sizeof(value), "LEVEL %u", backlight);
-        label(UI_CENTERED_X, 108, value, MUTED);
-    } else {
-        label(UI_CENTERED_X, 108, "AT+TESTAUTO=1", MUTED);
-    }
-    label(UI_CENTERED_X, 167, "AT+MODE=NORMAL", WARNING);
-    err = tft_display_fill(app->display, BG);
-    if (err != ESP_OK) {
-        return err;
-    }
-    for (int i = 0; i < s_next_frame.line_count; ++i) {
-        err = draw_line(app, &s_next_frame.lines[i]);
-        if (err != ESP_OK) {
-            return err;
-        }
-    }
-    return ESP_OK;
+    return render_factory_page(app, test, led_index, led, led_brightness, backlight, font);
 }
 
 
 #define C_FG TFT_RGB565(242, 244, 255)
 #define C_MUTED TFT_RGB565(163, 175, 211)
-#define C_LINE TFT_RGB565(48, 54, 83)
-#define C_MINT TFT_RGB565(54, 226, 154)
-#define C_AMBER TFT_RGB565(255, 176, 46)
-#define C_CORAL TFT_RGB565(255, 95, 122)
+#define C_MINT TFT_RGB565(86, 214, 161)
+#define C_AMBER TFT_RGB565(255, 195, 106)
+#define C_CORAL TFT_RGB565(255, 143, 166)
 #define C_CODEX TFT_RGB565(139, 153, 255)
 #define C_CODEX_TITLE TFT_RGB565(101, 80, 200)
 #define C_CLAUDE TFT_RGB565(217, 119, 87)
@@ -391,7 +266,7 @@ static void centered(int y, int width, const struct am_font *font, uint16_t colo
 
 static void business_header(bool connected)
 {
-    am_scene_rect(&s_scene, 0, 0, 240, 39, connected ? TFT_RGB565(31, 191, 116) : TFT_RGB565(232, 68, 92), 0);
+    am_scene_cap(&s_scene, 39, 96, 39, connected ? TFT_RGB565(31, 191, 116) : TFT_RGB565(232, 68, 92), 0);
     am_scene_mask(&s_scene, 107, 8, connected ? &g_am_image_connected : &g_am_image_disconnected, TFT_COLOR_WHITE);
 }
 
@@ -424,35 +299,43 @@ static void connection_page(const am_model_t *model)
     if (model->link == AM_LINK_HANDSHAKE) {
         label = "正在握手";
         detail = "发现设备中";
+        image = &g_am_image_link;
     } else if (model->link == AM_LINK_SYNCING) {
         label = "正在同步";
         detail = "会话写入中";
+        image = &g_am_image_sync;
     }
     uint16_t sky = TFT_RGB565(86, 204, 242);
     am_scene_mask(&s_scene, 101, 57, image, sky);
     centered(107, 180, &g_am_font_connect, sky, label);
     centered(150, 190, &g_am_font_body, TFT_RGB565(181, 191, 223), detail);
-    centered(185, 170, &g_am_font_label, TFT_RGB565(125, 135, 173), "AGENTMATE");
+    centered(185, 170, &g_am_font_label, TFT_RGB565(125, 135, 173), "AGENTMATE · USB");
 }
 
 static void idle_page(const am_model_t *model, int64_t utc, int64_t now)
 {
     char date[20], clock[16];
     calendar_text(model, utc, date, sizeof(date), clock, sizeof(clock), false);
-    centered(55, 180, &g_am_font_title, TFT_RGB565(146, 164, 201), "日期/时间");
+    centered(54, 180, &g_am_font_body, TFT_RGB565(146, 164, 201), "日期/时间");
     bool valid = clock[0] != '-';
     bool colon_visible = !valid || now / 500000 % 2 == 0;
+    uint16_t color = valid ? TFT_RGB565(246, 245, 255) : TFT_RGB565(141, 152, 183);
     clock[2] = 0;
-    const struct am_font *font = &g_am_font_clock;
+    const struct am_font *font = &g_am_font_standby_clock;
     int hour_width = am_text_width(font, clock);
     int colon_width = am_text_width(font, ":");
     int minute_width = am_text_width(font, clock + 3);
     int x = (240 - hour_width - colon_width - minute_width) / 2;
-    am_scene_text(&s_scene, x, 86, hour_width, font, C_FG, clock, -1);
-    /* The clock font's colon ink center is five pixels below its digit center. */
-    am_scene_text(&s_scene, x + hour_width, 81, colon_width, font, colon_visible ? C_FG : AM_UI_BG, ":", -1);
-    am_scene_text(&s_scene, x + hour_width + colon_width, 86, minute_width, font, C_FG, clock + 3, -1);
-    centered(151, 190, &g_am_font_date, TFT_RGB565(198, 208, 237), date);
+    am_scene_text(&s_scene, x, 87, hour_width, font, color, clock, -1);
+    am_scene_text(&s_scene, x + hour_width, 87, colon_width, font, colon_visible ? color : AM_UI_BG, ":", -1);
+    am_scene_text(&s_scene, x + hour_width + colon_width, 87, minute_width, font, color, clock + 3, -1);
+    am_scene_rect(&s_scene, 83, 147, 74, 1, TFT_RGB565(53, 64, 83), 0);
+    char year[5] = "----";
+    if (valid) {
+        memcpy(year, date, 4);
+    }
+    centered(151, 180, &g_am_font_standby_year, valid ? TFT_RGB565(146, 164, 201) : color, year);
+    centered(179, 176, &g_am_font_standby_date, valid ? TFT_RGB565(226, 232, 246) : color, valid ? date + 5 : "-- --");
 }
 
 static void info_page(const am_app_t *app, const am_model_t *model, uint8_t tft, uint8_t led, int64_t utc)
@@ -471,125 +354,180 @@ static void info_page(const am_app_t *app, const am_model_t *model, uint8_t tft,
     }
 }
 
-static void session_quota(const am_model_t *model, const struct am_ui_selection *selection)
+#define S_CAP TFT_COLOR_BLACK
+#define S_QUOTA_TOP TFT_RGB565(69, 50, 84)
+#define S_QUOTA_BOTTOM TFT_RGB565(44, 34, 59)
+#define S_QUOTA_LABEL TFT_RGB565(222, 205, 235)
+#define S_CONTEXT_TOP TFT_RGB565(34, 70, 87)
+#define S_CONTEXT_BOTTOM TFT_RGB565(21, 46, 61)
+#define S_CONTEXT_LABEL TFT_RGB565(193, 217, 231)
+#define S_GREEN TFT_RGB565(86, 214, 161)
+#define S_AMBER TFT_RGB565(255, 195, 106)
+#define S_CORAL TFT_RGB565(255, 143, 166)
+#define S_UNKNOWN TFT_RGB565(142, 161, 151)
+
+static void session_percent(int x, const char *title, const char *value, uint16_t color, bool context)
 {
+    am_scene_panel(&s_scene, x, 148, 67, 42, 15, context ? S_CONTEXT_TOP : S_QUOTA_TOP, context ? S_CONTEXT_BOTTOM : S_QUOTA_BOTTOM);
+    am_scene_text(&s_scene, x + 3, 148, 61, &g_am_font_session_tag, context ? S_CONTEXT_LABEL : S_QUOTA_LABEL, title, 0);
+    am_scene_text(&s_scene, x + 3, 163, 61, &g_am_font_session_percent, color, value, 0);
+}
+
+static int session_quota_count(const am_model_t *model, const struct am_ui_selection *selection)
+{
+    int count = 0;
     for (int i = 0; i < 2; ++i) {
         int slot = selection->usage[i];
-        const am_usage_t *usage = slot >= 0 && slot < AM_MAX_USAGE_ENTRIES ? &model->usages[slot] : NULL;
-        int remaining_bp = usage && usage->used && usage->used_bp >= 0 ? 10000 - usage->used_bp : -1;
-        uint16_t color = C_MUTED;
-        char value[4];
-        if (remaining_bp < 0) {
-            snprintf(value, sizeof(value), "--");
-        } else {
-            int percent = (remaining_bp + 50) / 100;
-            snprintf(value, sizeof(value), "%d", percent);
-            color = percent >= 50 ? C_MINT : percent >= 20 ? C_AMBER : C_CORAL;
+        if (slot >= 0 && slot < AM_MAX_USAGE_ENTRIES && am_session_quota_available(&model->usages[slot])) {
+            count++;
         }
-        int y = i ? 163 : 131;
-        am_scene_progress(&s_scene, 31, y + 19, 28, 3, color, C_LINE, remaining_bp < 0 ? 0 : remaining_bp);
-        am_scene_text(&s_scene, 32, y, 26, &g_am_font_label, color, value, 0);
+    }
+    return count;
+}
+
+static void session_quota(const am_model_t *model, const struct am_ui_selection *selection)
+{
+    int count = session_quota_count(model, selection);
+    int x = count == 1 ? 113 : 77;
+    for (int i = 0; i < 2; ++i) {
+        int slot = selection->usage[i];
+        if (slot < 0 || slot >= AM_MAX_USAGE_ENTRIES || !am_session_quota_available(&model->usages[slot])) {
+            continue;
+        }
+        int used_bp = model->usages[slot].used_bp;
+        char value[8] = "--";
+        uint16_t color = S_UNKNOWN;
+        if (used_bp >= 0 && used_bp <= 10000) {
+            int percent = (10000 - used_bp + 50) / 100;
+            snprintf(value, sizeof(value), "%d%%", percent);
+            color = percent >= 50 ? S_GREEN : percent >= 20 ? S_AMBER : S_CORAL;
+        }
+        session_percent(x, i ? "WEEK" : "5H", value, color, false);
+        x += 72;
     }
 }
 
-static void session_page(const am_model_t *model, const am_session_t *session, const struct am_ui_selection *selection,
-                         int64_t now, uint32_t generation)
+static void session_tokens(uint64_t count, char *text, size_t capacity)
 {
+    if (count >= 999500000) {
+        /* Bound even uint64 protocol values to three digit positions without wrapping. */
+        snprintf(text, capacity, ">999M");
+    } else if (count >= 999500) {
+        uint64_t quantum = count < 10000000 ? 10000 : count < 100000000 ? 100000 : 1000000;
+        uint64_t rounded = ((count + quantum / 2) / quantum) * quantum;
+        unsigned whole = (unsigned)(rounded / 1000000);
+        if (whole < 10) {
+            snprintf(text, capacity, "%u.%02uM", whole, (unsigned)(rounded % 1000000 / 10000));
+        } else if (whole < 100) {
+            snprintf(text, capacity, "%u.%uM", whole, (unsigned)(rounded % 1000000 / 100000));
+        } else {
+            snprintf(text, capacity, "%uM", whole);
+        }
+    } else if (count >= 1000) {
+        snprintf(text, capacity, "%uK", (unsigned)((count + 500) / 1000));
+    } else {
+        snprintf(text, capacity, "%u", (unsigned)count);
+    }
+}
+
+static void session_context(const am_session_t *session)
+{
+    char percent[8] = "--", used[16] = "--", total[16] = "--";
+    uint16_t color = S_UNKNOWN;
+    if (session->context_mode == 2) {
+        unsigned value = (session->ctx_pct_bp + 50) / 100;
+        snprintf(percent, sizeof(percent), "%u%%", value);
+        color = value < 50 ? S_GREEN : value < 80 ? S_AMBER : S_CORAL;
+        session_tokens(session->ctx_used, used, sizeof(used));
+        session_tokens(session->ctx_window, total, sizeof(total));
+    }
+    session_percent(78, "CTX", percent, color, true);
+    am_scene_panel(&s_scene, 151, 148, 64, 42, 21, S_CONTEXT_TOP, S_CONTEXT_BOTTOM);
+    am_scene_text(&s_scene, 156, 148, 54, &g_am_font_session_tokens, TFT_RGB565(232, 243, 250), used, 1);
+    am_scene_text(&s_scene, 156, 169, 54, &g_am_font_session_tokens, TFT_RGB565(170, 198, 215), total, 1);
+}
+
+static void session_duration(const am_session_t *session, int64_t now)
+{
+    uint64_t seconds = am_task_duration(session, now);
+    char value[32];
+    snprintf(value, sizeof(value), "%02llu:%02u", (unsigned long long)(seconds / 60), (unsigned)(seconds % 60));
+    const struct am_font *font = seconds / 60 < 1000 ? &g_am_font_session_duration : &g_am_font_session_duration_long;
+    static struct am_font s_fitted_duration;
+    if (am_text_width(font, value) > 145) {
+        s_fitted_duration = *font;
+        s_fitted_duration.scale_den = font->height;
+        do {
+            s_fitted_duration.height--;
+            s_fitted_duration.scale_num = s_fitted_duration.height;
+        } while (am_text_width(&s_fitted_duration, value) > 145 && s_fitted_duration.height > 1);
+        font = &s_fitted_duration;
+    }
+    uint16_t color = am_state_advancing(session->state) ? TFT_RGB565(224, 234, 229) : TFT_RGB565(141, 141, 141);
+    am_scene_text(&s_scene, 77, 148 + (42 - font->height) / 2, 145, font, color, value, 0);
+}
+
+static void session_directory_text(const char *project, char display[65])
+{
+    size_t length = 0;
+    while (*project && length < 64) {
+        uint32_t code = am_utf8_next(&project);
+        display[length++] = code >= 32 && code <= 126 ? (char)code : '?';
+    }
+    display[length] = 0;
+}
+
+static void session_page(const am_model_t *model, const am_session_t *session, const struct am_ui_selection *selection,
+                         int64_t now, uint32_t generation, int64_t utc)
+{
+    s_scene.session_background = true;
     bool claude = strcmp(session->provider, "claude") == 0;
-    uint16_t provider_color = claude ? C_CLAUDE : C_CODEX;
-    uint16_t title_color = claude ? C_CLAUDE : C_CODEX_TITLE;
-    am_scene_bitmap(&s_scene, 27, 84, 36, 36, strcmp(session->provider, "claude") == 0 ? s_am_icon_claude : s_am_icon_codex);
-    am_scene_rect(&s_scene, 69, 56, 1, 146, TFT_RGB565(86, 96, 135), 0);
-    char identity[32];
-    snprintf(identity, sizeof(identity), "%s·%s", session->host_label, session->session_short_name);
-    static struct am_font s_identity_fonts[6];
-    const struct am_font *identity_font = &s_identity_fonts[0];
-    const uint8_t scales[][2] = {{1, 1}, {7, 8}, {3, 4}, {2, 3}, {1, 2}, {2, 5}};
-    for (size_t i = 0; i < sizeof(scales) / sizeof(scales[0]); ++i) {
-        if (s_identity_fonts[i].glyphs == NULL) {
-            s_identity_fonts[i] = g_am_font_identity;
-            s_identity_fonts[i].scale_num = scales[i][0];
-            s_identity_fonts[i].scale_den = scales[i][1];
-        }
-        identity_font = &s_identity_fonts[i];
-        if (am_text_width(identity_font, identity) <= 121 && am_text_ink_width(identity_font, identity) <= 121) {
-            break;
-        }
-    }
-    int bar_width = am_text_width(identity_font, identity) + 16;
-    am_scene_rect(&s_scene, 78, 58, bar_width, 24, title_color, 7);
-    am_scene_text(&s_scene, 86, 59 + (19 - (identity_font->height * identity_font->scale_num / identity_font->scale_den)) / 2,
-                  bar_width - 16, identity_font, TFT_COLOR_WHITE, identity, -1);
-    bool large_directory = am_text_width(&g_am_font_directory_large, session->project_name) <= 137 &&
-                           am_text_ink_width(&g_am_font_directory_large, session->project_name) <= 137;
-    const struct am_font *directory_font = large_directory ?
-                                           &g_am_font_directory_large : &g_am_font_directory;
-    am_scene_text(&s_scene, 78, 84, 137, directory_font, provider_color, session->project_name, -1);
-    const char *label = "工作中";
-    const struct am_font *font = &g_am_font_state;
-    if (strcmp(session->state, "thinking") == 0) {
-        label = "思考中";
-    } else if (strcmp(session->state, "waiting_for_input") == 0) {
-        label = "等待输入";
-    } else if (strcmp(session->state, "permission_required") == 0) {
-        label = "需要批准";
-    } else if (strcmp(session->state, "stale") == 0) {
-        label = "状态未更新";
-        font = &g_am_font_state_long;
-    } else if (strcmp(session->state, "task_success") == 0) {
-        label = "任务完成";
-    } else if (strcmp(session->state, "task_failed") == 0) {
-        label = "任务失败";
-    } else if (strcmp(session->state, "task_canceled") == 0) {
-        label = "任务取消";
-    }
+    uint16_t provider_color = claude ? C_CLAUDE : C_CODEX_TITLE;
+    am_scene_cap(&s_scene, 76, 40, 40, provider_color, 2);
+    char date[20], clock[16];
+    calendar_text(model, utc, date, sizeof(date), clock, sizeof(clock), false);
+    bool colon_visible = clock[0] == '-' || now / 500000 % 2 == 0;
+    const struct am_font *clock_font = &g_am_font_session_clock_rounded;
+    int clock_width = am_text_width(clock_font, clock);
+    clock[2] = 0;
+    int hour_width = am_text_width(clock_font, clock);
+    int colon_width = am_text_width(clock_font, ":");
+    int minute_width = am_text_width(clock_font, clock + 3);
+    int x = (240 - clock_width) / 2;
+    am_scene_text(&s_scene, x, 16, hour_width, clock_font, TFT_COLOR_WHITE, clock, -1);
+    am_scene_text(&s_scene, x + hour_width, 16, colon_width, clock_font, colon_visible ? TFT_COLOR_WHITE : S_CAP, ":", -1);
+    am_scene_text(&s_scene, x + hour_width + colon_width, 16, minute_width, clock_font, TFT_COLOR_WHITE, clock + 3, -1);
+    char directory[65];
+    session_directory_text(session->project_name, directory);
+    am_scene_text(&s_scene, 30, 48, 180, &g_am_font_session_directory, provider_color, directory, 0);
+    am_scene_bitmap(&s_scene, 17, 117, 38, 38, claude ? s_am_icon_claude_session : s_am_icon_codex_session);
+    am_scene_rect(&s_scene, 63, 96, 1, 80, TFT_RGB565(53, 68, 63), 0);
+    static const char *const s_labels[] = {"工作中", "思考中", "等待输入", "需要批准", "状态未更新", "任务完成", "任务失败", "任务取消"};
     struct am_status_visual visual = am_status_select(&s_status_animation, session, generation, now);
-    uint16_t color = visual.color;
+    int state = visual.kind;
+    const struct am_font *font = state <= AM_STATUS_THINKING ? &g_am_font_session_state :
+                                state == AM_STATUS_STALE ? &g_am_font_session_state_long : &g_am_font_session_state_mid;
     am_scene_status(&s_scene, &visual);
-    am_scene_text(&s_scene, 88, 113 + (42 - font->height) / 2, 117, font, color, label, 0);
-    uint64_t duration = am_task_duration(session, now);
-    char minutes[32], seconds[4];
-    snprintf(minutes, sizeof(minutes), "%llu", (unsigned long long)(duration / 60));
-    if (duration / 60 < 10) {
-        snprintf(minutes, sizeof(minutes), "%02u", (unsigned)(duration / 60));
-    }
-    snprintf(seconds, sizeof(seconds), "%02u", (unsigned)(duration % 60));
-    font = &g_am_font_duration;
-    int full_width = am_text_width(font, minutes) + am_text_width(font, ":") + am_text_width(font, seconds) + 4;
-    if (full_width > 142) {
-        font = &g_am_font_duration_long;
-    }
-    int minute_width = am_text_width(font, minutes);
-    int colon_width = am_text_width(font, ":");
-    bool advancing = am_state_advancing(session->state);
-    uint16_t number_color = advancing ? TFT_RGB565(246, 247, 252) : TFT_RGB565(125, 134, 175);
-    am_scene_text(&s_scene, 78, 163, minute_width, font, number_color, minutes, -1);
-    am_scene_text(&s_scene, 80 + minute_width, 163, colon_width, font,
-                  advancing ? TFT_RGB565(162, 255, 204) : TFT_RGB565(98, 110, 147), ":", -1);
-    am_scene_text(&s_scene, 82 + minute_width + colon_width, 163, 55, font, number_color, seconds, -1);
+    am_scene_text(&s_scene, 84, 86 + (56 - font->height) / 2, 131, font, visual.color, s_labels[state], 0);
     if (selection->count > 1) {
         for (int i = 0; i < selection->count; ++i) {
-            double angle = (90.0 - (i - (selection->count - 1) / 2.0) * 13.0) * 3.14159265 / 180.0;
-            am_scene_disc(&s_scene, (int)(120 + cos(angle) * 101), (int)(120 + sin(angle) * 101),
-                          i == selection->current ? 3 : 2, i == selection->current ? color : TFT_RGB565(59, 64, 112));
+            am_scene_disc(&s_scene, 120 + i * 10 - (selection->count - 1) * 5, 200,
+                          i == selection->current ? 3 : 2, i == selection->current ? visual.color : TFT_RGB565(74, 74, 74));
         }
     }
-    if (!claude && (!selection->show_context || session->context_mode == 0)) {
+    char identity[32];
+    snprintf(identity, sizeof(identity), "%s·%s", session->host_label, session->session_short_name);
+    int pill_width = am_text_width(&g_am_font_session_identity, identity) + 16;
+    pill_width = pill_width > 88 ? 88 : pill_width;
+    am_scene_rect(&s_scene, (240 - pill_width) / 2, 208, pill_width, 18,
+                  claude ? TFT_RGB565(224, 122, 95) : TFT_RGB565(108, 92, 231), 9);
+    am_scene_text(&s_scene, (240 - pill_width) / 2 + 8, 209, pill_width - 16, &g_am_font_session_identity, TFT_COLOR_WHITE, identity, 0);
+    if (selection->detail == AM_DETAIL_CONTEXT && am_session_context_available(session)) {
+        session_context(session);
+    } else if (selection->detail == AM_DETAIL_QUOTA && !claude && session_quota_count(model, selection) > 0) {
         session_quota(model, selection);
-    } else if (session->context_mode == 2 || (!claude && session->context_mode == 1)) {
-        char context[3][32];
-        if (session->context_mode == 2) {
-            snprintf(context[0], sizeof(context[0]), "%u.%02u%%", session->ctx_pct_bp / 100, session->ctx_pct_bp % 100);
-            snprintf(context[1], sizeof(context[1]), "%lluk", (unsigned long long)(session->ctx_used / 1000));
-            snprintf(context[2], sizeof(context[2]), "%lluk", (unsigned long long)(session->ctx_window / 1000));
-        } else {
-            for (int i = 0; i < 3; ++i) {
-                snprintf(context[i], sizeof(context[i]), "--");
-            }
-        }
-        for (int i = 0; i < 3; ++i) {
-            am_scene_text(&s_scene, 21, 128 + i * 13, 48, &g_am_font_small, C_MUTED, context[i], 0);
-        }
+    } else {
+        session_duration(session, now);
     }
 }
 
@@ -616,47 +554,51 @@ static void reset_text(const am_model_t *model, const am_usage_t *usage, int64_t
 
 static void usage_page(const am_model_t *model, const struct am_ui_selection *selection, int64_t utc)
 {
-    am_scene_bitmap(&s_scene, 28, 59, 36, 36, s_am_icon_codex);
-    am_scene_rect(&s_scene, 77, 53, 1, 46, C_LINE, 0);
-    am_scene_text(&s_scene, 91, 62, 120, &g_am_font_title, C_FG, "剩余用量", -1);
+    int heading_width = am_text_width(&g_am_font_standby_heading, "剩余用量");
+    int heading_x = (240 - 28 - 10 - heading_width) / 2;
+    am_scene_bitmap(&s_scene, heading_x, 54, 28, 28, s_am_icon_codex_usage);
+    am_scene_text(&s_scene, heading_x + 38, 57, heading_width, &g_am_font_standby_heading, C_FG, "剩余用量", -1);
+    am_scene_rect(&s_scene, 28, 89, 184, 1, C_CODEX_TITLE, 0);
     bool empty = selection->usage[0] < 0 && selection->usage[1] < 0;
     bool single = !empty && (selection->usage[0] < 0 || selection->usage[1] < 0);
     const am_usage_t unknown = {.used_bp = -1};
-    int left = single ? 72 : 36;
-    int width = single ? 96 : 84;
-    if (!single) {
-        am_scene_rect(&s_scene, 120, 108, 1, 97, C_LINE, 0);
-    }
     for (int i = 0; i < 2; ++i) {
         if (!empty && selection->usage[i] < 0) {
             continue;
         }
         const am_usage_t *usage = empty ? &unknown : &model->usages[selection->usage[i]];
-        int x = single ? left : left + i * width;
-        am_scene_text(&s_scene, x, 105, width, &g_am_font_title, C_MUTED, i ? "一周" : "5小时", 0);
+        int x = single ? 76 : 28 + i * 96;
+        am_scene_panel(&s_scene, x, 95, 88, 110, 24, S_QUOTA_TOP, S_QUOTA_BOTTOM);
+        s_scene.ops[s_scene.count - 1].radius = 14;
+        am_scene_text(&s_scene, x + 4, 96, 80, &g_am_font_usage_label, S_QUOTA_LABEL, i ? "一周" : "5小时", 0);
         char value[20], date[32], clock[16];
         const struct am_font *font = &g_am_font_quota;
         uint16_t value_color = C_MUTED;
-        if (usage->used_bp < 0) {
+        int tenths = 0;
+        if (usage->used_bp < 0 || usage->used_bp > 10000) {
             snprintf(value, sizeof(value), "用量未知");
             font = &g_am_font_date;
         } else {
-            int tenths = (10000 - usage->used_bp + 5) / 10;
+            tenths = (10000 - usage->used_bp + 5) / 10;
             snprintf(value, sizeof(value), "%d.%d%%", tenths / 10, tenths % 10);
-            /* Grade the rounded value shown on screen, including the threshold boundaries. */
             value_color = tenths >= 500 ? C_MINT : tenths >= 200 ? C_AMBER : C_CORAL;
+            if (tenths == 1000) {
+                font = &g_am_font_quota_compact;
+            }
         }
-        am_scene_text(&s_scene, x, 130, width, font, value_color, value, 0);
+        am_scene_text(&s_scene, x + 4, 119 + (40 - font->height) / 2, 80, font, value_color, value, 0);
+        /* The track follows the displayed rounded value, keeping identical updates pixel-stable. */
+        am_scene_progress(&s_scene, x + 11, 159, 66, 4, value_color, TFT_RGB565(73, 62, 86), tenths * 10);
         reset_text(model, usage, utc, date, sizeof(date), clock, sizeof(clock));
         if (empty) {
             snprintf(date, sizeof(date), "--");
             snprintf(clock, sizeof(clock), "--");
         }
         if (i) {
-            const struct am_font *date_font = am_text_width(&g_am_font_body, date) <= width ? &g_am_font_body : &g_am_font_label;
-            am_scene_text(&s_scene, x, 165, width, date_font, C_MUTED, date, 0);
+            const struct am_font *date_font = am_text_width(&g_am_font_usage_reset, date) <= 80 ? &g_am_font_usage_reset : &g_am_font_reset;
+            am_scene_text(&s_scene, x + 4, 168, 80, date_font, TFT_RGB565(199, 186, 216), date, 0);
         }
-        am_scene_text(&s_scene, x, i ? 185 : 176, width, &g_am_font_body, C_MUTED, clock, 0);
+        am_scene_text(&s_scene, x + 4, i ? 184 : 175, 80, &g_am_font_body, TFT_RGB565(199, 186, 216), clock, 0);
     }
 }
 
@@ -666,6 +608,43 @@ static void boot_page(void)
     centered(118, 180, &g_am_font_connect, C_FG, "AgentMate");
     centered(155, 180, &g_am_font_label, TFT_RGB565(145, 160, 207), AM_PRODUCT_MODEL);
     centered(184, 140, &g_am_font_body, TFT_RGB565(194, 202, 232), AM_SOFTWARE_VERSION);
+}
+
+static esp_err_t render_factory_page(am_app_t *app, am_test_t test, uint8_t led_index, rgb_led_color_t led,
+                                      uint8_t brightness, uint8_t backlight, uint8_t font_index)
+{
+    memset(&s_scene, 0, sizeof(s_scene));
+    s_scene.body_alpha = 255;
+    char title[32], detail[32];
+    if (test == AM_TEST_FONT) {
+        centered(51, 180, &g_am_font_factory_title, C_FG, "字体样张");
+        centered(132, 190, &g_am_font_factory_body, C_FG, "工作中 等待输入");
+        snprintf(detail, sizeof(detail), "AaBbCc / %u px", factory_font(font_index)->height);
+        centered(166, 180, &g_am_font_label, TFT_RGB565(196, 203, 234), detail);
+    } else if (test == AM_TEST_LED) {
+        if (led_index == 16) {
+            snprintf(title, sizeof(title), "LED 全灯");
+        } else {
+            snprintf(title, sizeof(title), "LED %02u / 16", led_index + 1);
+        }
+        centered(51, 200, &g_am_font_factory_title, C_FG, title);
+        snprintf(detail, sizeof(detail), "RGB #%02X%02X%02X", led.r, led.g, led.b);
+        centered(98, 190, &g_am_font_label, TFT_RGB565(196, 203, 234), detail);
+        snprintf(detail, sizeof(detail), "亮度 %u%%", am_brightness_to_percent(brightness));
+        centered(124, 180, &g_am_font_body, TFT_RGB565(196, 203, 234), detail);
+        centered(177, 180, &g_am_font_factory_body, TFT_RGB565(143, 156, 194), "灯珠测试");
+    } else if (test == AM_TEST_BACKLIGHT) {
+        snprintf(title, sizeof(title), "背光 %u", backlight);
+        centered(51, 180, &g_am_font_factory_title, C_FG, title);
+        centered(98, 180, &g_am_font_label, TFT_RGB565(196, 203, 234), "32 / 128 / 255");
+        centered(177, 180, &g_am_font_factory_body, TFT_RGB565(143, 156, 194), "亮度测试");
+    } else {
+        centered(51, 180, &g_am_font_factory_title, C_FG, "产测模式");
+        centered(98, 190, &g_am_font_label, TFT_RGB565(196, 203, 234), "AT+TESTAUTO=1");
+        centered(126, 190, &g_am_font_label, TFT_RGB565(196, 203, 234), "AT+MODE=NORMAL");
+        centered(177, 180, &g_am_font_factory_body, TFT_RGB565(143, 156, 194), "串口就绪");
+    }
+    return am_scene_render(app, NULL, &s_scene, true);
 }
 
 static esp_err_t animate_led(am_app_t *app, struct am_led_state *state, const struct am_led_effect *effect, int64_t now,
@@ -752,6 +731,10 @@ void am_ui_run(am_app_t *app)
             vTaskDelay(pdMS_TO_TICKS(100));
             continue;
         }
+        if (factory_key != UINT64_MAX) {
+            full = true;
+            factory_key = UINT64_MAX;
+        }
         struct am_ui_selection selection;
         am_ui_select(&s_snapshot, &s_schedule, now, &selection);
         if (connect_first) {
@@ -775,14 +758,16 @@ void am_ui_run(am_app_t *app)
         if (transition_started && now - transition_started < 200000) {
             s_scene.body_alpha = (uint8_t)(((now - transition_started) / 100000) * 128);
         }
-        business_header(s_snapshot.link == AM_LINK_ONLINE && selection.page != AM_PAGE_CONNECT);
+        if (selection.page != AM_PAGE_TASK && selection.page != AM_PAGE_RESULT) {
+            business_header(s_snapshot.link == AM_LINK_ONLINE && selection.page != AM_PAGE_CONNECT);
+        }
         switch (selection.page) {
         case AM_PAGE_CONNECT:
             connection_page(&s_snapshot);
             break;
         case AM_PAGE_TASK:
         case AM_PAGE_RESULT:
-            session_page(&s_snapshot, &s_snapshot.sessions[selection.slots[selection.current]], &selection, now, s_snapshot.remote_generation);
+            session_page(&s_snapshot, &s_snapshot.sessions[selection.slots[selection.current]], &selection, now, s_snapshot.remote_generation, utc);
             break;
         case AM_PAGE_USAGE:
             usage_page(&s_snapshot, &selection, utc);

@@ -19,6 +19,8 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-11 1.5      Codex         Expose valid Session metric checks and 10/3-second dwell constants.
+# 2026-10-11 1.4      Codex         Expose independent Session detail rotation.
 #
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
@@ -45,8 +47,11 @@ enum am_page {
     AM_PAGE_BOOT,
 };
 
-#define AM_CONTEXT_DWELL_US (5LL * 1000000)
+#define AM_SESSION_DURATION_US (10LL * 1000000)
+#define AM_SESSION_USAGE_US (3LL * 1000000)
 #define AM_PAGE_DWELL_US (10LL * 1000000)
+
+enum am_session_detail { AM_DETAIL_DURATION, AM_DETAIL_CONTEXT, AM_DETAIL_QUOTA };
 
 enum am_ui_group {
     AM_GROUP_CONNECT,
@@ -63,7 +68,7 @@ struct am_ui_selection {
     int count;
     int current;
     int usage[2];
-    bool show_context;
+    enum am_session_detail detail;
     bool preempted;
 };
 
@@ -72,6 +77,9 @@ struct am_ui_schedule {
     char current_key[9];
     int current_slot;
     int64_t page_since_us;
+    int64_t detail_updated_us;
+    int64_t detail_elapsed_us[AM_MAX_SESSIONS];
+    char detail_keys[AM_MAX_SESSIONS][9];
     bool idle_usage_supported;
     uint32_t attention_sequence;
     uint32_t remote_generation;
@@ -79,6 +87,8 @@ struct am_ui_schedule {
 
 bool am_state_advancing(const char *state);
 bool am_state_result(const char *state);
+bool am_session_context_available(const am_session_t *session);
+bool am_session_quota_available(const am_usage_t *usage);
 uint64_t am_task_duration(const am_session_t *session, int64_t now);
 bool am_event_in_group(const am_model_t *model);
 void am_ui_select(const am_model_t *model, struct am_ui_schedule *schedule, int64_t now, struct am_ui_selection *selection);
