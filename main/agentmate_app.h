@@ -116,7 +116,17 @@ typedef struct {
     int16_t reset_utc_offset_minutes;
 } am_usage_t;
 
+/* Persistent IDs: append new themes without reordering existing entries. */
+enum am_clock_theme {
+    AM_CLOCK_AMBER = 0,
+    AM_CLOCK_WHITE,
+    AM_CLOCK_MINT,
+    AM_CLOCK_CODEX,
+    AM_CLOCK_THEME_COUNT,
+};
+
 typedef struct {
+    uint8_t clock_theme;
     bool factory_mode;
     am_test_t test;
     uint8_t test_led_index;

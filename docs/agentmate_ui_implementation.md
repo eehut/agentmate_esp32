@@ -1,6 +1,6 @@
 # 一期 UI 实现与验收记录
 
-更新日期：2026-10-12，当前固件 v2.0。视觉依据：[全页面视觉稿 v6.2](design/session_page_five_rows.html)；行为依据：[UI 需求](agentmate_ui_design_requirements.md)。
+更新日期：2026-10-12，当前固件 v2.0。视觉依据：[全页面视觉稿 v6.3](design/session_page_five_rows.html)；行为依据：[UI 需求](agentmate_ui_design_requirements.md)。
 
 ## 已实现页面与行为
 
@@ -238,3 +238,14 @@ Session 第四行改为工作时长 10 秒 → 有效 agent 配额 3 秒 → 有
 全页面实现已通过 ESP-IDF 构建及 `/dev/cu.usbserial-130` 的烧录哈希校验、UI／产测串口回归。测试后恢复 NORMAL 与后台 AgentMate 服务，背光 70%、灯环 30%、旋转 0° 保持。预览与串口检查不能代替真实屏幕色彩、圆形边缘和动画观感的目视验收。
 
 最终 v2.0 构建二进制为 615,968 字节，OTA 槽剩余 1,087,968 字节（约 64%）；静态 DRAM 使用 129,692 字节（40.37%）。版本更新后重新通过主机 ASan／UBSan，烧录哈希校验通过；设备 INFO 读回 `AGM-C3,v2.0,2,8`。设备身份、NORMAL 模式、背光 70%、灯环 30%、旋转 0°、LOG=0、ECHO=0 均与更新前一致。后台服务恢复后确认设备 ready／online，healthz 返回 200。
+
+
+## 可配置待机时间配色（2026-10-12）
+
+设计稿更新为 v6.3，日期时间待机页默认采用 B 版暖琥珀；新增原版白色、A 版薄荷绿与提亮的 Codex 紫色。52 px 方正时钟、20 px 年份、36 px 月日及当前布局保持，连接顶栏保留绿色。设计稿顶部选择器可预览四种配色，未知日期时间保持灰色占位与静止冒号。
+
+新增正常模式 `AT+CLOCKTHEME=<AMBER|WHITE|MINT|CODEX>` 与查询。设备使用 NVS 键 `clock_theme` 保存稳定枚举 ID；缺失或超出范围时回退 AMBER。指令在 model_lock 内保存成功后发布主题，UI 读取模型快照；失败不发布，同值不重复写入。HELLO、同步和断线清理保留主题。该可选命令不修改协议 2 的现有字段，服务端实现留待后续；软件版本仍为 v2.0。
+
+主机 ASan／UBSan 回归通过，覆盖全部主题与异常主题 ID 回退、灰色占位、时钟闪烁、主题切换的局部／完整重绘一致性及原有页面／动效。实际固件渲染器生成的四主题预览为 `build/ui_clock_themes/idle_themes_preview.png`。串口回归工具为 `tools/test_clock_theme_serial.py`，支持通过 `--reboot --timeout` 检查重启与断线保存，并在完成后恢复原主题和 NORMAL 模式。
+
+本轮 `idf.py build size` 通过，固件 616,480 字节，相比 v2.0 基线仅增加 512 字节，静态 DRAM 保持 129,692 字节；OTA 槽剩余 1,087,456 字节（约 64%）。经 `/dev/cu.usbserial-130` 烧录并校验哈希，设备首次读回 AMBER。串口验证四种主题设置／回读、重复设置、非法参数不改变当前主题、HELLO／同步／31 秒断线保留、非默认 CODEX 跨模式重启保留及产测拒绝配置均通过。测试结束恢复 AMBER、NORMAL、背光 70%、灯环 30%、旋转 0°、LOG=0 和 ECHO=0；后台服务恢复 ready／online，healthz 200。屏幕颜色观感仍以实际目视为准。

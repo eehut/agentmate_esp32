@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-12 3.2      Codex         Persist and query named standby clock themes.
 # 2026-10-04 3.0      Codex         Add protocol 2 host labels and session display names.
 #
 # 2026-10-02 2.0      Codex         Implemented phase-one UI protocol extensions.
@@ -314,6 +315,10 @@ esp_err_t am_app_init(am_app_t *app)
     }
     if (nvs_get_u8(app->nvs, "rotation", &value) == ESP_OK && value <= 3) {
         app->rotation = (uint16_t)value * 90U;
+    }
+    app->model.clock_theme = AM_CLOCK_AMBER;
+    if (nvs_get_u8(app->nvs, "clock_theme", &value) == ESP_OK && value < AM_CLOCK_THEME_COUNT) {
+        app->model.clock_theme = value;
     }
     app->model.link = AM_LINK_WAIT_HOST;
     app->model.test = AM_TEST_PAGE;
@@ -785,6 +790,34 @@ static void handle_showinfo(am_app_t *app, const char *argument, bool query)
     (void)write_line("OK");
 }
 
+/* dispatch() holds model_lock; publish only after persistence succeeds. */
+static void handle_clock_theme(am_app_t *app, const char *argument, bool query)
+{
+    static const char *const s_names[AM_CLOCK_THEME_COUNT] = {"AMBER", "WHITE", "MINT", "CODEX"};
+    if (query) {
+        unsigned theme = app->model.clock_theme < AM_CLOCK_THEME_COUNT ? app->model.clock_theme : AM_CLOCK_AMBER;
+        (void)write_line("+CLOCKTHEME:%s", s_names[theme]);
+        (void)write_line("OK");
+        return;
+    }
+    for (unsigned i = 0; argument && i < AM_CLOCK_THEME_COUNT; ++i) {
+        if (strcmp(argument, s_names[i]) != 0) {
+            continue;
+        }
+        if (app->model.clock_theme != i) {
+            if (save_setting(app, "clock_theme", (uint8_t)i) != ESP_OK) {
+                send_error("STORAGE_ERROR");
+                return;
+            }
+            app->model.clock_theme = (uint8_t)i;
+            app->model.revision++;
+        }
+        (void)write_line("OK");
+        return;
+    }
+    send_error("INVALID_ARG");
+}
+
 static void handle_setting(am_app_t *app, char *argument, const char *name)
 {
     uint64_t value;
@@ -1017,7 +1050,9 @@ static void dispatch(am_app_t *app, char *line)
         send_error("UNSUPPORTED_FEATURE");
         return;
     }
-    if (strcmp(command, "SHOWINFO") == 0) {
+    if (strcmp(command, "CLOCKTHEME") == 0) {
+        handle_clock_theme(app, argument, query);
+    } else if (strcmp(command, "SHOWINFO") == 0) {
         handle_showinfo(app, argument, query);
     } else if (strcmp(command, "SYNCBEGIN") == 0 && argument) {
         handle_sync_begin(app, argument);

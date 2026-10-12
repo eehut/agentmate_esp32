@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-12 3.9      Codex         Default idle clock to amber with selectable persistent palettes.
 # 2026-10-12 3.8      Codex         Implement v6.2 black pages, curved headers and standby panels.
 # 2026-10-11 3.7      Codex         Restore rounded header time and provider-colored directories; skip invalid metrics.
 # 2026-10-11 3.6      Codex         Display ASCII directories and restore black status panels.
@@ -312,14 +313,31 @@ static void connection_page(const am_model_t *model)
     centered(185, 170, &g_am_font_label, TFT_RGB565(125, 135, 173), "AGENTMATE · USB");
 }
 
+struct idle_palette {
+    uint16_t time, date, year, label, rule;
+};
+
+static const struct idle_palette s_idle_palettes[AM_CLOCK_THEME_COUNT] = {
+    [AM_CLOCK_AMBER] = {TFT_RGB565(241, 188, 116), TFT_RGB565(211, 223, 221), TFT_RGB565(147, 133, 115),
+                        TFT_RGB565(163, 151, 132), TFT_RGB565(94, 72, 48)},
+    [AM_CLOCK_WHITE] = {TFT_RGB565(246, 245, 255), TFT_RGB565(226, 232, 246), TFT_RGB565(146, 164, 201),
+                        TFT_RGB565(146, 164, 201), TFT_RGB565(53, 64, 83)},
+    [AM_CLOCK_MINT] = {TFT_RGB565(119, 230, 188), TFT_RGB565(206, 235, 221), TFT_RGB565(109, 157, 139),
+                       TFT_RGB565(125, 156, 143), TFT_RGB565(39, 79, 64)},
+    [AM_CLOCK_CODEX] = {TFT_RGB565(182, 160, 242), TFT_RGB565(211, 200, 234), TFT_RGB565(137, 117, 180),
+                        TFT_RGB565(155, 139, 181), TFT_RGB565(69, 53, 97)},
+};
+
 static void idle_page(const am_model_t *model, int64_t utc, int64_t now)
 {
+    unsigned theme = model->clock_theme < AM_CLOCK_THEME_COUNT ? model->clock_theme : AM_CLOCK_AMBER;
+    const struct idle_palette *palette = &s_idle_palettes[theme];
     char date[20], clock[16];
     calendar_text(model, utc, date, sizeof(date), clock, sizeof(clock), false);
-    centered(54, 180, &g_am_font_body, TFT_RGB565(146, 164, 201), "日期/时间");
+    centered(54, 180, &g_am_font_body, palette->label, "日期/时间");
     bool valid = clock[0] != '-';
     bool colon_visible = !valid || now / 500000 % 2 == 0;
-    uint16_t color = valid ? TFT_RGB565(246, 245, 255) : TFT_RGB565(141, 152, 183);
+    uint16_t color = valid ? palette->time : TFT_RGB565(141, 152, 183);
     clock[2] = 0;
     const struct am_font *font = &g_am_font_standby_clock;
     int hour_width = am_text_width(font, clock);
@@ -329,13 +347,13 @@ static void idle_page(const am_model_t *model, int64_t utc, int64_t now)
     am_scene_text(&s_scene, x, 87, hour_width, font, color, clock, -1);
     am_scene_text(&s_scene, x + hour_width, 87, colon_width, font, colon_visible ? color : AM_UI_BG, ":", -1);
     am_scene_text(&s_scene, x + hour_width + colon_width, 87, minute_width, font, color, clock + 3, -1);
-    am_scene_rect(&s_scene, 83, 147, 74, 1, TFT_RGB565(53, 64, 83), 0);
+    am_scene_rect(&s_scene, 83, 147, 74, 1, palette->rule, 0);
     char year[5] = "----";
     if (valid) {
         memcpy(year, date, 4);
     }
-    centered(151, 180, &g_am_font_standby_year, valid ? TFT_RGB565(146, 164, 201) : color, year);
-    centered(179, 176, &g_am_font_standby_date, valid ? TFT_RGB565(226, 232, 246) : color, valid ? date + 5 : "-- --");
+    centered(151, 180, &g_am_font_standby_year, valid ? palette->year : color, year);
+    centered(179, 176, &g_am_font_standby_date, valid ? palette->date : color, valid ? date + 5 : "-- --");
 }
 
 static void info_page(const am_app_t *app, const am_model_t *model, uint8_t tft, uint8_t led, int64_t utc)

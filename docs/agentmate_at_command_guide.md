@@ -44,6 +44,8 @@
 | `AT+LEDBRIGHT?` | 查询 LED 灯环亮度 | `+LEDBRIGHT:<value>`、`OK` | | ✅ |
 | `AT+TFTROTATE=<angle>` | 设置并保存 TFT 界面旋转角度 | `OK` | | ✅ |
 | `AT+TFTROTATE?` | 查询 TFT 界面旋转角度 | `+TFTROTATE:<angle>`、`OK` | | ✅ |
+| `AT+CLOCKTHEME=<theme>` | 设置并保存待机时间页配色 | `OK` | | ✅ |
+| `AT+CLOCKTHEME?` | 查询当前时间配色 | `+CLOCKTHEME:<theme>`、`OK` | | ✅ |
 
 `AT+PAIRBEGIN`、`AT+PAIRCOMMIT=...` 和 `AT+AUTH=...` 属于二期规划；当前固件收到这些命令会返回 `+ERR:UNSUPPORTED_FEATURE`、`ERROR`。
 
@@ -371,3 +373,31 @@ TIME 只设置 UTC 与当前显示偏移，不将链路变为 ONLINE；SYNCEND �
 正常模式开启 LOG 后，INFO? 的诊断行另含 `page`、`page_seq`、`usage_supported`：page 为连接 0、任务 1、结果 2、用量 3、日期时间 4、信息 5；page_seq 为成功绘制的页面切换计数。仅用于测试诊断，不改变 INFO 响应字段，LOG=0 时不输出。
 
 会话与灯环诊断另含 `group`（0 连接、1 等待、2 完成、3 工作、4 待机）、`slot`（1～8，非会话页为 0）、`led`（0 熄灭、1 未连接、2 连接中、3 授权、4 工作、5 思考、6 stale、7 成功、8 输入、9 失败、10 取消）、`mask`（16 位亮灯掩码）与 `rgb`（模式的 24 位基准颜色）。`led_sum` 是全部灯珠 RGB 通道总和，`p0`／`p8` 为对应灯珠的 24 位 RGB；这些像素值在空间档位缩放之后、用户全局亮度缩放之前，反映成功提交到驱动的帧。`status`／`frame`／`status_seq` 对应成功绘制的状态边框动画，非会话页 status／frame 为 255。诊断字段仅供测试，不作为服务端协议依赖。
+
+
+## 23. `AT+CLOCKTHEME`：待机时间页配色
+
+设置：`AT+CLOCKTHEME=<theme>`，仅正常模式可用，名称区分大小写。合法值如下：
+
+| 名称 | 方案 | 时间 | 日期 | 年份 |
+|---|---|---|---|---|
+| `AMBER` | B 版暖琥珀，默认 | `#F1BC74` | `#D3DFDD` | `#938573` |
+| `WHITE` | 原版白色 | `#F6F5FF` | `#E2E8F6` | `#92A4C9` |
+| `MINT` | A 版薄荷绿 | `#77E6BC` | `#CEEBDD` | `#6D9D8B` |
+| `CODEX` | Codex 紫色系，时间提亮以便黑底阅读 | `#B6A0F2` | `#D3C8EA` | `#8975B4` |
+
+查询：`AT+CLOCKTHEME?` 返回 `+CLOCKTHEME:<theme>` 和 `OK`。设置成功先保存 NVS，再发布到显示模型；待机页下次刷新即生效。重复设置相同主题直接返回 `OK`，不重复写 NVS。主题仅影响时间日期待机页，连接状态顶栏、Session、用量页和灯环保持原配色；无效时钟／日期仍使用灰色占位且冒号不闪烁。
+
+新增 NVS 键 `clock_theme`，升级时没有保存值或值超出范围则使用 `AMBER`。正常断线、HELLO／同步、模式切换和设备重启均保留设置。空值、未知名称、大小写错误及多余字段返回 `INVALID_ARG`；持久化失败返回 `STORAGE_ERROR` 且不发布新主题；产测模式设置／查询返回 `UNSUPPORTED_FEATURE`。
+
+```text
+AT+CLOCKTHEME=MINT
+OK
+AT+CLOCKTHEME?
++CLOCKTHEME:MINT
+OK
+AT+CLOCKTHEME=AMBER
+OK
+```
+
+此为协议 2 的可选新增命令，不修改 HELLO／INFO 或现有字段；旧固件返回 `UNKNOWN_COMMAND` 时，服务端可禁用配色设置能力。本次仅提供设备接口，服务端设置界面及保存／下发逻辑暂未实现。

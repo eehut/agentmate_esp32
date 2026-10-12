@@ -9,6 +9,12 @@
     --ink: #24362f; --ink-soft: #5d736b;
     --screen: #000; --spruce: #1c3f38; --mint: #12b981; --leaf: #0e9a62;
     --cap: #000;
+    --idle-time: #F1BC74;
+    --idle-date: #D3DFDD;
+    --idle-year: #938573;
+    --idle-label: #A39784;
+    --idle-rule: #5E4830;
+
     --paper: #fff;
     --rounded: ui-rounded, "SF Pro Rounded", "Yuanti SC", "PingFang SC", sans-serif;
     --cond: "Avenir Next Condensed", "Avenir Next", "Helvetica Neue Condensed", "Helvetica Neue", sans-serif;
@@ -203,14 +209,14 @@
   .imported .factory .sample { top: 98px; color: #f2f4ff; font: 18px var(--mono); }
   .imported .factory .sample-zh { top: 133px; color: #f2f4ff; font-size: 18px; }
   .imported .factory .sample-small { top: 168px; color: #c4cbea; font: 14px var(--mono); }
-  .imported .idle .locale { top: 54px; height: 23px; color: #92a4c9; font-size: 16px; font-weight: 650; }
-  .imported .idle .standby-clock { top: 82px; height: 62px; color: #f6f5ff; display: flex; align-items: center; justify-content: center; }
+  .imported .idle .locale { top: 54px; height: 23px; color: var(--idle-label); font-size: 16px; font-weight: 650; }
+  .imported .idle .standby-clock { top: 82px; height: 62px; color: var(--idle-time); display: flex; align-items: center; justify-content: center; }
   .imported .idle .square-clock { height: 52px; }
   .imported .idle.placeholder .standby-clock, .imported .idle.placeholder .date-year,
   .imported .idle.placeholder .date-day { color: #8d98b7; }
-  .imported .idle .date-rule { position: absolute; top: 147px; left: 83px; width: 74px; height: 1px; background: #354053; }
-  .imported .idle .date-year { top: 150px; height: 26px; color: #92a4c9; font: 600 20px/26px var(--rounded); }
-  .imported .idle .date-day { top: 177px; height: 44px; color: #e2e8f6; font: 650 36px/44px var(--rounded);
+  .imported .idle .date-rule { position: absolute; top: 147px; left: 83px; width: 74px; height: 1px; background: var(--idle-rule); }
+  .imported .idle .date-year { top: 150px; height: 26px; color: var(--idle-year); font: 600 20px/26px var(--rounded); }
+  .imported .idle .date-day { top: 177px; height: 44px; color: var(--idle-date); font: 650 36px/44px var(--rounded);
     letter-spacing: 1px; font-variant-numeric: tabular-nums; }
   .imported .usage .usage-head { position: absolute; top: 51px; left: 28px; width: 184px; height: 34px;
     display: flex; gap: 10px; justify-content: center; align-items: center; }
@@ -246,21 +252,28 @@
       <h1>AgentMate · <em>全页面交互稿</em></h1>
       <p class="intro">所有业务页面统一使用纯黑屏幕底色，Session 保留已确认的合并主区、agent 弧形下边框与分类配色。启动、连接、设备信息、配对与产测页直接引入 <a href="session_states_board.html">原全量设计稿</a> 的布局。两个待机页采用本次方案：时间日期页放大下半屏日期；Codex 用量页以深紫面板呈现窗口、剩余百分比和重置时间。配对仍为二期设计，产测纯色仍按测试内容显示。</p>
     </div>
-    <div class="version">稿件 <strong>全页面方案 · v6.2</strong><br>视觉优化方案 · ESP32-C3<br>2026-10-12</div>
+    <div class="version">稿件 <strong>全页面方案 · v6.3</strong><br>视觉优化方案 · ESP32-C3<br>2026-10-12</div>
   </header>
   <div class="ribbon" aria-label="本版设计要点">
     <div class="ribbon-item"><b>统一 · 纯黑底色</b><small>所有业务页面底色为 #000000。连接顶栏中央下沿仍在 y=39，两端使用明显的深弧过渡；agent 边框和产测纯色保留各自含义。</small></div>
     <div class="ribbon-item"><b>Session · 保留新版</b><small>圆润时钟、ASCII 目录、合并主区与分类配色。时长 10 秒 → 有效 agent 用量 3 秒 → 有效上下文 3 秒。</small></div>
-    <div class="ribbon-item"><b>待机 · 时间日期</b><small>大号方正时钟，年份 20px、月日 36px。日期向下展开，充实下半屏，未知状态保留占位。</small></div>
+    <div class="ribbon-item"><b>待机 · 时间日期</b><small>默认 B 版暖琥珀时间，搭配冷灰日期与低亮年份。支持白色、A 版薄荷绿、Codex 紫色；字号与布局保持。</small></div>
     <div class="ribbon-item"><b>待机 · Codex 用量</b><small>深紫独立面板，上方窗口标题、中部百分比与细进度条、下方重置时间。单档居中，尺寸与双档一致。</small></div>
     <div class="ribbon-item"><b>其余 · 沿用原稿</b><small>启动、连接、设备信息、二期配对、工厂产测的原有布局与示例信息直接引入。</small></div>
   </div>
   <nav class="jump-links" id="page-nav" aria-label="页面分类"></nav>
+  <div class="theme-control" style="margin-top:20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <label for="clock-theme">待机时间配色</label>
+    <select id="clock-theme" style="font:inherit;padding:8px 12px;border:1px solid #b9cfc1;border-radius:10px;background:white">
+      <option value="AMBER">B · 暖琥珀（默认）</option><option value="WHITE">原版 · 白色</option>
+      <option value="MINT">A · 薄荷绿</option><option value="CODEX">Codex · 淡紫</option>
+    </select><small>仅切换日期时间待机页；设备通过 AT+CLOCKTHEME 配置并保存。</small>
+  </div>
   <div id="board"></div>
   <div class="notes">
     <article class="note wide">
       <h2>两个待机页 · 方案一</h2>
-      <p>日期时间页保留连接 header，把与 Session 工作时长相同的方正时钟放在中部，以 52px 高度显示，日期由原来的 18px 单行拆为 20px 年份和 36px 月日；月日下移至 y=177–221，减少下半屏空白，仍保留同一组日期信息。未知时间与日期继续使用占位，冒号静止。</p>
+      <p>日期时间页默认采用 B 版：时间 #F1BC74、日期 #D3DFDD、年份 #938573。可选 WHITE／MINT／CODEX，主题只调整本页颜色，连接顶栏保持绿色。日期时间页保留连接 header，把与 Session 工作时长相同的方正时钟放在中部，以 52px 高度显示，日期由原来的 18px 单行拆为 20px 年份和 36px 月日；月日下移至 y=177–221，减少下半屏空白，仍保留同一组日期信息。未知时间与日期继续使用占位，冒号静止。</p>
       <p>Codex 用量页保留原来的窗口名称、剩余百分比与主机本地重置时间。每个窗口采用 88×110px 深紫面板，上方标题带略亮；中部大号百分比配合细进度条，下方显示重置时间，一周窗口保留日期与时间两行。单窗口保持原尺寸居中，未知读数保留「用量未知」；5 小时与一周分别判断剩余比例颜色。仅收到一周窗口时也可完整呈现。</p>
       <p>待机两页仍按原规则每 10 秒轮播。非 Session 页的连接顶栏两侧采用更深的椭圆弧下边界，中央直线为 x=96–144、y=39，连接图标与正文位置保持原稿。其余导入页面保持原布局和示例信息；二期配对效果与产测用途在对应卡片中标注。</p>
     </article>
@@ -844,7 +857,7 @@ const sections = [
     "n": "G",
     "color": "#9b7bff",
     "title": "待机 · 日期时间 · 优先级 4",
-    "subtitle": "方案一：大号方正时钟，年份与月日分层，下半屏突出 36px 日期",
+    "subtitle": "默认 B 版暖琥珀，可在页首切换白色／薄荷绿／Codex 紫色；52px 时钟与 36px 日期",
     "tiles": [
       {
         "type": "idle",
@@ -1168,6 +1181,12 @@ function animateRings(now) {
   requestAnimationFrame(animateRings);
 }
 requestAnimationFrame(animateRings);
+const idleThemes = {"AMBER": {"time": "#F1BC74", "date": "#D3DFDD", "year": "#938573", "label": "#A39784", "rule": "#5E4830"}, "WHITE": {"time": "#F6F5FF", "date": "#E2E8F6", "year": "#92A4C9", "label": "#92A4C9", "rule": "#354053"}, "MINT": {"time": "#77E6BC", "date": "#CEEBDD", "year": "#6D9D8B", "label": "#7D9C8F", "rule": "#274F40"}, "CODEX": {"time": "#B6A0F2", "date": "#D3C8EA", "year": "#8975B4", "label": "#9B8BB5", "rule": "#453561"}};
+document.getElementById("clock-theme").addEventListener("change", event => {
+  for (const [key, value] of Object.entries(idleThemes[event.target.value])) {
+    document.documentElement.style.setProperty(`--idle-${key}`, value);
+  }
+});
 </script>
 </body>
 </html>

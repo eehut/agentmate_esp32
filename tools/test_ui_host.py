@@ -50,6 +50,11 @@ def main():
         page_sheet.paste(Image.open(out / (stem + '.ppm')), (x + 8, y + 6))
         draw.text((x + 8, y + 250), stem, fill='#233e34')
     page_sheet.save(out / 'pages_preview.png')
+    theme_sheet = Image.new('RGB', (1024, 278), '#edf2ef'); draw = ImageDraw.Draw(theme_sheet)
+    for i, (name, label) in enumerate([('amber', 'AMBER / default B'), ('white', 'WHITE'), ('mint', 'MINT / A'), ('codex', 'CODEX')]):
+        theme_sheet.paste(Image.open(out / ('idle_' + name + '.ppm')), (i * 256 + 8, 6))
+        draw.text((i * 256 + 8, 250), label, fill='#233e34')
+    theme_sheet.save(out / 'idle_themes_preview.png')
     clock_frames = [Image.open(out / ('idle_colon_' + phase + '.ppm')).convert('RGB') for phase in ('on', 'off')]
     clock_frames[0].save(out / 'idle_clock_blink.gif', save_all=True, append_images=clock_frames[1:], duration=500, loop=0)
     states = ['working','thinking','waiting_for_input','permission_required','stale','task_success','task_failed','task_canceled']

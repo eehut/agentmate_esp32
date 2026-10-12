@@ -1005,6 +1005,44 @@ static void test_render(const char *directory)
     }
 }
 
+static void test_clock_themes(const char *directory)
+{
+    am_app_t app = {0};
+    am_model_t model = {.link = AM_LINK_ONLINE, .clock_valid = true, .utc_offset_valid = true, .utc_offset_minutes = 480};
+    struct am_ui_scene previous = {0};
+    const uint16_t colors[] = {TFT_RGB565(241, 188, 116), TFT_RGB565(246, 245, 255),
+                               TFT_RGB565(119, 230, 188), TFT_RGB565(182, 160, 242)};
+    const uint16_t dates[] = {TFT_RGB565(211, 223, 221), TFT_RGB565(226, 232, 246),
+                              TFT_RGB565(206, 235, 221), TFT_RGB565(211, 200, 234)};
+    const char *names[] = {"idle_amber", "idle_white", "idle_mint", "idle_codex"};
+    for (unsigned theme = 0; theme <= AM_CLOCK_THEME_COUNT; ++theme) {
+        /* Also exercise corrupted/future IDs falling back to the default palette. */
+        model.clock_theme = theme < AM_CLOCK_THEME_COUNT ? theme : UINT8_MAX;
+        unsigned expected = theme < AM_CLOCK_THEME_COUNT ? theme : AM_CLOCK_AMBER;
+        for (int invalid = 0; invalid < 2; ++invalid) {
+            model.clock_valid = !invalid;
+            for (int phase = 0; phase < 2; ++phase) {
+                memset(&s_scene, 0, sizeof(s_scene)); s_scene.body_alpha = 255; business_header(true);
+                idle_page(&model, 1790936702, phase * 500000);
+                check_incremental(&app, &previous);
+                check_safe_text();
+                const struct am_ui_op *day = scene_text(invalid ? "-- --" : "10-02");
+                assert(day && day->color == (invalid ? TFT_RGB565(141, 152, 183) : dates[expected]));
+                for (int i = 0; i < s_scene.count; ++i) {
+                    const struct am_ui_op *op = &s_scene.ops[i];
+                    if (op->kind == AM_OP_TEXT && op->font == &g_am_font_standby_clock && strcmp(op->text, ":") != 0) {
+                        assert(op->color == (invalid ? TFT_RGB565(141, 152, 183) : colors[expected]));
+                    }
+                }
+                assert(s_screen[38 * 240 + 120] == TFT_RGB565(31, 191, 116));
+                if (!invalid && phase == 0 && theme < AM_CLOCK_THEME_COUNT) {
+                    write_ppm(directory, names[theme]);
+                }
+            }
+        }
+    }
+}
+
 static void test_v62_pages(const char *directory)
 {
     am_app_t app = {.tft_brightness = 192, .led_brightness = 64};
@@ -1172,6 +1210,7 @@ int main(int argc,char **argv)
     test_detail_timing();
     test_render(argv[1]);
     test_v62_pages(argv[1]);
+    test_clock_themes(argv[1]);
     test_idle_clock(argv[1]);
     test_session_clock(argv[1]);
     test_status_animation(argv[1]);

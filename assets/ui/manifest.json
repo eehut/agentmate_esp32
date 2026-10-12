@@ -19,7 +19,7 @@
   ],
   "directory_shared_glyphs": true,
   "session": {
-    "design": "session_page_five_rows v6.2",
+    "design": "session_page_five_rows v6.3",
     "directory_px": 17,
     "directory_charset": "ASCII",
     "status_background": "black",
@@ -82,7 +82,39 @@
       110
     ],
     "quota_heading_px": 17,
-    "single_window": "same size centered"
+    "single_window": "same size centered",
+    "default_theme": "AMBER",
+    "theme_command": "CLOCKTHEME",
+    "themes": {
+      "AMBER": {
+        "time": "#F1BC74",
+        "date": "#D3DFDD",
+        "year": "#938573",
+        "label": "#A39784",
+        "rule": "#5E4830"
+      },
+      "WHITE": {
+        "time": "#F6F5FF",
+        "date": "#E2E8F6",
+        "year": "#92A4C9",
+        "label": "#92A4C9",
+        "rule": "#354053"
+      },
+      "MINT": {
+        "time": "#77E6BC",
+        "date": "#CEEBDD",
+        "year": "#6D9D8B",
+        "label": "#7D9C8F",
+        "rule": "#274F40"
+      },
+      "CODEX": {
+        "time": "#B6A0F2",
+        "date": "#D3C8EA",
+        "year": "#8975B4",
+        "label": "#9B8BB5",
+        "rule": "#453561"
+      }
+    }
   },
   "mask_bits": 4,
   "dynamic_directory": "Printable ASCII; non-ASCII code points display as ?; ellipsis reserved for clipping",
