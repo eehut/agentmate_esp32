@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-13 1.6      Codex         Expose attention-aware clock preview requests.
 # 2026-10-11 1.5      Codex         Expose valid Session metric checks and 10/3-second dwell constants.
 # 2026-10-11 1.4      Codex         Expose independent Session detail rotation.
 #
@@ -70,6 +71,7 @@ struct am_ui_selection {
     int usage[2];
     enum am_session_detail detail;
     bool preempted;
+    bool clock_preview;
 };
 
 struct am_ui_schedule {
@@ -91,6 +93,8 @@ bool am_session_context_available(const am_session_t *session);
 bool am_session_quota_available(const am_usage_t *usage);
 uint64_t am_task_duration(const am_session_t *session, int64_t now);
 bool am_event_in_group(const am_model_t *model);
+/* Caller holds model_lock; a successful theme setting may replace the information page. */
+void am_ui_request_clock_preview(am_model_t *model, int64_t now);
 void am_ui_select(const am_model_t *model, struct am_ui_schedule *schedule, int64_t now, struct am_ui_selection *selection);
 
 #endif

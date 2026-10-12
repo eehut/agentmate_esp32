@@ -19,6 +19,8 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-13 4.1      Codex         Let clock previews bypass the initial connection page.
+# 2026-10-12 4.0      Codex         Display exclusive OTA progress and publish boot health.
 # 2026-10-12 3.9      Codex         Default idle clock to amber with selectable persistent palettes.
 # 2026-10-12 3.8      Codex         Implement v6.2 black pages, curved headers and standby panels.
 # 2026-10-11 3.7      Codex         Restore rounded header time and provider-colored directories; skip invalid metrics.
@@ -683,6 +685,57 @@ static esp_err_t animate_led(am_app_t *app, struct am_led_state *state, const st
     return err;
 }
 
+static void ota_page(const struct am_ota_view *view)
+{
+    uint16_t color = view->state == AM_OTA_FAILED ? TFT_RGB565(250, 80, 95) :
+                     view->state == AM_OTA_READY ? TFT_RGB565(80, 230, 160) : TFT_RGB565(85, 170, 250);
+    centered(48, 184, &g_am_font_label, TFT_RGB565(175, 192, 213), "FIRMWARE UPDATE");
+    centered(78, 190, &g_am_font_label, color, view->version);
+    char progress[16];
+    unsigned percent = view->size ? (unsigned)((uint64_t)view->received * 100 / view->size) : 0;
+    snprintf(progress, sizeof(progress), "%u%%", percent);
+    centered(108, 190, &g_am_font_quota, color, progress);
+    am_scene_progress(&s_scene, 44, 153, 152, 6, color, TFT_RGB565(22, 36, 53), percent * 100);
+    const char *status = view->state == AM_OTA_READY ? "WAITING FOR COMMIT" :
+                         view->state == AM_OTA_VERIFYING ? "VERIFYING" : view->state == AM_OTA_FAILED ? "UPDATE FAILED" : "RECEIVING";
+    centered(173, 172, &g_am_font_small, color, status);
+    if (view->state == AM_OTA_FAILED) {
+        centered(193, 150, &g_am_font_small, TFT_RGB565(175, 192, 213), view->error + 4);
+    }
+}
+
+static esp_err_t ota_led(am_app_t *app, const struct am_ota_view *view, int64_t now)
+{
+    unsigned lit = view->size ? (unsigned)(((uint64_t)view->received * 16 + view->size - 1) / view->size) : 0;
+    rgb_led_color_t color = {.r = 30, .g = 110, .b = 230};
+    if (view->state == AM_OTA_READY) {
+        color = (rgb_led_color_t){.r = 30, .g = 210, .b = 100};
+        lit = 16;
+    } else if (view->state == AM_OTA_FAILED) {
+        color = (rgb_led_color_t){.r = 230, .g = 30, .b = 40};
+        lit = 16;
+    } else if (view->state == AM_OTA_VERIFYING) {
+        color.b = (uint8_t)(100 + (now / 100000 % 8) * 18);
+        lit = 16;
+    }
+    for (unsigned i = 0; i < 16; ++i) {
+        esp_err_t err = rgb_led_strip_set_pixel(app->strip, i, i < lit ? color : (rgb_led_color_t){.r = 0, .g = 2, .b = 6});
+        if (err != ESP_OK) {
+            return err;
+        }
+    }
+    return rgb_led_strip_show(app->strip);
+}
+
+static void ui_health(am_app_t *app, bool healthy)
+{
+    if (healthy) {
+        xSemaphoreTake(app->model_lock, portMAX_DELAY);
+        app->ui_heartbeat_us = esp_timer_get_time();
+        xSemaphoreGive(app->model_lock);
+    }
+}
+
 void am_ui_run(am_app_t *app)
 {
     /* Prepare geometry before starting Boot so first session entry has no cache stall. */
@@ -699,6 +752,7 @@ void am_ui_run(am_app_t *app)
     bool boot_done = false;
     bool connect_first = false;
     bool info_before = false;
+    bool ota_before = false;
     struct am_led_effect retained = {0};
     static struct am_led_state s_led_state;
     for (;;) {
@@ -719,6 +773,28 @@ void am_ui_run(am_app_t *app)
         }
         memset(&s_scene, 0, sizeof(s_scene));
         s_scene.body_alpha = 255;
+        bool ota = s_snapshot.ota.state == AM_OTA_RECEIVING || s_snapshot.ota.state == AM_OTA_VERIFYING ||
+                   s_snapshot.ota.state == AM_OTA_READY ||
+                   (s_snapshot.ota.state == AM_OTA_FAILED && now - s_snapshot.ota.changed_us < 5000000);
+        full = full || ota != ota_before;
+        ota_before = ota;
+        if (ota) {
+            ota_page(&s_snapshot.ota);
+            xSemaphoreTake(app->display_lock, portMAX_DELAY);
+            esp_err_t err = am_scene_render(app, &s_previous, &s_scene, full);
+            esp_err_t led_err = ota_led(app, &s_snapshot.ota, now);
+            xSemaphoreGive(app->display_lock);
+            ui_health(app, err == ESP_OK && led_err == ESP_OK);
+            if (err == ESP_OK) {
+                rotation_before = rotation;
+            }
+            page_before = AM_PAGE_BOOT;
+            info_before = false;
+            transition_started = 0;
+            s_led_state.initialized = false;
+            vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
+        }
         if (!boot_done) {
             boot_page();
             s_scene.body_alpha = age < 300000 ? (uint8_t)((age / 80000) * 80 * 255 / 300) : 255;
@@ -727,9 +803,12 @@ void am_ui_run(am_app_t *app)
             if (err == ESP_OK) {
                 rotation_before = rotation;
             }
-            (void)rgb_led_strip_clear(app->strip);
-            (void)rgb_led_strip_show(app->strip);
+            esp_err_t led_err = rgb_led_strip_clear(app->strip);
+            if (led_err == ESP_OK) {
+                led_err = rgb_led_strip_show(app->strip);
+            }
             xSemaphoreGive(app->display_lock);
+            ui_health(app, err == ESP_OK && led_err == ESP_OK);
             vTaskDelay(pdMS_TO_TICKS(80));
             continue;
         }
@@ -746,6 +825,7 @@ void am_ui_run(am_app_t *app)
                     rotation_before = rotation;
                 }
             }
+            ui_health(app, factory_key == key && rotation_before == rotation);
             vTaskDelay(pdMS_TO_TICKS(100));
             continue;
         }
@@ -756,7 +836,9 @@ void am_ui_run(am_app_t *app)
         struct am_ui_selection selection;
         am_ui_select(&s_snapshot, &s_schedule, now, &selection);
         if (connect_first) {
-            selection.page = AM_PAGE_CONNECT;
+            if (!selection.clock_preview) {
+                selection.page = AM_PAGE_CONNECT;
+            }
             connect_first = false;
         }
         bool info = selection.page == AM_PAGE_INFO;
@@ -808,6 +890,7 @@ void am_ui_run(am_app_t *app)
             page_before = selection.page;
             snprintf(key_before, sizeof(key_before), "%s", session_key);
         }
+        ui_health(app, err == ESP_OK && led_err == ESP_OK);
         xSemaphoreTake(app->model_lock, portMAX_DELAY);
         uint8_t slot = selection.page == AM_PAGE_TASK || selection.page == AM_PAGE_RESULT ?
                        (uint8_t)(selection.slots[selection.current] + 1) : 0;

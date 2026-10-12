@@ -13,6 +13,10 @@
 
 | 命令 | 功能 | 主要响应 | 产测 | 正常 |
 |---|---|---|:---:|:---:|
+| `AT+OTA?` | 查询 OTA 状态、进度与接收能力 | `+OTA:...`、`OK` | | ✅ |
+| `AT+OTABEGIN=<version>,<size>,<sha256>` | 准备备用槽并进入 XMODEM 接收 | `OK` 后二进制握手 | | ✅ |
+| `AT+OTACOMMIT` | 激活已校验镜像并重启 | `OK` | | ✅ |
+| `AT+OTAABORT` | 丢弃待提交镜像／清除失败状态 | `OK` | | ✅ |
 | `AT+HELLO=2,<nonce>` | 发现设备、查询容量和当前模式 | `+HELLO:...`、`OK` | ✅ | ✅ |
 | `AT+INFO?` | 查询设备信息及会话容量 | `+INFO:...`、`OK` | ✅ | ✅ |
 | `AT+MODE?` | 查询当前模式 | `+MODE:<FACTORY或NORMAL>`、`OK` | ✅ | ✅ |
@@ -70,14 +74,14 @@
 | `nonce` | 原样回显请求中的 32 位小写十六进制字符 |
 | `device_id` | 设备 ID，32 位小写十六进制字符；首次启动生成并写入 NVS，之后保持不变 |
 | `model` | 设备型号，当前为 `AGM-C3` |
-| `software_version` | 软件版本，格式为 `v<主版本>.<次版本>`，取自根目录 `CMakeLists.txt` 的 `project()` `VERSION` 并在编译时写入；当前为 `v2.0` |
+| `software_version` | 软件版本，格式为 `v<主版本>.<次版本>`，取自根目录 `CMakeLists.txt` 的 `project()` `VERSION` 并在编译时写入；当前为 `v2.1` |
 | `max_sessions` | 会话槽上限，当前为 `8`；`SESSION` 超出时返回 `CAPACITY` |
 | `max_usage_entries` | 用量记录上限，当前为 `4`；`USAGE` 超出时返回 `CAPACITY` |
 | `mode` | 当前模式，`FACTORY` 或 `NORMAL` |
 
 ```text
 AT+HELLO=2,fe6d7e13d354eb1f8d45968587589c65
-+HELLO:2,agentmate,fe6d7e13d354eb1f8d45968587589c65,8d2b47e0a99347c7a976d386dc194fa2,AGM-C3,v2.0,8,4,NORMAL
++HELLO:2,agentmate,fe6d7e13d354eb1f8d45968587589c65,8d2b47e0a99347c7a976d386dc194fa2,AGM-C3,v2.1,8,4,NORMAL
 OK
 ```
 
@@ -290,13 +294,13 @@ OK
 |---|---|
 | `device_id` | 设备 ID，32 位小写十六进制字符；与 `HELLO` 返回的同一值 |
 | `model` | 设备型号，当前为 `AGM-C3` |
-| `software_version` | 软件版本，格式为 `v<主版本>.<次版本>`，与 `HELLO` 返回的同一值；当前为 `v2.0` |
+| `software_version` | 软件版本，格式为 `v<主版本>.<次版本>`，与 `HELLO` 返回的同一值；当前为 `v2.1` |
 | `protocol_version` | 协议主版本，一位十进制数字，当前固定为 `2` |
 | `max_sessions` | 会话槽上限，当前为 `8` |
 
 ```text
 AT+INFO?
-+INFO:8d2b47e0a99347c7a976d386dc194fa2,AGM-C3,v2.0,2,8
++INFO:8d2b47e0a99347c7a976d386dc194fa2,AGM-C3,v2.1,2,8
 OK
 ```
 
@@ -386,7 +390,7 @@ TIME 只设置 UTC 与当前显示偏移，不将链路变为 ONLINE；SYNCEND �
 | `MINT` | A 版薄荷绿 | `#77E6BC` | `#CEEBDD` | `#6D9D8B` |
 | `CODEX` | Codex 紫色系，时间提亮以便黑底阅读 | `#B6A0F2` | `#D3C8EA` | `#8975B4` |
 
-查询：`AT+CLOCKTHEME?` 返回 `+CLOCKTHEME:<theme>` 和 `OK`。设置成功先保存 NVS，再发布到显示模型；待机页下次刷新即生效。重复设置相同主题直接返回 `OK`，不重复写 NVS。主题仅影响时间日期待机页，连接状态顶栏、Session、用量页和灯环保持原配色；无效时钟／日期仍使用灰色占位且冒号不闪烁。
+查询：`AT+CLOCKTHEME?` 返回 `+CLOCKTHEME:<theme>` 和 `OK`。设置成功先保存 NVS，再发布到显示模型。每次成功设置（包括同值重发）在没有 `permission_required` 或 `waiting_for_input` 会话时立即拉起时间日期待机页 5 秒，覆盖普通工作、思考、完成态、用量页和当前信息页；连续下发从最近一次成功设置重新计时。同值设置仍不重复写 NVS。已有需要立即处理的会话时只更新配色，不弹出、不排队；预览期间新出现这类会话立即取消预览且不恢复。到期后恢复正常页面选择及轮播。`CLOCKTHEME?` 查询、非法参数和保存失败不触发预览；重新 HELLO 取消旧预览，后续会话同步不会取消新预览，显式 `SHOWINFO>0` 可以替换预览。OTA 页面仍优先显示。主题仅影响时间日期待机页，连接状态顶栏、Session、用量页和灯环保持原配色；无效时钟／日期仍使用灰色占位且冒号不闪烁。
 
 新增 NVS 键 `clock_theme`，升级时没有保存值或值超出范围则使用 `AMBER`。正常断线、HELLO／同步、模式切换和设备重启均保留设置。空值、未知名称、大小写错误及多余字段返回 `INVALID_ARG`；持久化失败返回 `STORAGE_ERROR` 且不发布新主题；产测模式设置／查询返回 `UNSUPPORTED_FEATURE`。
 
@@ -401,3 +405,95 @@ OK
 ```
 
 此为协议 2 的可选新增命令，不修改 HELLO／INFO 或现有字段；旧固件返回 `UNKNOWN_COMMAND` 时，服务端可禁用配色设置能力。本次仅提供设备接口，服务端设置界面及保存／下发逻辑暂未实现。
+
+
+<a id="serial-ota"></a>
+
+## 24. 串口 OTA：AT 控制 + XMODEM-1K/CRC
+
+自 `v2.1` 起支持，协议主版本仍为 `2`。OTA 命令仅在正常模式可用，产测返回 `UNSUPPORTED_FEATURE`。电脑服务负责检查版本、下载固件、计算文件长度和 SHA-256；设备不联网、不比较版本新旧，允许同版本重刷及降级。本期只接收本工程的应用 `.bin`，不接收合并烧录镜像、bootloader、分区表或字库。
+
+### 24.1 状态及命令
+
+`AT+OTA?` 返回：
+
+```text
++OTA:<state>,<received>,<size>,<target_version>,<error>,<max_image_size>,XMODEM1K_CRC
+OK
+```
+
+`state` 为 `IDLE`、`RECEIVING`、`VERIFYING`、`READY`、`FAILED`；进度为实际写入字节，不含包头、CRC 和末包填充。未指定目标版本／无错误用 `-`。当前分区的最大镜像长度为 `1703936`（`0x1A0000`），服务端以查询值为准。状态与未提交镜像的可用标志不跨重启保存。
+
+`AT+OTABEGIN=<version>,<size>,<sha256>`：版本为 `v<major>.<minor>`，小于 32 字节；长度为正十进制字节数，至少容纳 ESP 镜像头与应用描述符；SHA-256 是对**整个原始应用文件**计算的 64 位小写十六进制。设备先检查参数、选择非运行槽并擦除声明长度覆盖的区域，准备成功返回 `OK\r\n`，随后发送二进制 `0x43`（`C`）。准备擦除可能耗时，服务端建议等待 `OK` 的超时为 30 秒。`READY` 状态不得覆盖上传，需先 ABORT；`FAILED` 状态可直接重新 BEGIN。
+
+`AT+OTACOMMIT`：只允许在 `READY` 状态使用。设备重新通过 ESP-IDF 启动分区校验并更新 `otadata`，返回 `OK`，等待 UART 发送完成后重启。失败返回 `OTA_COMMIT`。串口响应丢失后先重新发现、查询运行版本和状态，不能仅因提交超时就判断升级失败。
+
+`AT+OTAABORT`：AT 模式下关闭接收句柄并清除 OTA 元信息，状态回到 `IDLE`；重复调用返回 `OK`。无需擦除整个备用槽。**二进制接收期间此命令不可用，发送端须在包边界发送连续两个 `CAN`（`0x18`）取消。**
+
+### 24.2 二进制接收及恢复边界
+
+- 串口保持 `115200 8N1`，无硬件流控。开始命令可以用 CR、LF 或 CRLF 结束；命令 CR 后的一个可选 LF 被消费，之后的所有字节交给 XMODEM。服务端须等待 `C` 再发送数据，不得流水发送 AT 或业务命令。
+- 接收标准 XMODEM-CRC：`SOH(0x01)` + 块号 + 块号反码 + 128 字节 + 两字节 CRC；XMODEM-1K 使用 `STX(0x02)` 和 1024 字节。两种包长可混合，首块号为 1，按 8 位回绕。
+- CRC-16/XMODEM 多项式 `0x1021`、初值 0、无反射、无最终异或，校验全部数据区（含填充），高字节先传；`123456789` 校验值为 `0x31C3`。不支持旧式单字节 checksum 或 YMODEM 文件头／批量传输。
+- 每块成功写入才返回 `ACK(0x06)`。上一块丢 ACK 可原样重传，设备不重复写入、不重复累计 SHA；相同块号但内容或包长改变视为乱序并取消。CRC／反码错误返回 `NAK(0x15)`；其他乱序、声明长度耗尽后新增块、Flash 写入错误取消。
+- CRC 握手每秒发送一次 `C`。30 秒内无有效首块、或后续 30 秒没有新数据进展即失败；单包从包头起最多 3 秒，超时后排空到 200 ms 静默边界再请求重传。连续 10 次错误或超时取消。重复 ACK 不延长无进展截止时间。
+- `CAN CAN` 只在包边界解释为取消，数据区中的控制字符是普通字节。设备终止时发送 `CAN CAN`，之后排空残留数据。
+- 最后一块只写入声明长度，填充不限值，也不计入 SHA。精确收到全部字节后，发送端发送 `EOT(0x04)`；设备立即 ACK，保留 2 秒结束窗口以 ACK 重复 EOT，再校验 SHA-256、ESP 镜像、芯片类型、工程名和目标版本。提前 EOT 取消。
+- 二进制接收及结束清理期间关闭 AT 解析，暂停输入回显和 `+LOG:`，不执行业务连接超时清理；这些开关的原值保留。AT 恢复时重置连接活动时间，业务模型保留，正常的用量过期及连接恢复机制继续工作。
+- 退出时持续丢弃残留数据，等待至少 200 ms 串口静默。若连续 2 秒仍不静默，清空 UART 输入缓冲一次并继续隔离到静默；持续发送数据不会迫使设备提前恢复 AT。发送端必须停止传输并等待终态文本后才重新发送 AT。
+
+成功恢复 AT 后返回：
+
+```text
++OTA:READY,<size>,<size>,<version>,-,<max_image_size>,XMODEM1K_CRC
+OK
+```
+
+终态文本前先发送 CRLF，隔开可能残留的 XMODEM 控制字节。失败恢复 AT 后返回 `+ERR:<OTA错误码>`、`ERROR`。XMODEM 的 EOT ACK 只表示接收完成，**不是镜像可启动或提交成功**；必须收到 `READY` 或查询确认后才发送 COMMIT。结束后的文本结果建议等待 40 秒；终态响应丢失时，停止二进制发送、等待清理完成，再查询 `AT+OTA?`。
+
+### 24.3 OTA 错误码
+
+| 错误码 | 含义 |
+|---|---|
+| `INVALID_ARG`、`BAD_STATE` | 参数错误，或当前状态不允许该操作 |
+| `OTA_SIZE` | 镜像超出容量、提前结束、或长度耗尽后仍发送新块 |
+| `OTA_PENDING_VERIFY` | 当前运行镜像尚未通过启动自检，稍后重试 |
+| `OTA_PREPARE` | 无法创建接收句柄或擦除备用槽 |
+| `OTA_WRITE` | Flash 写入或逐块哈希更新失败 |
+| `OTA_SEQUENCE` | 块号乱序或上一块重传内容改变 |
+| `OTA_RETRY_LIMIT`、`OTA_TIMEOUT` | 连续重试耗尽，或传输无进展超时 |
+| `OTA_CANCELLED` | 发送端取消 |
+| `OTA_HASH` | 整文件 SHA-256 不一致或无法完成哈希 |
+| `OTA_IMAGE` | ESP-IDF 完整镜像校验失败 |
+| `OTA_IDENTITY` | 芯片、工程名或版本与预期不符 |
+| `OTA_COMMIT` | 设置新启动分区失败 |
+
+### 24.4 首次部署、回滚与验收
+
+现有不支持 OTA 的设备需要先通过指定实际串口烧录 `v2.1` 基础固件，**同时更新启用应用回滚的 bootloader**。应用 OTA 无法补上旧 bootloader 的回滚功能。沿用原分区布局，不擦除 NVS 和 `hzk16` 字库。初始化 OTA 数据时只用于首次基础部署，后续在线升级通过 COMMIT 更新 `otadata`。
+
+新版第一次启动时处于 `PENDING_VERIFY`，完成硬件初始化、UART 就绪、UI 成功渲染及灯环提交，并观察 UI／协议任务连续健康运行 10 秒后确认有效。自检不依赖服务端连接；30 秒内未通过则回滚重启。确认前的复位、掉电或 watchdog 重启由支持回滚的 bootloader 退回旧版；确认后的长期运行故障不在这次启动自检保证范围。测试固件可启用 `CONFIG_AGENTMATE_OTA_TEST_FAIL_BOOT` 强制未确认镜像自检失败，发布构建必须关闭。
+
+```sh
+# 构建及主机回归
+idf.py build
+python3 tools/test_ota_host.py
+python3 tools/test_ui_host.py
+
+# 先释放电脑服务占用的端口，再用实际端口替换 PORT
+idf.py -p PORT flash
+python3 tools/test_ota_serial.py PORT
+python3 tools/test_ota_serial.py PORT --cancel
+python3 tools/test_ota_serial.py PORT --timeout
+python3 tools/test_ota_serial.py PORT --firmware build/agentmate_esp32.bin --fault crc
+python3 tools/test_ota_serial.py PORT --firmware build/agentmate_esp32.bin --fault retry
+python3 tools/test_ota_serial.py PORT --firmware build/agentmate_esp32.bin --fault hash
+python3 tools/test_ota_serial.py PORT --firmware build/agentmate_esp32.bin --fault version
+python3 tools/test_ota_serial.py PORT --firmware build/agentmate_esp32.bin --fault short
+python3 tools/test_ota_serial.py PORT --firmware build/agentmate_esp32.bin --block-size 128
+python3 tools/test_ota_serial.py PORT --firmware build/agentmate_esp32.bin --commit
+```
+
+脚本依赖 pyserial；只查询时不写固件，上传成功默认保留 READY，只有 `--commit` 才切换重启。错误注入测试会擦写备用槽，须在可用于验收的设备上运行。另需手动验证传输中拔线、断电及自检失败镜像的回滚，检查升级前后设备 ID、模式、亮度和旋转配置保持一致，并目视确认屏幕与灯环。
+
+本期 SHA-256 用于完整性校验，不提供固件来源认证；未启用配对认证、Secure Boot 或 eFuse 防降级。

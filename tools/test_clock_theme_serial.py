@@ -10,10 +10,64 @@ import time
 
 import serial
 from test_at_serial import expect_error, expect_ok, query_value
+from test_idle_serial import diagnostic
+from test_session_serial import wait
 
 
 def current(port):
     return query_value(port, 'AT+CLOCKTHEME?', '+CLOCKTHEME:')
+
+
+def verify_preview(port, epoch):
+    rev = 0
+    def session(state):
+        nonlocal rev
+        rev += 1
+        expect_ok(port, f'AT+SESSION={epoch},preview,{rev},codex,{state},-,0,10,,,,,clock_preview,LOCAL,S1')
+
+    session('working')
+    wait(port, lambda r: r['page'] == 1 and r['group'] == 3)
+    started = time.monotonic()
+    expect_ok(port, 'AT+CLOCKTHEME=MINT')
+    wait(port, lambda r: r['page'] == 4, .8)
+    while time.monotonic() - started < 4.6:
+        assert current(port) == 'MINT'  # Queries must not extend the deadline.
+        row = diagnostic(port)
+        assert row['page'] == 4 and row['led'] == 4, row
+        time.sleep(.1)
+    wait(port, lambda r: r['page'] == 1, 1)
+    elapsed = time.monotonic() - started
+    assert 4.8 <= elapsed <= 5.5, elapsed
+    print(f'PASS clock preview lasts {elapsed:.2f}s and preserves working LED', flush=True)
+
+    expect_ok(port, 'AT+CLOCKTHEME=MINT')
+    wait(port, lambda r: r['page'] == 4, .8)
+    time.sleep(2)
+    renewed = time.monotonic()
+    expect_ok(port, 'AT+CLOCKTHEME=MINT')
+    while time.monotonic() - renewed < 4.6:
+        assert diagnostic(port)['page'] == 4
+        time.sleep(.1)
+    wait(port, lambda r: r['page'] == 1, 1)
+    assert time.monotonic() - renewed >= 4.8
+    print('PASS identical theme setting renews the five-second preview', flush=True)
+
+    for urgent in ('permission_required', 'waiting_for_input'):
+        expect_ok(port, 'AT+CLOCKTHEME=WHITE')
+        wait(port, lambda r: r['page'] == 4, .8)
+        session(urgent)
+        wait(port, lambda r: r['page'] == 1 and r['group'] == 1, .8)
+        expect_ok(port, 'AT+CLOCKTHEME=CODEX')
+        time.sleep(.15)
+        row = diagnostic(port)
+        assert row['page'] == 1 and row['group'] == 1, row
+        assert current(port) == 'CODEX'
+        session('working')
+        wait(port, lambda r: r['page'] == 1 and r['group'] == 3, .8)
+        time.sleep(.15)
+        assert diagnostic(port)['page'] == 1  # Cancelled preview must not resume.
+        print('PASS urgent session blocks/cancels preview:', urgent, flush=True)
+    expect_ok(port, f'AT+DELETE={epoch},preview')
 
 
 def main():
@@ -21,6 +75,7 @@ def main():
     parser.add_argument('port')
     parser.add_argument('--reboot', action='store_true')
     parser.add_argument('--timeout', action='store_true')
+    parser.add_argument('--preview', action='store_true', help='Verify five-second previews and urgent-session protection')
     args = parser.parse_args()
     port = serial.Serial(port=None, baudrate=115200, timeout=.1, write_timeout=2)
     port.dtr = False
@@ -31,6 +86,7 @@ def main():
         port.reset_input_buffer()
         assert query_value(port, 'AT+MODE?', '+MODE:') == 'NORMAL'
         original = current(port)
+        original_logs = query_value(port, 'AT+LOG?', '+LOG:')
         try:
             for theme in ('AMBER', 'WHITE', 'MINT', 'CODEX'):
                 expect_ok(port, 'AT+CLOCKTHEME=' + theme)
@@ -46,6 +102,9 @@ def main():
             expect_ok(port, f'AT+SYNCEND={epoch},1')
             expect_ok(port, f'AT+TIME={int(time.time()*1000)},480')
             assert current(port) == 'CODEX'
+            if args.preview:
+                expect_ok(port, 'AT+LOG=1')
+                verify_preview(port, epoch)
             if args.timeout:
                 time.sleep(31)
                 assert current(port) == 'CODEX'
@@ -62,6 +121,9 @@ def main():
             if query_value(port, 'AT+MODE?', '+MODE:') != 'NORMAL':
                 expect_ok(port, 'AT+MODE=NORMAL')
                 time.sleep(2.5)
+            if args.preview:
+                expect_ok(port, 'AT+HELLO=2,' + secrets.token_hex(16))
+            expect_ok(port, 'AT+LOG=' + original_logs)
             expect_ok(port, 'AT+CLOCKTHEME=' + original)
             assert current(port) == original
         print('Clock theme validation passed; original theme and NORMAL mode restored')

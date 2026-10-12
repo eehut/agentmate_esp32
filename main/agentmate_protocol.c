@@ -19,6 +19,8 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-13 3.4      Codex         Trigger clock previews and cancel them on urgent sessions.
+# 2026-10-12 3.3      Codex         Integrate exclusive binary OTA mode and AT lifecycle.
 # 2026-10-12 3.2      Codex         Persist and query named standby clock themes.
 # 2026-10-04 3.0      Codex         Add protocol 2 host labels and session display names.
 #
@@ -43,6 +45,7 @@
 */
 
 #include "agentmate_app.h"
+#include "agentmate_ota.h"
 #include "agentmate_usage.h"
 #include "agentmate_ui_state.h"
 #include "agentmate_text.h"
@@ -399,6 +402,7 @@ static void handle_hello(am_app_t *app, char *argument)
     }
     if (!app->model.factory_mode) {
         clear_remote(app);
+        app->model.clock_preview_until_us = 0;
         app->model.clock_valid = false;
         app->model.utc_offset_valid = false;
         app->model.link = AM_LINK_HANDSHAKE;
@@ -503,6 +507,7 @@ static void handle_session(am_app_t *app, char *argument)
         app->model.attention_sequence++;
         memcpy(app->model.attention_key, f[1], strlen(f[1]) + 1);
         app->model.info_until_us = 0;
+        app->model.clock_preview_until_us = 0;
     }
     entry->seen = app->model.sync_active;
     memcpy(entry->key, f[1], strlen(f[1]) + 1);
@@ -784,6 +789,9 @@ static void handle_showinfo(am_app_t *app, const char *argument, bool query)
             return;
         }
         app->model.info_until_us = seconds ? now_us() + (int64_t)seconds * 1000000 : 0;
+        if (seconds) {
+            app->model.clock_preview_until_us = 0;
+        }
         app->model.info_sequence++;
         app->model.revision++;
     }
@@ -810,8 +818,8 @@ static void handle_clock_theme(am_app_t *app, const char *argument, bool query)
                 return;
             }
             app->model.clock_theme = (uint8_t)i;
-            app->model.revision++;
         }
+        am_ui_request_clock_preview(&app->model, now_us());
         (void)write_line("OK");
         return;
     }
@@ -1102,6 +1110,66 @@ static void dispatch(am_app_t *app, char *line)
     }
 }
 
+static void send_ota_status(am_app_t *app)
+{
+    xSemaphoreTake(app->model_lock, portMAX_DELAY);
+    struct am_ota_view view = app->model.ota;
+    xSemaphoreGive(app->model_lock);
+    (void)write_line("+OTA:%s,%" PRIu32 ",%" PRIu32 ",%s,%s,%" PRIu32 ",XMODEM1K_CRC", am_ota_state_name(view.state),
+                     view.received, view.size, view.version[0] ? view.version : "-", view.error[0] ? view.error : "-", am_ota_max_size());
+}
+
+/* OTA can erase or verify Flash; dispatch it outside the business-model critical section. */
+static bool dispatch_ota(am_app_t *app, char *line, bool skip_lf)
+{
+    if (strncmp(line, "AT+OTA", 6) != 0) {
+        return false;
+    }
+    s_pending_log[0] = 0;
+    s_last_command_failed = false;
+    s_log_failed = false;
+    xSemaphoreTake(app->model_lock, portMAX_DELAY);
+    bool factory = app->model.factory_mode;
+    xSemaphoreGive(app->model_lock);
+    if (factory) {
+        send_error("UNSUPPORTED_FEATURE");
+        return true;
+    }
+    const char *error = NULL;
+    if (strcmp(line, "AT+OTA?") == 0) {
+        send_ota_status(app);
+    } else if (strncmp(line, "AT+OTABEGIN=", 12) == 0) {
+        char *fields[3];
+        uint64_t size;
+        if (split_csv(line + 12, fields, 3) != 3 || !parse_bounded(fields[1], UINT32_MAX, &size)) {
+            error = "INVALID_ARG";
+        } else {
+            error = am_ota_begin(app, fields[0], (uint32_t)size, fields[2]);
+        }
+        if (!error) {
+            (void)write_line("OK");
+            (void)uart_wait_tx_done(UART_NUM_0, pdMS_TO_TICKS(500));
+            am_ota_start_serial(app, skip_lf);
+            return true;
+        }
+    } else if (strcmp(line, "AT+OTACOMMIT") == 0) {
+        error = am_ota_commit(app);
+    } else if (strcmp(line, "AT+OTAABORT") == 0) {
+        am_ota_abort(app);
+    } else {
+        error = "INVALID_ARG";
+    }
+    if (error) {
+        send_error(error);
+    } else {
+        (void)write_line("OK");
+        xSemaphoreTake(app->model_lock, portMAX_DELAY);
+        app->last_valid_command_us = now_us();
+        xSemaphoreGive(app->model_lock);
+    }
+    return true;
+}
+
 void am_protocol_run(am_app_t *app)
 {
     uart_config_t config = {
@@ -1112,7 +1180,7 @@ void am_protocol_run(am_app_t *app)
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
         .source_clk = UART_SCLK_DEFAULT,
     };
-    ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0, 1024, 1024, 0, NULL, 0));
+    ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0, 4096, 1024, 0, NULL, 0));
     ESP_ERROR_CHECK(uart_param_config(UART_NUM_0, &config));
     ESP_ERROR_CHECK(uart_set_pin(UART_NUM_0, GPIO_NUM_21, GPIO_NUM_20, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
     char line[AM_LINE_BYTES + 1];
@@ -1125,8 +1193,12 @@ void am_protocol_run(am_app_t *app)
     for (;;) {
         int64_t now = now_us();
         xSemaphoreTake(app->model_lock, portMAX_DELAY);
-        am_usage_expire(app, now);
-        if (!app->model.factory_mode && app->last_valid_command_us > 0 && now - app->last_valid_command_us > AM_CONNECTION_TIMEOUT_US &&
+        app->protocol_heartbeat_us = now;
+        if (!am_ota_serial_active()) {
+            am_usage_expire(app, now);
+        }
+        if (!am_ota_serial_active() && !app->model.factory_mode && app->last_valid_command_us > 0 &&
+            now - app->last_valid_command_us > AM_CONNECTION_TIMEOUT_US &&
             app->model.link != AM_LINK_WAIT_HOST) {
             clear_remote(app);
             app->model.utc_offset_valid = false;
@@ -1136,7 +1208,29 @@ void am_protocol_run(am_app_t *app)
         }
         xSemaphoreGive(app->model_lock);
         uint8_t data[64];
-        int received = uart_read_bytes(UART_NUM_0, data, sizeof(data), pdMS_TO_TICKS(100));
+        int received = uart_read_bytes(UART_NUM_0, data, sizeof(data), pdMS_TO_TICKS(am_ota_serial_active() ? 20 : 100));
+        if (am_ota_serial_active()) {
+            if (received > 0) {
+                am_ota_serial_feed(app, data, (size_t)received);
+            }
+            if (am_ota_serial_tick(app)) {
+                length = 0;
+                overflow = false;
+                skip_lf = false;
+                s_pending_log[0] = 0;
+                xSemaphoreTake(app->model_lock, portMAX_DELAY);
+                struct am_ota_view view = app->model.ota;
+                xSemaphoreGive(app->model_lock);
+                (void)uart_write_bytes(UART_NUM_0, "\r\n", 2);
+                if (view.state == AM_OTA_READY) {
+                    send_ota_status(app);
+                    (void)write_line("OK");
+                } else {
+                    send_error(view.error);
+                }
+            }
+            continue;
+        }
         for (int i = 0; i < received; ++i) {
             char ch = (char)data[i];
             if (ch == '\n' && skip_lf) {
@@ -1153,13 +1247,22 @@ void am_protocol_run(am_app_t *app)
                 } else {
                     line[length] = 0;
                     if (length) {
-                        xSemaphoreTake(app->model_lock, portMAX_DELAY);
-                        dispatch(app, line);
-                        if (!app->model.factory_mode && !s_last_command_failed) {
-                            app->last_valid_command_us = now_us();
+                        bool ota_command = dispatch_ota(app, line, ch == '\r');
+                        if (!ota_command) {
+                            xSemaphoreTake(app->model_lock, portMAX_DELAY);
+                            dispatch(app, line);
+                            if (!app->model.factory_mode && !s_last_command_failed) {
+                                app->last_valid_command_us = now_us();
+                            }
+                            xSemaphoreGive(app->model_lock);
+                            flush_log(app);
                         }
-                        xSemaphoreGive(app->model_lock);
-                        flush_log(app);
+                        if (am_ota_serial_active()) {
+                            am_ota_serial_feed(app, data + i + 1, (size_t)(received - i - 1));
+                            length = 0;
+                            overflow = false;
+                            break;
+                        }
                         if (app->restart_pending) {
                             (void)uart_wait_tx_done(UART_NUM_0, pdMS_TO_TICKS(500));
                             esp_restart();
@@ -1186,6 +1289,8 @@ void am_protocol_run(am_app_t *app)
                 }
             }
         }
-        flush_log(app);
+        if (!am_ota_serial_active()) {
+            flush_log(app);
+        }
     }
 }

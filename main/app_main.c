@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-12 2.0      Codex         Start pending-image boot health supervision.
 #
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
@@ -28,6 +29,7 @@
 */
 
 #include "agentmate_app.h"
+#include "agentmate_ota.h"
 
 #include "driver/gpio.h"
 #include "esp_log.h"
@@ -59,6 +61,7 @@ static void ui_task(void *argument)
 void app_main(void)
 {
     ESP_ERROR_CHECK(am_app_init(&s_app));
+    am_ota_boot_watch(&s_app);
     ESP_ERROR_CHECK(rgb_led_strip_create(RGB_GPIO, RGB_COUNT, &s_app.strip));
     ESP_ERROR_CHECK(rgb_led_strip_set_brightness(s_app.strip, s_app.led_brightness));
     ESP_ERROR_CHECK(rgb_led_strip_clear(s_app.strip));

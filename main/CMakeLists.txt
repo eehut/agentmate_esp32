@@ -1,10 +1,10 @@
 idf_component_register(
     SRCS "agentmate_ui_render.c" "agentmate_ui_assets.c" "agentmate_ui_state.c" "agentmate_text.c" "app_main.c" "agentmate_ui.c" "agentmate_protocol.c"
-        "agentmate_usage.c" "agentmate_led.c" "agentmate_status.c"
+        "agentmate_ota.c" "agentmate_xmodem.c" "agentmate_usage.c" "agentmate_led.c" "agentmate_status.c"
          "agentmate_ui_state.c" "agentmate_text.c" "agentmate_ui_render.c" "agentmate_ui_assets.c"
     INCLUDE_DIRS "."
     REQUIRES esp_timer rgb_led_strip tft_display lcd_font nvs_flash
-             esp_driver_uart esp_rom bootloader_support esp_hw_support
+             esp_driver_uart esp_rom bootloader_support esp_hw_support app_update mbedtls
 )
 
 idf_build_get_property(project_ver PROJECT_VER)

@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-13 1.7      Codex         Preview clock themes for five seconds below attention priority.
 # 2026-10-11 1.6      Codex         Skip invalid Session metrics and use ten/three/three-second phases.
 # 2026-10-11 1.5      Codex         Rotate Session duration, context and available quota independently.
 #
@@ -83,6 +84,16 @@ static enum am_ui_group highest_group(const am_model_t *model)
         }
     }
     return group;
+}
+
+void am_ui_request_clock_preview(am_model_t *model, int64_t now)
+{
+    model->clock_preview_until_us = 0;
+    if (!model->factory_mode && highest_group(model) != AM_GROUP_ATTENTION) {
+        model->clock_preview_until_us = now + 5000000;
+        model->info_until_us = 0;
+    }
+    model->revision++;
 }
 
 bool am_event_in_group(const am_model_t *model)
@@ -250,5 +261,10 @@ void am_ui_select(const am_model_t *model, struct am_ui_schedule *schedule, int6
     schedule->attention_sequence = model->attention_sequence;
     if (now < model->info_until_us) {
         selection->page = AM_PAGE_INFO;
+    }
+    if (now < model->clock_preview_until_us && highest_group(model) != AM_GROUP_ATTENTION && !model->factory_mode) {
+        selection->page = AM_PAGE_IDLE;
+        selection->clock_preview = true;
+        selection->preempted = true;
     }
 }

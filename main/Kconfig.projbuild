@@ -1,0 +1,8 @@
+menu "AgentMate development tests"
+    config AGENTMATE_OTA_TEST_FAIL_BOOT
+        bool "Force pending OTA boot validation to fail (test images only)"
+        default n
+        help
+            A newly upgraded image will roll back after 30 seconds. Never enable
+            this option in release firmware. Already confirmed images are unaffected.
+endmenu

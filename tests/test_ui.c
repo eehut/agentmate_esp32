@@ -19,6 +19,8 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-13 4.1      Codex         Verify five-second clock previews and attention protection.
+# 2026-10-12 4.0      Codex         Verify OTA pages, safe geometry and LED progress.
 # 2026-10-12 3.7      Codex         Verify v6.2 page geometry, typography and partial redraws.
 # 2026-10-11 3.6      Codex         Verify valid-only metrics, 10/3/3 dwell and rounded header time.
 # 2026-10-11 3.5      Codex         Verify ASCII directory substitution and black status interiors.
@@ -1191,9 +1193,93 @@ static void test_brightness(void)
     }
 }
 
+static void test_ota_render(const char *directory)
+{
+    am_app_t app = {0};
+    struct am_ui_scene previous = {0};
+    struct am_ota_view view = {.state = AM_OTA_RECEIVING, .size = 1000};
+    snprintf(view.version, sizeof(view.version), "v2.1");
+    const enum am_ota_state states[] = {AM_OTA_RECEIVING, AM_OTA_RECEIVING, AM_OTA_VERIFYING, AM_OTA_READY, AM_OTA_FAILED};
+    const char *const names[] = {"ota_start", "ota_progress", "ota_verifying", "ota_ready", "ota_failed"};
+    for (unsigned i = 0; i < 5; ++i) {
+        view.state = states[i];
+        view.received = i ? (i == 1 ? 500 : 1000) : 0;
+        snprintf(view.error, sizeof(view.error), "OTA_PENDING_VERIFY");
+        memset(&s_scene, 0, sizeof(s_scene));
+        s_scene.body_alpha = 255;
+        ota_page(&view);
+        assert(scene_text("FIRMWARE UPDATE") && scene_text("v2.1"));
+        check_incremental(&app, &previous);
+        write_ppm(directory, names[i]);
+        assert(ota_led(&app, &view, 100000) == ESP_OK);
+        if (i == 1) {
+            assert(s_ring[7].b == 230 && s_ring[8].b == 6);
+        } else if (view.state == AM_OTA_READY) {
+            assert(s_ring[0].g == 210 && s_ring[15].g == 210);
+        } else if (view.state == AM_OTA_FAILED) {
+            assert(s_ring[0].r == 230 && s_ring[15].r == 230);
+        }
+    }
+}
+
+static void test_clock_preview(void)
+{
+    const char *const states[] = {"working", "thinking", "stale", "task_success", "task_failed", "task_canceled"};
+    for (unsigned i = 0; i < sizeof(states) / sizeof(states[0]); ++i) {
+        am_model_t model = {.link = AM_LINK_ONLINE, .info_until_us = 20000000};
+        struct am_ui_schedule schedule = {0};
+        struct am_ui_selection selection;
+        model.sessions[0] = session("s1", states[i], "codex");
+        am_ui_select(&model, &schedule, 500000, &selection);
+        struct am_led_effect before = am_led_select(&model, &selection);
+        am_ui_request_clock_preview(&model, 1000000);
+        assert(model.clock_preview_until_us == 6000000 && model.info_until_us == 0);
+        am_ui_select(&model, &schedule, 1000000, &selection);
+        assert(selection.page == AM_PAGE_IDLE && selection.clock_preview && selection.preempted);
+        struct am_led_effect after = am_led_select(&model, &selection);
+        assert(before.mode == after.mode && strcmp(before.key, after.key) == 0);
+        am_ui_select(&model, &schedule, 5999999, &selection);
+        assert(selection.page == AM_PAGE_IDLE && selection.clock_preview);
+        am_ui_select(&model, &schedule, 6000000, &selection);
+        assert(!selection.clock_preview && (selection.page == AM_PAGE_TASK || selection.page == AM_PAGE_RESULT));
+        am_ui_request_clock_preview(&model, 7000000);
+        am_ui_request_clock_preview(&model, 8000000);
+        am_ui_select(&model, &schedule, 12999999, &selection);
+        assert(selection.clock_preview);
+        am_ui_select(&model, &schedule, 13000000, &selection);
+        assert(!selection.clock_preview);
+    }
+    am_model_t model = {.link = AM_LINK_ONLINE, .usage_supported = true};
+    struct am_ui_schedule schedule = {0};
+    struct am_ui_selection selection;
+    am_ui_select(&model, &schedule, 500000, &selection);
+    assert(selection.page == AM_PAGE_USAGE);
+    am_ui_request_clock_preview(&model, 1000000);
+    am_ui_select(&model, &schedule, 1000000, &selection);
+    assert(selection.page == AM_PAGE_IDLE && selection.clock_preview);
+    am_ui_select(&model, &schedule, 6000000, &selection);
+    assert(selection.page == AM_PAGE_USAGE && !selection.clock_preview);
+    for (unsigned i = 0; i < 2; ++i) {
+        model.sessions[0] = session("s1", i ? "waiting_for_input" : "permission_required", "claude");
+        am_ui_request_clock_preview(&model, 7000000);
+        assert(model.clock_preview_until_us == 0);
+        am_ui_select(&model, &schedule, 7000000, &selection);
+        assert(selection.page == AM_PAGE_TASK && selection.group == AM_GROUP_ATTENTION && !selection.clock_preview);
+        /* Even a snapshot with an older preview request cannot cover a new urgent session. */
+        model.clock_preview_until_us = 12000000;
+        am_ui_select(&model, &schedule, 8000000, &selection);
+        assert(selection.page == AM_PAGE_TASK && !selection.clock_preview);
+    }
+    model.sessions[0].used = false;
+    model.factory_mode = true;
+    am_ui_request_clock_preview(&model, 1000000);
+    assert(model.clock_preview_until_us == 0);
+}
+
 int main(int argc,char **argv)
 {
     assert(argc == 2);
+    test_clock_preview();
     test_usage_batches();
     test_brightness();
     test_text();
@@ -1209,6 +1295,7 @@ int main(int argc,char **argv)
     test_detail_fairness();
     test_detail_timing();
     test_render(argv[1]);
+    test_ota_render(argv[1]);
     test_v62_pages(argv[1]);
     test_clock_themes(argv[1]);
     test_idle_clock(argv[1]);

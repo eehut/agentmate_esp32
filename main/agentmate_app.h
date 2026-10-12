@@ -19,6 +19,8 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-13 4.1      Codex         Track transient clock theme preview duration.
+# 2026-10-12 4.0      Codex         Share OTA progress and boot health heartbeats.
 # 2026-10-04 3.0      Codex         Add protocol 2 host labels and session display names.
 #
 # Date       Version  Author       Description
@@ -125,8 +127,21 @@ enum am_clock_theme {
     AM_CLOCK_THEME_COUNT,
 };
 
+enum am_ota_state { AM_OTA_IDLE, AM_OTA_RECEIVING, AM_OTA_VERIFYING, AM_OTA_READY, AM_OTA_FAILED };
+
+struct am_ota_view {
+    enum am_ota_state state;
+    uint32_t received;
+    uint32_t size;
+    char version[32];
+    char error[32];
+    int64_t changed_us;
+};
+
 typedef struct {
+    struct am_ota_view ota;
     uint8_t clock_theme;
+    int64_t clock_preview_until_us;
     bool factory_mode;
     am_test_t test;
     uint8_t test_led_index;
@@ -202,6 +217,8 @@ typedef struct {
     bool echo_enabled;
     bool log_enabled;
     bool restart_pending;
+    int64_t protocol_heartbeat_us;
+    int64_t ui_heartbeat_us;
     uint32_t ui_stack_free;
     uint32_t ui_render_max_us;
     uint8_t ui_page;
