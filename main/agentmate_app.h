@@ -54,6 +54,9 @@
 
 #define AM_MAX_SESSIONS 8
 #define AM_MAX_USAGE_ENTRIES 4
+#define AM_MAX_BATTERIES 4
+#define AM_BATTERY_NAME_BYTES 24
+#define AM_BATTERY_STALE_US 180000000LL
 #define AM_EVENT_CACHE_SIZE 32
 #define AM_LINE_BYTES 512
 #define AM_PROJECT_BYTES 64
@@ -119,6 +122,13 @@ typedef struct {
 } am_usage_t;
 
 /* Persistent IDs: append new themes without reordering existing entries. */
+struct am_battery {
+    char name[AM_BATTERY_NAME_BYTES + 1];
+    int16_t percent;
+    bool mouse;
+    bool connected;
+};
+
 enum am_clock_theme {
     AM_CLOCK_AMBER = 0,
     AM_CLOCK_WHITE,
@@ -141,6 +151,9 @@ struct am_ota_view {
 
 typedef struct {
     struct am_ota_view ota;
+    struct am_battery batteries[AM_MAX_BATTERIES];
+    uint8_t battery_count;
+    int64_t battery_updated_us;
     uint8_t clock_theme;
     uint32_t clock_rgb; /* Saved custom color in 0xRRGGBB format. */
     int64_t clock_preview_until_us;

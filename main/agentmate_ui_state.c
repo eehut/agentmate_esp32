@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-25 2.0      Codex         Rotate valid Bluetooth battery snapshots through standby pages.
 # 2026-10-24 1.9      Codex         Skip standby usage pages without valid quota readings.
 # 2026-10-24 4.6      Codex         Share session display eligibility with arc indicators.
 # 2026-10-13 1.7      Codex         Preview clock themes for five seconds below attention priority.
@@ -130,6 +131,20 @@ bool am_session_quota_available(const am_usage_t *usage)
            (usage->window_seconds == 18000 || usage->window_seconds == 604800) && usage->used_bp >= 0 && usage->used_bp <= 10000;
 }
 
+bool am_battery_available(const am_model_t *model, int64_t now)
+{
+    if (model->battery_count > AM_MAX_BATTERIES || now < model->battery_updated_us ||
+        now - model->battery_updated_us >= AM_BATTERY_STALE_US) {
+        return false;
+    }
+    for (unsigned i = 0; i < model->battery_count; ++i) {
+        if (model->batteries[i].connected && model->batteries[i].percent >= 0 && model->batteries[i].percent <= 100) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static void select_usage(const am_model_t *model, int *windows)
 {
     const char *metric = NULL;
@@ -189,13 +204,27 @@ void am_ui_select(const am_model_t *model, struct am_ui_schedule *schedule, int6
     selection->page = group == AM_GROUP_CONNECT ? AM_PAGE_CONNECT : group == AM_GROUP_IDLE ? AM_PAGE_IDLE :
                       group == AM_GROUP_RESULT ? AM_PAGE_RESULT : AM_PAGE_TASK;
     bool usage_available = selection->usage[0] >= 0 || selection->usage[1] >= 0;
-    if (group == AM_GROUP_IDLE && usage_available) {
-        if (!schedule->idle_usage_available) {
+    bool battery_available = am_battery_available(model, now);
+    if (group == AM_GROUP_IDLE && (usage_available || battery_available)) {
+        if (schedule->idle_usage_available != usage_available || schedule->idle_battery_available != battery_available) {
             schedule->page_since_us = now;
         }
-        selection->page = ((now - schedule->page_since_us) / AM_PAGE_DWELL_US) % 2 ? AM_PAGE_IDLE : AM_PAGE_USAGE;
+        enum am_page pages[3];
+        int count = 0;
+        if (battery_available) {
+            pages[count++] = AM_PAGE_IDLE;
+            if (usage_available) {
+                pages[count++] = AM_PAGE_USAGE;
+            }
+            pages[count++] = AM_PAGE_BATTERY;
+        } else {
+            pages[count++] = AM_PAGE_USAGE;
+            pages[count++] = AM_PAGE_IDLE;
+        }
+        selection->page = pages[((now - schedule->page_since_us) / AM_PAGE_DWELL_US) % count];
     }
     schedule->idle_usage_available = usage_available;
+    schedule->idle_battery_available = battery_available;
     int current = -1;
     int attention = -1;
     for (int i = 0; i < selection->count; ++i) {

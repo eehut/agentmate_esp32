@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-25 5.0      Codex         Display host-selected Bluetooth batteries in adaptive standby layouts.
 # 2026-10-25 4.9      Codex         Count active sessions plus retained results independently of rotation priority.
 # 2026-10-25 4.8      Codex         Replace session dots with static glowing selection arcs.
 # 2026-10-24 4.7      Codex         Render indicators exclusively from the current rotation selection.
@@ -378,6 +379,111 @@ static void idle_page(const am_model_t *model, int64_t utc, int64_t now)
     }
     centered(151, 180, &g_am_font_standby_year, valid ? palette->year : color, year);
     centered(179, 176, &g_am_font_standby_date, valid ? palette->date : color, valid ? date + 5 : "-- --");
+}
+
+static uint16_t battery_color(const struct am_battery *entry)
+{
+    if (!entry->connected || entry->percent < 0) {
+        return TFT_RGB565(137, 148, 157);
+    }
+    return entry->percent < 30 ? TFT_RGB565(255, 95, 122) :
+           entry->percent < 60 ? TFT_RGB565(255, 176, 46) : TFT_RGB565(54, 226, 154);
+}
+
+static uint16_t battery_dim(uint16_t color, unsigned percent)
+{
+    unsigned r = ((color >> 11) & 31) * percent / 100;
+    unsigned g = ((color >> 5) & 63) * percent / 100;
+    unsigned b = (color & 31) * percent / 100;
+    return (uint16_t)((r << 11) | (g << 5) | b);
+}
+
+static void battery_name(const struct am_battery *entry, char name[AM_BATTERY_NAME_BYTES + 1], int index)
+{
+    for (const unsigned char *p = (const unsigned char *)entry->name; *p; ++p) {
+        if (*p >= 128) {
+            snprintf(name, AM_BATTERY_NAME_BYTES + 1, "%s %d", entry->mouse ? "鼠标" : "键盘", index + 1);
+            return;
+        }
+    }
+    snprintf(name, AM_BATTERY_NAME_BYTES + 1, "%s", entry->name);
+}
+
+static void battery_reading(const struct am_battery *entry, char value[8])
+{
+    if (!entry->connected || entry->percent < 0) {
+        snprintf(value, 8, "--");
+    } else {
+        snprintf(value, 8, "%d%%", entry->percent);
+    }
+}
+
+static void battery_bar(const struct am_battery *entry, int x, int y, int width, uint16_t color)
+{
+    am_scene_progress(&s_scene, x, y, width, 3, color, battery_dim(color, 18),
+                      entry->connected && entry->percent >= 0 ? (unsigned)entry->percent * 100 : 0);
+}
+
+static void battery_page(const am_model_t *model, int64_t utc)
+{
+    s_scene.session_background = true;
+    uint16_t green = TFT_RGB565(54, 184, 144);
+    am_scene_cap(&s_scene, 76, 40, 40, green, 1);
+    char date[20], clock[16], footer[24];
+    calendar_text(model, utc, date, sizeof(date), clock, sizeof(clock), false);
+    centered(16, 160, &g_am_font_session_clock_rounded, TFT_COLOR_WHITE, clock);
+    am_scene_mask(&s_scene, 65, 49, &g_am_image_bluetooth, green);
+    am_scene_text(&s_scene, 87, 48, 100, &g_am_font_body, TFT_COLOR_WHITE, "蓝牙电量", 0);
+    unsigned count = model->battery_count > AM_MAX_BATTERIES ? AM_MAX_BATTERIES : model->battery_count;
+    snprintf(footer, sizeof(footer), "已选 %u 台", count);
+    centered(220, 100, &g_am_font_battery_name, TFT_RGB565(131, 151, 143), footer);
+    for (unsigned i = 0; i < count; ++i) {
+        const struct am_battery *entry = &model->batteries[i];
+        uint16_t color = battery_color(entry);
+        char name[AM_BATTERY_NAME_BYTES + 1], value[8];
+        battery_name(entry, name, i);
+        battery_reading(entry, value);
+        const struct am_image *icon = entry->mouse ? &g_am_image_battery_mouse : &g_am_image_keyboard;
+        if (count == 1) {
+            am_scene_rect(&s_scene, 79, 96, 79, 23, color, 5);
+            am_scene_rect(&s_scene, 81, 98, 75, 19, TFT_COLOR_BLACK, 3);
+            am_scene_rect(&s_scene, 159, 102, 4, 11, color, 1);
+            am_scene_progress(&s_scene, 83, 100, 71, 15, color, battery_dim(color, 18),
+                              entry->connected && entry->percent >= 0 ? (unsigned)entry->percent * 100 : 0);
+            am_scene_text(&s_scene, 40, 131, 160, &g_am_font_battery_large, color, value, 0);
+            am_scene_mask(&s_scene, 65, 185, icon, color);
+            am_scene_text(&s_scene, 94, 189, 91, &g_am_font_small, TFT_COLOR_WHITE, name, -1);
+        } else if (count == 2) {
+            int x = 39 + i * 86;
+            am_scene_rect(&s_scene, x, 92, 76, 107, battery_dim(color, 9), 10);
+            am_scene_mask(&s_scene, x + 27, 103, icon, color);
+            am_scene_text(&s_scene, x + 4, 135, 68, &g_am_font_battery_name, TFT_COLOR_WHITE, name, 0);
+            const struct am_font *font = am_text_width(&g_am_font_battery_percent, value) > 68 ?
+                                         &g_am_font_battery_compact : &g_am_font_battery_percent;
+            am_scene_text(&s_scene, x + 4, 153, 68, font, color, value, 0);
+            battery_bar(entry, x + 12, 186, 52, color);
+        } else if (count == 3) {
+            int y = 87 + i * 41;
+            am_scene_rect(&s_scene, 47, y, 146, 37, battery_dim(color, 9), 9);
+            am_scene_mask(&s_scene, 55, y + 7, icon, color);
+            am_scene_text(&s_scene, 85, y + 5, 43, &g_am_font_battery_name, TFT_COLOR_WHITE, name, -1);
+            am_scene_text(&s_scene, 130, y + 3, 58, &g_am_font_battery_row, color, value, 1);
+            battery_bar(entry, 85, y + 28, 99, color);
+        } else {
+            int x = 44 + i % 2 * 80, y = 85 + i / 2 * 66;
+            am_scene_rect(&s_scene, x, y, 72, 59, battery_dim(color, 9), 8);
+            const struct am_image *small = entry->mouse ? &g_am_image_mouse_small : &g_am_image_keyboard_small;
+            am_scene_mask(&s_scene, x + 4, y + 4, small, color);
+            am_scene_text(&s_scene, x + 20, y + 4, 49, &g_am_font_battery_name, TFT_COLOR_WHITE, name, -1);
+            am_scene_text(&s_scene, x + 4, y + 19, 64, &g_am_font_battery_compact, color, value, 0);
+            if (!entry->connected || entry->percent < 0) {
+                am_scene_text(&s_scene, x + 4, y + 45, 64, &g_am_font_battery_name, color,
+                              entry->connected ? "未知" : "已断开", 0);
+            } else {
+                battery_bar(entry, x + 9, y + 51, 54, color);
+            }
+        }
+    }
 }
 
 static void info_page(const am_app_t *app, const am_model_t *model, uint8_t tft, uint8_t led, int64_t utc)
@@ -901,7 +1007,7 @@ void am_ui_run(am_app_t *app)
         if (transition_started && now - transition_started < 200000) {
             s_scene.body_alpha = (uint8_t)(((now - transition_started) / 100000) * 128);
         }
-        if (selection.page != AM_PAGE_TASK && selection.page != AM_PAGE_RESULT) {
+        if (selection.page != AM_PAGE_TASK && selection.page != AM_PAGE_RESULT && selection.page != AM_PAGE_BATTERY) {
             business_header(s_snapshot.link == AM_LINK_ONLINE && selection.page != AM_PAGE_CONNECT);
         }
         switch (selection.page) {
@@ -914,6 +1020,9 @@ void am_ui_run(am_app_t *app)
             break;
         case AM_PAGE_USAGE:
             usage_page(&s_snapshot, &selection, utc);
+            break;
+        case AM_PAGE_BATTERY:
+            battery_page(&s_snapshot, utc);
             break;
         case AM_PAGE_INFO:
             info_page(app, &s_snapshot, tft, led, utc);

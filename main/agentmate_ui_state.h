@@ -46,6 +46,7 @@ enum am_page {
     AM_PAGE_IDLE,
     AM_PAGE_INFO,
     AM_PAGE_BOOT,
+    AM_PAGE_BATTERY,
 };
 
 #define AM_SESSION_DURATION_US (10LL * 1000000)
@@ -83,12 +84,14 @@ struct am_ui_schedule {
     int64_t detail_elapsed_us[AM_MAX_SESSIONS];
     char detail_keys[AM_MAX_SESSIONS][9];
     bool idle_usage_available;
+    bool idle_battery_available;
     uint32_t attention_sequence;
     uint32_t remote_generation;
 };
 
 bool am_state_advancing(const char *state);
 bool am_state_result(const char *state);
+bool am_battery_available(const am_model_t *model, int64_t now);
 bool am_session_displayable(const am_session_t *session);
 bool am_session_context_available(const am_session_t *session);
 bool am_session_quota_available(const am_usage_t *usage);

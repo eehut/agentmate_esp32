@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-25 5.1      Codex         Verify Bluetooth battery layouts, tiers, expiry and standby scheduling.
 # 2026-10-25 5.0      Codex         Verify active-plus-retained-result counts through completion transitions.
 # 2026-10-25 4.9      Codex         Verify static session arcs, selection glow and partial redraw cleanup.
 # 2026-10-24 4.8      Codex         Verify unavailable standby quotas are skipped and recover cleanly.
@@ -1581,6 +1582,74 @@ static void test_session_arc_glow(void)
     }
 }
 
+static void test_battery_pages(const char *directory)
+{
+    am_app_t app = {0};
+    am_model_t model = {.link = AM_LINK_ONLINE, .clock_valid = true, .utc_offset_valid = true,
+                        .utc_offset_minutes = 480, .battery_updated_us = 1000000};
+    struct am_ui_scene previous = {0};
+    static const int s_values[] = {86, 44, 18, 67};
+    for (int i = 0; i < AM_MAX_BATTERIES; ++i) {
+        model.batteries[i].percent = s_values[i];
+        model.batteries[i].connected = true;
+        model.batteries[i].mouse = i % 2;
+        snprintf(model.batteries[i].name, sizeof(model.batteries[i].name), "%s", i % 2 ? "MX Master" : "MX Keys");
+    }
+    for (unsigned count = 1; count <= AM_MAX_BATTERIES; ++count) {
+        model.battery_count = count;
+        for (int unknown = 0; unknown < 2; ++unknown) {
+            model.batteries[count - 1].connected = !unknown;
+            model.batteries[0].percent = unknown ? 100 : s_values[0];
+            memset(&s_scene, 0, sizeof(s_scene));
+            s_scene.body_alpha = 255;
+            battery_page(&model, 1792854000);
+            assert(s_scene.count < AM_UI_OPS);
+            int readings = 0;
+            for (int i = 0; i < s_scene.count; ++i) {
+                const struct am_ui_op *op = &s_scene.ops[i];
+                if (op->kind == AM_OP_TEXT && (op->font == &g_am_font_battery_large ||
+                    op->font == &g_am_font_battery_percent || op->font == &g_am_font_battery_row || op->font == &g_am_font_battery_compact)) {
+                    assert(strstr(op->text, "…") == NULL);
+                    readings++;
+                }
+            }
+            assert(readings == count);
+            check_incremental(&app, &previous);
+            char name[40];
+            snprintf(name, sizeof(name), "battery_%u%s", count, unknown ? "_unknown" : "");
+            write_ppm(directory, name);
+            model.batteries[count - 1].connected = true;
+        }
+    }
+    struct am_battery entry = {.connected = true};
+    for (int p = 0; p <= 100; ++p) {
+        entry.percent = p;
+        uint16_t expected = p < 30 ? TFT_RGB565(255, 95, 122) : p < 60 ? TFT_RGB565(255, 176, 46) : TFT_RGB565(54, 226, 154);
+        assert(battery_color(&entry) == expected);
+    }
+    struct am_ui_schedule schedule = {0};
+    struct am_ui_selection selection;
+    model.battery_count = 1;
+    model.usages[0] = (am_usage_t){.used = true, .used_bp = 0, .window_seconds = 18000};
+    strcpy(model.usages[0].provider, "codex");
+    am_ui_select(&model, &schedule, 1000000, &selection);
+    assert(selection.page == AM_PAGE_IDLE);
+    am_ui_select(&model, &schedule, 11000000, &selection);
+    assert(selection.page == AM_PAGE_USAGE);
+    am_ui_select(&model, &schedule, 21000000, &selection);
+    assert(selection.page == AM_PAGE_BATTERY);
+    model.sessions[0] = session("urgent", "permission_required", "codex");
+    am_ui_select(&model, &schedule, 22000000, &selection);
+    assert(selection.page == AM_PAGE_TASK);
+    model.sessions[0].used = false;
+    assert(!am_battery_available(&model, 181000000));
+    model.batteries[0].percent = -1;
+    assert(!am_battery_available(&model, 23000000));
+    model.usages[0].used = false;
+    am_ui_select(&model, &schedule, 23000000, &selection);
+    assert(selection.page == AM_PAGE_IDLE);
+}
+
 int main(int argc,char **argv)
 {
     assert(argc == 2);
@@ -1588,6 +1657,7 @@ int main(int argc,char **argv)
     test_session_arc_glow();
     test_session_completion_count();
     test_session_dot_rotation();
+    test_battery_pages(argv[1]);
     test_clock_preview();
     test_usage_batches();
     test_brightness();

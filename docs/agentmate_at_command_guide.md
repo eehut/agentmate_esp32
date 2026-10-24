@@ -51,6 +51,8 @@
 | `AT+CLOCKTHEME=<theme>` | 设置并保存待机时间页配色 | `OK` | | ✅ |
 | `AT+CLOCKRGB=<r>,<g>,<b>` | 设置并保存自定义时间配色，启用 CUSTOM | `OK` | | ✅ |
 | `AT+CLOCKRGB?` | 查询保存的自定义 RGB | `+CLOCKRGB:<r>,<g>,<b>`、`OK` | | ✅ |
+| `AT+BATTERY=<epoch>,<count>[,...]` | 原子替换主机选择的蓝牙电量（v3.0 起） | `OK` | | ✅ |
+| `AT+BATTERY?` | 查询最大容量与当前项数 | `+BATTERY:4,<count>`、`OK` | | ✅ |
 | `AT+CLOCKTHEME?` | 查询当前时间配色 | `+CLOCKTHEME:<theme>`、`OK` | | ✅ |
 
 `AT+PAIRBEGIN`、`AT+PAIRCOMMIT=...` 和 `AT+AUTH=...` 属于二期规划；当前固件收到这些命令会返回 `+ERR:UNSUPPORTED_FEATURE`、`ERROR`。
@@ -521,3 +523,32 @@ python3 tools/test_ota_serial.py PORT --firmware build/agentmate_esp32.bin --com
 脚本依赖 pyserial；只查询时不写固件，上传成功默认保留 READY，只有 `--commit` 才切换重启。错误注入测试会擦写备用槽，须在可用于验收的设备上运行。另需手动验证传输中拔线、断电及自检失败镜像的回滚，检查升级前后设备 ID、模式、亮度和旋转配置保持一致，并目视确认屏幕与灯环。
 
 本期 SHA-256 用于完整性校验，不提供固件来源认证；未启用配对认证、Secure Boot 或 eFuse 防降级。
+
+
+## 25. `AT+BATTERY`：蓝牙外设电量（v3.0 起）
+
+设备不自行扫描蓝牙。电脑服务选择最多 4 台键盘／鼠标，将完整快照一次提交：
+
+`AT+BATTERY=<epoch>,<count>[,<kind>,<percent>,<connected>,<name>...]`
+
+- epoch 为当前 SYNC 的 32 位小写十六进制；count 为 0～4，后续严格为 count 组、每组四字段。
+- kind 为 `keyboard` 或 `mouse`；percent 为 0～100 十进制整数或 `-`（未知）；connected 为 0／1。
+- name 为百分号编码 UTF-8，解码后非空且不超过 24 字节；逗号、百分号、控制字符等沿用项目名编码校验规则。
+- 先验证整批再发布；成功返回 OK。connected=0 的读数归一为未知；count=0 清空。
+- 非法字段返回 INVALID_ARG；epoch 不匹配返回 BAD_STATE，整批不生效。产测返回 UNSUPPORTED_FEATURE。
+- `AT+BATTERY?` 返回 `+BATTERY:4,<count>` 和 OK，4 为最大容量；可在 HELLO 后、SYNC 前查询能力。
+- 新 HELLO、新 epoch、连接清理会清空电量快照；不写 NVS。服务端至少每分钟重发，设备超过 180 秒未更新则跳过本页。
+
+```text
+AT+BATTERY=629d8a7097154fb0a3e5d74ea00665c1,2,keyboard,86,1,MX%20Keys,mouse,30,1,Mouse
+OK
+AT+BATTERY?
++BATTERY:4,2
+OK
+```
+
+无工作／结果／注意会话时，时间、有效 Codex 用量、有效蓝牙电量按每页 10 秒轮播；有蓝牙页时从时间页开始。
+仅显示主机选择的最多 4 台设备。低于 30% 为珊瑚红，30～59% 为琥珀色，60～100% 为薄荷绿（0% 有效）。
+断开／未知使用灰色 `--`，无选择或全部未知时跳过页面。1 台大数字、2 台双列、3 台列表、4 台 2×2 卡片。
+屏幕名称显示可打印 ASCII，超长省略；非 ASCII 名称回退带序号的键盘／鼠标标签。原始 UTF-8 名称仍保留在快照中。
+协议版本继续为 2；旧固件不支持该可选命令，服务端按能力查询决定是否同步。

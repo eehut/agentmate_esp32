@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-25 4.3      Codex         Accept atomic host-selected Bluetooth battery snapshots.
 # 2026-10-24 4.2      Codex         Add persistent custom RGB clock colors and migrate preset settings.
 # 2026-10-13 3.4      Codex         Trigger clock previews and cancel them on urgent sessions.
 # 2026-10-12 3.3      Codex         Integrate exclusive binary OTA mode and AT lifecycle.
@@ -261,6 +262,9 @@ static void clear_remote(am_app_t *app)
     app->model.alert_key[0] = 0;
     app->model.alert_provider[0] = 0;
     app->model.info_until_us = 0;
+    app->model.battery_count = 0;
+    app->model.battery_updated_us = 0;
+    memset(app->model.batteries, 0, sizeof(app->model.batteries));
     app->model.usage_supported = false;
     app->model.remote_generation++;
     app->model.revision++;
@@ -805,6 +809,49 @@ static void handle_showinfo(am_app_t *app, const char *argument, bool query)
     (void)write_line("OK");
 }
 
+/* dispatch holds model_lock; validate the entire snapshot before publishing. */
+static void handle_battery(am_app_t *app, char *argument, bool query)
+{
+    if (query) {
+        (void)write_line("+BATTERY:%d,%u", AM_MAX_BATTERIES, app->model.battery_count);
+        (void)write_line("OK");
+        return;
+    }
+    char *fields[2 + AM_MAX_BATTERIES * 4];
+    uint64_t count;
+    int total = argument ? split_csv(argument, fields, 2 + AM_MAX_BATTERIES * 4) : -1;
+    if (total < 2 || !is_lower_hex(fields[0], 32) || !parse_bounded(fields[1], AM_MAX_BATTERIES, &count) || total != 2 + count * 4) {
+        send_error("INVALID_ARG");
+        return;
+    }
+    if (!same_epoch(app, fields[0])) {
+        send_error("BAD_STATE");
+        return;
+    }
+    struct am_battery entries[AM_MAX_BATTERIES] = {0};
+    for (unsigned i = 0; i < count; ++i) {
+        char **f = fields + 2 + i * 4;
+        char name[AM_PROJECT_BYTES + 1];
+        uint64_t percent = 0, connected;
+        bool unknown = strcmp(f[1], "-") == 0;
+        if ((strcmp(f[0], "keyboard") != 0 && strcmp(f[0], "mouse") != 0) ||
+            (!unknown && !parse_bounded(f[1], 100, &percent)) || !parse_bounded(f[2], 1, &connected) ||
+            !am_project_decode(f[3], name) || !name[0] || strlen(name) > AM_BATTERY_NAME_BYTES) {
+            send_error("INVALID_ARG");
+            return;
+        }
+        entries[i].mouse = strcmp(f[0], "mouse") == 0;
+        entries[i].connected = connected != 0;
+        entries[i].percent = unknown || !connected ? -1 : (int16_t)percent;
+        memcpy(entries[i].name, name, strlen(name) + 1);
+    }
+    memcpy(app->model.batteries, entries, sizeof(entries));
+    app->model.battery_count = (uint8_t)count;
+    app->model.battery_updated_us = now_us();
+    app->model.revision++;
+    (void)write_line("OK");
+}
+
 /* Store the selected theme and custom RGB together so a failed write cannot publish half a setting. */
 static bool set_clock_style(am_app_t *app, unsigned theme, uint32_t rgb)
 {
@@ -1097,7 +1144,9 @@ static void dispatch(am_app_t *app, char *line)
         send_error("UNSUPPORTED_FEATURE");
         return;
     }
-    if (strcmp(command, "CLOCKTHEME") == 0) {
+    if (strcmp(command, "BATTERY") == 0) {
+        handle_battery(app, argument, query);
+    } else if (strcmp(command, "CLOCKTHEME") == 0) {
         handle_clock_theme(app, argument, query);
     } else if (strcmp(command, "CLOCKRGB") == 0) {
         handle_clock_rgb(app, argument, query);

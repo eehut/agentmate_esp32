@@ -73,16 +73,6 @@
     "radius_y": 39
   },
   "standby": {
-    "clock_px": 52,
-    "clock_style": "square",
-    "year_px": 20,
-    "date_px": 36,
-    "quota_panel": [
-      88,
-      110
-    ],
-    "quota_heading_px": 17,
-    "single_window": "same size centered",
     "default_theme": "AMBER",
     "theme_command": "CLOCKTHEME",
     "themes": {
@@ -114,7 +104,17 @@
         "label": "#9B8BB5",
         "rule": "#453561"
       }
-    }
+    },
+    "clock_px": 52,
+    "clock_style": "square",
+    "year_px": 20,
+    "date_px": 36,
+    "quota_panel": [
+      88,
+      110
+    ],
+    "quota_heading_px": 17,
+    "single_window": "same size centered"
   },
   "mask_bits": 4,
   "dynamic_directory": "Printable ASCII; non-ASCII code points display as ?; ellipsis reserved for clipping",

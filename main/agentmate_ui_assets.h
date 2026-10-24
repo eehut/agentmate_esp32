@@ -6,6 +6,11 @@
 struct am_glyph { uint32_t code, offset; uint8_t width, height, advance, top; };
 struct am_font { const struct am_glyph *glyphs; const uint8_t *pixels; uint16_t count; uint8_t height, scale_num, scale_den; };
 struct am_image { const uint8_t *mask; uint8_t width, height; };
+extern const struct am_font g_am_font_battery_name;
+extern const struct am_font g_am_font_battery_percent;
+extern const struct am_font g_am_font_battery_row;
+extern const struct am_font g_am_font_battery_compact;
+extern const struct am_font g_am_font_battery_large;
 extern const struct am_font g_am_font_small;
 extern const struct am_font g_am_font_reset;
 extern const struct am_font g_am_font_directory_large;
@@ -57,7 +62,12 @@ extern const struct am_image g_am_image_signal;
 extern const struct am_image g_am_image_sync;
 extern const struct am_image g_am_image_link;
 extern const struct am_image g_am_image_lock;
+extern const struct am_image g_am_image_keyboard;
+extern const struct am_image g_am_image_battery_mouse;
+extern const struct am_image g_am_image_bluetooth;
 extern const struct am_image g_am_image_connected;
 extern const struct am_image g_am_image_disconnected;
+extern const struct am_image g_am_image_keyboard_small;
+extern const struct am_image g_am_image_mouse_small;
 extern const uint16_t *const g_am_brand_pixels;
 #endif
