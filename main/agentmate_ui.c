@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-25 4.9      Codex         Count active sessions plus retained results independently of rotation priority.
 # 2026-10-25 4.8      Codex         Replace session dots with static glowing selection arcs.
 # 2026-10-24 4.7      Codex         Render indicators exclusively from the current rotation selection.
 # 2026-10-24 4.6      Codex         Exclude inactive sessions from indicator counts and positions.
@@ -520,7 +521,13 @@ static void session_directory_text(const char *project, char display[65])
 
 static void session_indicators(const am_model_t *model, const struct am_ui_selection *selection, int64_t now)
 {
-    int count = selection->count;
+    int slots[AM_MAX_SESSIONS];
+    int count = 0;
+    for (int i = 0; i < AM_MAX_SESSIONS; ++i) {
+        if (am_session_displayable(&model->sessions[i])) {
+            slots[count++] = i;
+        }
+    }
     if (count == 0) {
         return;
     }
@@ -528,12 +535,13 @@ static void session_indicators(const am_model_t *model, const struct am_ui_selec
     int left_count = count < 5 ? count : 5;
     int left_start = (5 - left_count) / 2;
     int right_start = (3 - (count - left_count)) / 2;
+    int current_slot = selection->count ? selection->slots[selection->current] : -1;
     for (int index = 0; index < count; ++index) {
-        const am_session_t *entry = &model->sessions[selection->slots[index]];
+        const am_session_t *entry = &model->sessions[slots[index]];
         int position = index < left_count ? left_start + index : 5 + right_start + index - left_count;
         struct am_status_animation animation = {0};
         struct am_status_visual visual = am_status_select(&animation, entry, model->remote_generation, now);
-        am_scene_session_arc(&s_scene, position, visual.color, index == selection->current);
+        am_scene_session_arc(&s_scene, position, visual.color, slots[index] == current_slot);
     }
 }
 

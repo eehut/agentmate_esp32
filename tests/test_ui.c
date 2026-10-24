@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-25 5.0      Codex         Verify active-plus-retained-result counts through completion transitions.
 # 2026-10-25 4.9      Codex         Verify static session arcs, selection glow and partial redraw cleanup.
 # 2026-10-24 4.8      Codex         Verify unavailable standby quotas are skipped and recover cleanly.
 # 2026-10-24 4.7      Codex         Regress completion-group dot counts against the actual rotation selection.
@@ -1419,10 +1420,10 @@ static void test_session_arcs(const char *directory)
         s_scene.body_alpha = 255;
         am_ui_select(&model, &schedule, 800000, &selection);
         session_indicators(&model, &selection, 800000);
-        assert(s_scene.count == 1 && selection.slots[0] == 6);
-        assert(s_scene.ops[0].arc_angle == 138);
-        assert(s_scene.ops[0].arc_selected);
-        assert(s_scene.ops[0].color == TFT_RGB565(255, 176, 46));
+        assert(s_scene.count == 2 && selection.slots[0] == 6);
+        assert(s_scene.ops[0].arc_angle == 146 && !s_scene.ops[0].arc_selected);
+        assert(s_scene.ops[1].arc_angle == 138 && s_scene.ops[1].arc_selected);
+        assert(s_scene.ops[1].color == TFT_RGB565(255, 176, 46));
         assert(am_scene_render(&app, &previous, &s_scene, false) == ESP_OK);
         check_incremental(&app, &previous);
         model.sessions[6] = session("input", s_inactive[state], "codex");
@@ -1480,12 +1481,16 @@ static void test_session_dot_rotation(void)
         memset(&s_scene, 0, sizeof(s_scene));
         s_scene.body_alpha = 255;
         session_indicators(&model, &selection, now);
-        assert(s_scene.count == selection.count);
-        for (int i = 0; i < selection.count; ++i) {
+        static const int s_indicator_counts[] = {3, 3, 2, 1, 3, 2, 0};
+        static const int s_indicator_slots[][3] = {{0, 3, 6}, {0, 3, 6}, {3, 6}, {6}, {1, 2, 6}, {2, 6}, {0}};
+        int count = s_indicator_counts[step];
+        assert(s_scene.count == count);
+        for (int i = 0; i < count; ++i) {
+            int slot = s_indicator_slots[step][i];
             struct am_status_animation animation = {0};
-            struct am_status_visual visual = am_status_select(&animation, &model.sessions[selection.slots[i]], 0, now);
+            struct am_status_visual visual = am_status_select(&animation, &model.sessions[slot], 0, now);
             assert(s_scene.ops[i].color == visual.color);
-            assert(s_scene.ops[i].arc_selected == (i == selection.current));
+            assert(s_scene.ops[i].arc_selected == (slot == selection.slots[selection.current]));
         }
         check_incremental(&app, &previous);
         if (selection.count) {
@@ -1498,9 +1503,45 @@ static void test_session_dot_rotation(void)
                     dots++;
                 }
             }
-            assert(dots == selection.count);
+            assert(dots == count);
             check_incremental(&app, &previous);
         }
+    }
+}
+
+static void test_session_completion_count(void)
+{
+    am_model_t model = {.link = AM_LINK_ONLINE};
+    struct am_ui_schedule schedule = {0};
+    struct am_ui_selection selection;
+    am_app_t app = {0};
+    struct am_ui_scene previous = {0};
+    static const char *const s_states[][2] = {
+        {"working", "working"}, {"working", "task_success"}, {"working", "ready"},
+        {"working", "working"}, {"task_success", "task_success"}, {"task_success", "ended"}, {"ended", "ended"}
+    };
+    static const int s_counts[] = {2, 2, 1, 2, 2, 1, 0};
+    model.sessions[0] = session("work1", "working", "codex");
+    model.sessions[4] = session("work2", "working", "codex");
+    for (int step = 0; step < 7; ++step) {
+        strcpy(model.sessions[0].state, s_states[step][0]);
+        strcpy(model.sessions[4].state, s_states[step][1]);
+        int64_t now = 1000000 + step * 1000000LL;
+        am_ui_select(&model, &schedule, now, &selection);
+        memset(&s_scene, 0, sizeof(s_scene));
+        s_scene.body_alpha = 255;
+        session_indicators(&model, &selection, now);
+        assert(s_scene.count == s_counts[step]);
+        if (step == 1) {
+            assert(selection.count == 1 && selection.group == AM_GROUP_RESULT && selection.slots[0] == 4);
+            assert(!s_scene.ops[0].arc_selected && s_scene.ops[1].arc_selected);
+            assert(s_scene.ops[0].color == TFT_RGB565(54, 226, 154));
+            assert(s_scene.ops[0].arc_angle == 146 && s_scene.ops[1].arc_angle == 138);
+        } else if (step == 2) {
+            assert(selection.count == 1 && selection.group == AM_GROUP_WORK && selection.slots[0] == 0);
+            assert(s_scene.ops[0].arc_selected && s_scene.ops[0].arc_angle == 138);
+        }
+        check_incremental(&app, &previous);
     }
 }
 
@@ -1545,6 +1586,7 @@ int main(int argc,char **argv)
     assert(argc == 2);
     test_session_arcs(argv[1]);
     test_session_arc_glow();
+    test_session_completion_count();
     test_session_dot_rotation();
     test_clock_preview();
     test_usage_batches();

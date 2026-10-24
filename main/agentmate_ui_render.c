@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-25 1.7      Codex         Shorten session arcs to increase visible gaps between segments.
 # 2026-10-25 1.6      Codex         Render static rounded session arcs with soft glow and a bright core.
 # 2026-10-12 1.5      Codex         Render cached antialiased curved headers and outlines.
 # 2026-10-11 1.4      Codex         Add Session panels, black background and mapped status borders.
@@ -173,7 +174,7 @@ void am_scene_session_arc(struct am_ui_scene *scene, int position, uint16_t colo
     if (position < 0 || position >= (int)(sizeof(s_angles) / sizeof(s_angles[0]))) {
         return;
     }
-    float half_span = selected ? 2.75f : 2.25f;
+    float half_span = selected ? 2.25f : 1.75f;
     float start = (s_angles[position] - half_span) * (3.141592654f / 180.0f);
     float end = (s_angles[position] + half_span) * (3.141592654f / 180.0f);
     float x1 = 120 + 108 * cosf(start), y1 = 120 + 108 * sinf(start);
@@ -368,7 +369,7 @@ static void paint_op(const struct am_ui_op *op, int bx, int by, int width, int h
     float arc_cos = 0, arc_sin = 0, arc_end_x = 0, arc_end_y = 0;
     if (op->kind == AM_OP_ARC) {
         float angle = op->arc_angle * (3.141592654f / 180.0f);
-        float half_span = (op->arc_selected ? 2.75f : 2.25f) * (3.141592654f / 180.0f);
+        float half_span = (op->arc_selected ? 2.25f : 1.75f) * (3.141592654f / 180.0f);
         arc_cos = cosf(angle);
         arc_sin = sinf(angle);
         arc_end_x = 108 * cosf(half_span);
