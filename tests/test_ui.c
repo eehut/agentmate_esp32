@@ -19,6 +19,11 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-24 4.6      Codex         Verify inactive sessions do not consume dots or shift active highlights.
+# 2026-10-24 4.5      Codex         Verify centered fixed dot positions and single-session indicators.
+# 2026-10-24 4.4      Codex         Verify custom RGB clock colors and derived calendar palettes.
+# 2026-10-24 4.3      Codex         Check fixed dot placement at two, five, six and eight sessions.
+# 2026-10-24 4.2      Codex         Verify all-session arc colors, spacing and breathing partial redraws.
 # 2026-10-13 4.1      Codex         Verify five-second clock previews and attention protection.
 # 2026-10-12 4.0      Codex         Verify OTA pages, safe geometry and LED progress.
 # 2026-10-12 3.7      Codex         Verify v6.2 page geometry, typography and partial redraws.
@@ -1011,12 +1016,13 @@ static void test_clock_themes(const char *directory)
 {
     am_app_t app = {0};
     am_model_t model = {.link = AM_LINK_ONLINE, .clock_valid = true, .utc_offset_valid = true, .utc_offset_minutes = 480};
+    model.clock_rgb = 0x12abef;
     struct am_ui_scene previous = {0};
     const uint16_t colors[] = {TFT_RGB565(241, 188, 116), TFT_RGB565(246, 245, 255),
-                               TFT_RGB565(119, 230, 188), TFT_RGB565(182, 160, 242)};
+                               TFT_RGB565(119, 230, 188), TFT_RGB565(182, 160, 242), TFT_RGB565(18, 171, 239)};
     const uint16_t dates[] = {TFT_RGB565(211, 223, 221), TFT_RGB565(226, 232, 246),
-                              TFT_RGB565(206, 235, 221), TFT_RGB565(211, 200, 234)};
-    const char *names[] = {"idle_amber", "idle_white", "idle_mint", "idle_codex"};
+                              TFT_RGB565(206, 235, 221), TFT_RGB565(211, 200, 234), TFT_RGB565(100, 200, 244)};
+    const char *names[] = {"idle_amber", "idle_white", "idle_mint", "idle_codex", "idle_custom"};
     for (unsigned theme = 0; theme <= AM_CLOCK_THEME_COUNT; ++theme) {
         /* Also exercise corrupted/future IDs falling back to the default palette. */
         model.clock_theme = theme < AM_CLOCK_THEME_COUNT ? theme : UINT8_MAX;
@@ -1276,9 +1282,113 @@ static void test_clock_preview(void)
     assert(model.clock_preview_until_us == 0);
 }
 
+static void test_session_dots(const char *directory)
+{
+    static const char *const s_states[] = {
+        "working", "thinking", "waiting_for_input", "permission_required", "stale", "task_success", "task_failed", "task_canceled"
+    };
+    am_model_t model = {0};
+    am_app_t app = {0};
+    struct am_ui_scene previous = {0};
+    for (int i = 0; i < AM_MAX_SESSIONS; ++i) {
+        char key[9];
+        snprintf(key, sizeof(key), "s%d", i);
+        model.sessions[i] = session(key, s_states[i], "codex");
+    }
+    for (int frame = 0; frame < 3; ++frame) {
+        memset(&s_scene, 0, sizeof(s_scene));
+        s_scene.body_alpha = 255;
+        session_dots(&model, &model.sessions[4], frame == 1 ? 800000 : 0);
+        assert(s_scene.count == AM_MAX_SESSIONS);
+        for (int i = 0; i < AM_MAX_SESSIONS; ++i) {
+            const struct am_ui_op *op = &s_scene.ops[i];
+            struct am_status_animation animation = {0};
+            struct am_status_visual visual = am_status_select(&animation, &model.sessions[i], 0, 0);
+            assert(op->kind == AM_OP_DISC && op->color == visual.color);
+            assert(op->width == (i == 4 ? (frame == 1 ? 11 : 9) : 7));
+            assert(op->y >= 168);
+            if (i < 5) {
+                assert(op->x + op->width < 76);
+            } else {
+                assert(op->x > 164 && op->y > 190);
+            }
+            if (i) {
+                const struct am_ui_op *prior = &s_scene.ops[i - 1];
+                int dx = op->x + op->width / 2 - prior->x - prior->width / 2;
+                int dy = op->y + op->height / 2 - prior->y - prior->height / 2;
+                int radii = op->width / 2 + prior->width / 2;
+                assert(dx * dx + dy * dy > radii * radii);
+            }
+        }
+        assert(am_scene_render(&app, &previous, &s_scene, false) == ESP_OK);
+        check_incremental(&app, &previous);
+        if (frame == 1) {
+            write_ppm(directory, "session_arc_eight");
+        }
+    }
+    static const int s_centers[AM_MAX_SESSIONS][2] = {
+        {26, 174}, {33, 183}, {40, 192}, {48, 200}, {57, 207}, {189, 203}, {180, 210}, {171, 215}
+    };
+    static const int s_expected[AM_MAX_SESSIONS][AM_MAX_SESSIONS] = {
+        {2}, {1, 2}, {1, 2, 3}, {0, 1, 2, 3}, {0, 1, 2, 3, 4},
+        {0, 1, 2, 3, 4, 6}, {0, 1, 2, 3, 4, 5, 6}, {0, 1, 2, 3, 4, 5, 6, 7}
+    };
+    for (int count = AM_MAX_SESSIONS; count >= 0; --count) {
+        for (int i = 0; i < AM_MAX_SESSIONS; ++i) {
+            model.sessions[i].used = i < count;
+        }
+        memset(&s_scene, 0, sizeof(s_scene));
+        s_scene.body_alpha = 255;
+        session_dots(&model, &model.sessions[0], 800000);
+        assert(s_scene.count == count);
+        for (int i = 0; i < count; ++i) {
+            const struct am_ui_op *op = &s_scene.ops[i];
+            int position = s_expected[count - 1][i];
+            assert(op->x + op->width / 2 == s_centers[position][0]);
+            assert(op->y + op->height / 2 == s_centers[position][1]);
+        }
+        assert(am_scene_render(&app, &previous, &s_scene, false) == ESP_OK);
+        check_incremental(&app, &previous);
+    }
+    static const char *const s_inactive[] = {"initializing", "ready", "ended", "offline"};
+    for (unsigned state = 0; state < sizeof(s_inactive) / sizeof(s_inactive[0]); ++state) {
+        /* Inactive entries before and between visible entries must not consume a position. */
+        for (int i = 0; i < AM_MAX_SESSIONS; ++i) {
+            model.sessions[i] = session("off", s_inactive[state], "codex");
+            assert(!am_session_displayable(&model.sessions[i]));
+        }
+        model.sessions[2] = session("work", "working", "codex");
+        model.sessions[6] = session("input", "waiting_for_input", "codex");
+        memset(&s_scene, 0, sizeof(s_scene));
+        s_scene.body_alpha = 255;
+        session_dots(&model, &model.sessions[6], 800000);
+        assert(s_scene.count == 2);
+        assert(s_scene.ops[0].x + s_scene.ops[0].width / 2 == 33);
+        assert(s_scene.ops[1].x + s_scene.ops[1].width / 2 == 40);
+        assert(s_scene.ops[0].width == 7 && s_scene.ops[1].width == 11);
+        assert(s_scene.ops[1].color == TFT_RGB565(255, 176, 46));
+        assert(am_scene_render(&app, &previous, &s_scene, false) == ESP_OK);
+        check_incremental(&app, &previous);
+        model.sessions[6] = session("input", s_inactive[state], "codex");
+        memset(&s_scene, 0, sizeof(s_scene));
+        s_scene.body_alpha = 255;
+        session_dots(&model, &model.sessions[2], 800000);
+        assert(s_scene.count == 1 && s_scene.ops[0].width == 11);
+        assert(s_scene.ops[0].x + s_scene.ops[0].width / 2 == 40);
+        assert(am_scene_render(&app, &previous, &s_scene, false) == ESP_OK);
+        check_incremental(&app, &previous);
+        model.sessions[2] = session("work", s_inactive[state], "codex");
+        memset(&s_scene, 0, sizeof(s_scene));
+        session_dots(&model, &model.sessions[2], 800000);
+        assert(s_scene.count == 0);
+    }
+
+}
+
 int main(int argc,char **argv)
 {
     assert(argc == 2);
+    test_session_dots(argv[1]);
     test_clock_preview();
     test_usage_batches();
     test_brightness();

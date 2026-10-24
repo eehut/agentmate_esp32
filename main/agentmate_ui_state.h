@@ -89,6 +89,7 @@ struct am_ui_schedule {
 
 bool am_state_advancing(const char *state);
 bool am_state_result(const char *state);
+bool am_session_displayable(const am_session_t *session);
 bool am_session_context_available(const am_session_t *session);
 bool am_session_quota_available(const am_usage_t *usage);
 uint64_t am_task_duration(const am_session_t *session, int64_t now);

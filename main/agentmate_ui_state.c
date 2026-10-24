@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-24 4.6      Codex         Share session display eligibility with arc indicators.
 # 2026-10-13 1.7      Codex         Preview clock themes for five seconds below attention priority.
 # 2026-10-11 1.6      Codex         Skip invalid Session metrics and use ten/three/three-second phases.
 # 2026-10-11 1.5      Codex         Rotate Session duration, context and available quota independently.
@@ -70,6 +71,11 @@ static enum am_ui_group session_group(const char *state)
         return AM_GROUP_WORK;
     }
     return AM_GROUP_IDLE;
+}
+
+bool am_session_displayable(const am_session_t *session)
+{
+    return session->used && session_group(session->state) != AM_GROUP_IDLE;
 }
 
 static enum am_ui_group highest_group(const am_model_t *model)
@@ -168,7 +174,7 @@ void am_ui_select(const am_model_t *model, struct am_ui_schedule *schedule, int6
         select_usage(model, selection->usage, true);
     }
     for (int i = 0; i < AM_MAX_SESSIONS; ++i) {
-        if (model->sessions[i].used && session_group_active && session_group(model->sessions[i].state) == group) {
+        if (am_session_displayable(&model->sessions[i]) && session_group_active && session_group(model->sessions[i].state) == group) {
             selection->slots[selection->count++] = i;
         }
     }

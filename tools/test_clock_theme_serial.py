@@ -28,10 +28,10 @@ def verify_preview(port, epoch):
     session('working')
     wait(port, lambda r: r['page'] == 1 and r['group'] == 3)
     started = time.monotonic()
-    expect_ok(port, 'AT+CLOCKTHEME=MINT')
+    expect_ok(port, 'AT+CLOCKRGB=18,171,239')
     wait(port, lambda r: r['page'] == 4, .8)
     while time.monotonic() - started < 4.6:
-        assert current(port) == 'MINT'  # Queries must not extend the deadline.
+        assert current(port) == 'CUSTOM'  # Queries must not extend the deadline.
         row = diagnostic(port)
         assert row['page'] == 4 and row['led'] == 4, row
         time.sleep(.1)
@@ -57,11 +57,11 @@ def verify_preview(port, epoch):
         wait(port, lambda r: r['page'] == 4, .8)
         session(urgent)
         wait(port, lambda r: r['page'] == 1 and r['group'] == 1, .8)
-        expect_ok(port, 'AT+CLOCKTHEME=CODEX')
+        expect_ok(port, 'AT+CLOCKRGB=18,171,239')
         time.sleep(.15)
         row = diagnostic(port)
         assert row['page'] == 1 and row['group'] == 1, row
-        assert current(port) == 'CODEX'
+        assert current(port) == 'CUSTOM'
         session('working')
         wait(port, lambda r: r['page'] == 1 and r['group'] == 3, .8)
         time.sleep(.15)
@@ -86,9 +86,19 @@ def main():
         port.reset_input_buffer()
         assert query_value(port, 'AT+MODE?', '+MODE:') == 'NORMAL'
         original = current(port)
+        original_rgb = query_value(port, 'AT+CLOCKRGB?', '+CLOCKRGB:')
         original_logs = query_value(port, 'AT+LOG?', '+LOG:')
         try:
-            for theme in ('AMBER', 'WHITE', 'MINT', 'CODEX'):
+            for rgb in ('0,0,0', '255,255,255', '0,255,128', '18,171,239'):
+                expect_ok(port, 'AT+CLOCKRGB=' + rgb)
+                assert query_value(port, 'AT+CLOCKRGB?', '+CLOCKRGB:') == rgb
+                assert current(port) == 'CUSTOM'
+                expect_ok(port, 'AT+CLOCKRGB=' + rgb)
+            for suffix in ('', '=', '=1,2', '=1,2,3,4', '=-1,0,0', '=256,0,0', '=1,2,3 ', '= 1,2,3', '=1,,3', '=1.5,2,3'):
+                expect_error(port, 'AT+CLOCKRGB' + suffix, 'INVALID_ARG')
+                assert query_value(port, 'AT+CLOCKRGB?', '+CLOCKRGB:') == '18,171,239'
+                assert current(port) == 'CUSTOM'
+            for theme in ('AMBER', 'WHITE', 'MINT', 'CUSTOM', 'CODEX'):
                 expect_ok(port, 'AT+CLOCKTHEME=' + theme)
                 assert current(port) == theme
                 expect_ok(port, 'AT+CLOCKTHEME=' + theme)
@@ -109,14 +119,18 @@ def main():
                 time.sleep(31)
                 assert current(port) == 'CODEX'
             if args.reboot:
+                expect_ok(port, 'AT+CLOCKTHEME=CUSTOM')
                 expect_ok(port, 'AT+MODE=FACTORY')
                 time.sleep(2.5)
                 assert query_value(port, 'AT+MODE?', '+MODE:') == 'FACTORY'
                 expect_error(port, 'AT+CLOCKTHEME?', 'UNSUPPORTED_FEATURE')
                 expect_error(port, 'AT+CLOCKTHEME=AMBER', 'UNSUPPORTED_FEATURE')
+                expect_error(port, 'AT+CLOCKRGB?', 'UNSUPPORTED_FEATURE')
+                expect_error(port, 'AT+CLOCKRGB=1,2,3', 'UNSUPPORTED_FEATURE')
                 expect_ok(port, 'AT+MODE=NORMAL')
                 time.sleep(2.5)
-                assert current(port) == 'CODEX'
+                assert current(port) == 'CUSTOM'
+                assert query_value(port, 'AT+CLOCKRGB?', '+CLOCKRGB:') == '18,171,239'
         finally:
             if query_value(port, 'AT+MODE?', '+MODE:') != 'NORMAL':
                 expect_ok(port, 'AT+MODE=NORMAL')
@@ -124,6 +138,7 @@ def main():
             if args.preview:
                 expect_ok(port, 'AT+HELLO=2,' + secrets.token_hex(16))
             expect_ok(port, 'AT+LOG=' + original_logs)
+            expect_ok(port, 'AT+CLOCKRGB=' + original_rgb)
             expect_ok(port, 'AT+CLOCKTHEME=' + original)
             assert current(port) == original
         print('Clock theme validation passed; original theme and NORMAL mode restored')

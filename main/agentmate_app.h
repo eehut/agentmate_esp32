@@ -124,6 +124,7 @@ enum am_clock_theme {
     AM_CLOCK_WHITE,
     AM_CLOCK_MINT,
     AM_CLOCK_CODEX,
+    AM_CLOCK_CUSTOM,
     AM_CLOCK_THEME_COUNT,
 };
 
@@ -141,6 +142,7 @@ struct am_ota_view {
 typedef struct {
     struct am_ota_view ota;
     uint8_t clock_theme;
+    uint32_t clock_rgb; /* Saved custom color in 0xRRGGBB format. */
     int64_t clock_preview_until_us;
     bool factory_mode;
     am_test_t test;

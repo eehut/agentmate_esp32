@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-24 4.2      Codex         Add persistent custom RGB clock colors and migrate preset settings.
 # 2026-10-13 3.4      Codex         Trigger clock previews and cancel them on urgent sessions.
 # 2026-10-12 3.3      Codex         Integrate exclusive binary OTA mode and AT lifecycle.
 # 2026-10-12 3.2      Codex         Persist and query named standby clock themes.
@@ -320,7 +321,13 @@ esp_err_t am_app_init(am_app_t *app)
         app->rotation = (uint16_t)value * 90U;
     }
     app->model.clock_theme = AM_CLOCK_AMBER;
-    if (nvs_get_u8(app->nvs, "clock_theme", &value) == ESP_OK && value < AM_CLOCK_THEME_COUNT) {
+    app->model.clock_rgb = 0xf1bc74;
+    uint32_t clock_style;
+    esp_err_t style_error = nvs_get_u32(app->nvs, "clock_style", &clock_style);
+    if (style_error == ESP_OK && (clock_style >> 24) < AM_CLOCK_THEME_COUNT) {
+        app->model.clock_theme = (uint8_t)(clock_style >> 24);
+        app->model.clock_rgb = clock_style & 0xffffff;
+    } else if (style_error == ESP_ERR_NVS_NOT_FOUND && nvs_get_u8(app->nvs, "clock_theme", &value) == ESP_OK && value < AM_CLOCK_CUSTOM) {
         app->model.clock_theme = value;
     }
     app->model.link = AM_LINK_WAIT_HOST;
@@ -798,10 +805,50 @@ static void handle_showinfo(am_app_t *app, const char *argument, bool query)
     (void)write_line("OK");
 }
 
+/* Store the selected theme and custom RGB together so a failed write cannot publish half a setting. */
+static bool set_clock_style(am_app_t *app, unsigned theme, uint32_t rgb)
+{
+    if (app->model.clock_theme != theme || app->model.clock_rgb != rgb) {
+        uint32_t packed = ((uint32_t)theme << 24) | rgb;
+        esp_err_t err = nvs_set_u32(app->nvs, "clock_style", packed);
+        if (err == ESP_OK) {
+            err = nvs_commit(app->nvs);
+        }
+        if (err != ESP_OK) {
+            send_error("STORAGE_ERROR");
+            return false;
+        }
+        app->model.clock_theme = (uint8_t)theme;
+        app->model.clock_rgb = rgb;
+    }
+    am_ui_request_clock_preview(&app->model, now_us());
+    (void)write_line("OK");
+    return true;
+}
+
+/* dispatch() holds model_lock for both settings and queries. */
+static void handle_clock_rgb(am_app_t *app, char *argument, bool query)
+{
+    if (query) {
+        uint32_t rgb = app->model.clock_rgb;
+        (void)write_line("+CLOCKRGB:%u,%u,%u", (unsigned)(rgb >> 16), (unsigned)((rgb >> 8) & 255), (unsigned)(rgb & 255));
+        (void)write_line("OK");
+        return;
+    }
+    char *fields[3];
+    uint64_t r, g, b;
+    if (!argument || split_csv(argument, fields, 3) != 3 || !parse_bounded(fields[0], 255, &r) ||
+        !parse_bounded(fields[1], 255, &g) || !parse_bounded(fields[2], 255, &b)) {
+        send_error("INVALID_ARG");
+        return;
+    }
+    (void)set_clock_style(app, AM_CLOCK_CUSTOM, (uint32_t)((r << 16) | (g << 8) | b));
+}
+
 /* dispatch() holds model_lock; publish only after persistence succeeds. */
 static void handle_clock_theme(am_app_t *app, const char *argument, bool query)
 {
-    static const char *const s_names[AM_CLOCK_THEME_COUNT] = {"AMBER", "WHITE", "MINT", "CODEX"};
+    static const char *const s_names[AM_CLOCK_THEME_COUNT] = {"AMBER", "WHITE", "MINT", "CODEX", "CUSTOM"};
     if (query) {
         unsigned theme = app->model.clock_theme < AM_CLOCK_THEME_COUNT ? app->model.clock_theme : AM_CLOCK_AMBER;
         (void)write_line("+CLOCKTHEME:%s", s_names[theme]);
@@ -812,15 +859,7 @@ static void handle_clock_theme(am_app_t *app, const char *argument, bool query)
         if (strcmp(argument, s_names[i]) != 0) {
             continue;
         }
-        if (app->model.clock_theme != i) {
-            if (save_setting(app, "clock_theme", (uint8_t)i) != ESP_OK) {
-                send_error("STORAGE_ERROR");
-                return;
-            }
-            app->model.clock_theme = (uint8_t)i;
-        }
-        am_ui_request_clock_preview(&app->model, now_us());
-        (void)write_line("OK");
+        (void)set_clock_style(app, i, app->model.clock_rgb);
         return;
     }
     send_error("INVALID_ARG");
@@ -1060,6 +1099,8 @@ static void dispatch(am_app_t *app, char *line)
     }
     if (strcmp(command, "CLOCKTHEME") == 0) {
         handle_clock_theme(app, argument, query);
+    } else if (strcmp(command, "CLOCKRGB") == 0) {
+        handle_clock_rgb(app, argument, query);
     } else if (strcmp(command, "SHOWINFO") == 0) {
         handle_showinfo(app, argument, query);
     } else if (strcmp(command, "SYNCBEGIN") == 0 && argument) {

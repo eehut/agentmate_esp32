@@ -49,6 +49,8 @@
 | `AT+TFTROTATE=<angle>` | 设置并保存 TFT 界面旋转角度 | `OK` | | ✅ |
 | `AT+TFTROTATE?` | 查询 TFT 界面旋转角度 | `+TFTROTATE:<angle>`、`OK` | | ✅ |
 | `AT+CLOCKTHEME=<theme>` | 设置并保存待机时间页配色 | `OK` | | ✅ |
+| `AT+CLOCKRGB=<r>,<g>,<b>` | 设置并保存自定义时间配色，启用 CUSTOM | `OK` | | ✅ |
+| `AT+CLOCKRGB?` | 查询保存的自定义 RGB | `+CLOCKRGB:<r>,<g>,<b>`、`OK` | | ✅ |
 | `AT+CLOCKTHEME?` | 查询当前时间配色 | `+CLOCKTHEME:<theme>`、`OK` | | ✅ |
 
 `AT+PAIRBEGIN`、`AT+PAIRCOMMIT=...` 和 `AT+AUTH=...` 属于二期规划；当前固件收到这些命令会返回 `+ERR:UNSUPPORTED_FEATURE`、`ERROR`。
@@ -389,10 +391,11 @@ TIME 只设置 UTC 与当前显示偏移，不将链路变为 ONLINE；SYNCEND �
 | `WHITE` | 原版白色 | `#F6F5FF` | `#E2E8F6` | `#92A4C9` |
 | `MINT` | A 版薄荷绿 | `#77E6BC` | `#CEEBDD` | `#6D9D8B` |
 | `CODEX` | Codex 紫色系，时间提亮以便黑底阅读 | `#B6A0F2` | `#D3C8EA` | `#8975B4` |
+| `CUSTOM` | 自定义 RGB | 输入 RGB | 混合 35% 白色 | 输入色的 60% |
 
 查询：`AT+CLOCKTHEME?` 返回 `+CLOCKTHEME:<theme>` 和 `OK`。设置成功先保存 NVS，再发布到显示模型。每次成功设置（包括同值重发）在没有 `permission_required` 或 `waiting_for_input` 会话时立即拉起时间日期待机页 5 秒，覆盖普通工作、思考、完成态、用量页和当前信息页；连续下发从最近一次成功设置重新计时。同值设置仍不重复写 NVS。已有需要立即处理的会话时只更新配色，不弹出、不排队；预览期间新出现这类会话立即取消预览且不恢复。到期后恢复正常页面选择及轮播。`CLOCKTHEME?` 查询、非法参数和保存失败不触发预览；重新 HELLO 取消旧预览，后续会话同步不会取消新预览，显式 `SHOWINFO>0` 可以替换预览。OTA 页面仍优先显示。主题仅影响时间日期待机页，连接状态顶栏、Session、用量页和灯环保持原配色；无效时钟／日期仍使用灰色占位且冒号不闪烁。
 
-新增 NVS 键 `clock_theme`，升级时没有保存值或值超出范围则使用 `AMBER`。正常断线、HELLO／同步、模式切换和设备重启均保留设置。空值、未知名称、大小写错误及多余字段返回 `INVALID_ARG`；持久化失败返回 `STORAGE_ERROR` 且不发布新主题；产测模式设置／查询返回 `UNSUPPORTED_FEATURE`。
+主题和自定义 RGB 使用单个 NVS `u32` 键 `clock_style` 保存，高 8 位为主题编号、低 24 位为 RGB；新键不存在时兼容读取旧键 `clock_theme` 的四套预设。缺失或无效配置回退 `AMBER`，默认自定义 RGB 为 `241,188,116`。正常断线、HELLO／同步、模式切换和设备重启均保留设置。空值、未知名称、大小写错误及多余字段返回 `INVALID_ARG`；持久化失败返回 `STORAGE_ERROR` 且不发布新主题；产测模式设置／查询返回 `UNSUPPORTED_FEATURE`。
 
 ```text
 AT+CLOCKTHEME=MINT
@@ -408,6 +411,27 @@ OK
 
 
 <a id="serial-ota"></a>
+
+### 自定义 RGB 接口
+
+- `AT+CLOCKRGB=<r>,<g>,<b>`：三个字段均为十进制整数，范围 0～255，顺序为红、绿、蓝；不允许空字段、符号、空格、小数及多余字段。
+- 设置成功返回 `OK`，保存 RGB 并立即启用 `CUSTOM` 主题；同值且已处于 CUSTOM 时不重复写 NVS，仍触发原有 5 秒预览规则。
+- `AT+CLOCKRGB?` 返回 `+CLOCKRGB:<r>,<g>,<b>` 和 `OK`，查询的是保存的自定义颜色，即使当前使用预设也不改变；查询不触发预览。
+- `AT+CLOCKTHEME=CUSTOM` 恢复已保存的自定义颜色；`CLOCKTHEME?` 此时返回 `+CLOCKTHEME:CUSTOM`。切换四套预设不会覆盖保存的 RGB。
+- 自定义 RGB 仅用于待机时间日期页：时间采用输入颜色（屏幕转换为 RGB565），月日颜色为 65% 输入色与 35% 白色混合，年份、标签、分隔线分别使用输入色的 60%、65%、30%。黑色 `0,0,0` 也是合法值，时间因此不可见。
+- 非法参数返回 `INVALID_ARG`；NVS 设置或提交失败返回 `STORAGE_ERROR`，不发布新配色、不触发预览；产测模式设置／查询均返回 `UNSUPPORTED_FEATURE`。
+- 正常断线、HELLO／同步、模式切换和重启保留 RGB 与当前主题；注意会话对预览的阻止／取消规则、OTA 优先级和无效时间的灰色占位规则与预设一致。
+
+```text
+AT+CLOCKRGB=18,171,239
+OK
+AT+CLOCKRGB?
++CLOCKRGB:18,171,239
+OK
+AT+CLOCKTHEME?
++CLOCKTHEME:CUSTOM
+OK
+```
 
 ## 24. 串口 OTA：AT 控制 + XMODEM-1K/CRC
 

@@ -19,6 +19,11 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-24 4.6      Codex         Exclude inactive sessions from indicator counts and positions.
+# 2026-10-24 4.5      Codex         Center session indicators within fixed left and right arc positions.
+# 2026-10-24 4.4      Codex         Render custom RGB standby clock palettes.
+# 2026-10-24 4.3      Codex         Use five fixed left dot positions and three fixed right positions.
+# 2026-10-24 4.2      Codex         Show state-colored session dots on the lower-left arc with a breathing selection.
 # 2026-10-13 4.1      Codex         Let clock previews bypass the initial connection page.
 # 2026-10-12 4.0      Codex         Display exclusive OTA progress and publish boot health.
 # 2026-10-12 3.9      Codex         Default idle clock to amber with selectable persistent palettes.
@@ -333,7 +338,21 @@ static const struct idle_palette s_idle_palettes[AM_CLOCK_THEME_COUNT] = {
 static void idle_page(const am_model_t *model, int64_t utc, int64_t now)
 {
     unsigned theme = model->clock_theme < AM_CLOCK_THEME_COUNT ? model->clock_theme : AM_CLOCK_AMBER;
+    struct idle_palette custom;
     const struct idle_palette *palette = &s_idle_palettes[theme];
+    if (theme == AM_CLOCK_CUSTOM) {
+        unsigned r = (model->clock_rgb >> 16) & 255;
+        unsigned g = (model->clock_rgb >> 8) & 255;
+        unsigned b = model->clock_rgb & 255;
+        custom = (struct idle_palette){
+            TFT_RGB565(r, g, b),
+            TFT_RGB565((r * 65 + 255 * 35) / 100, (g * 65 + 255 * 35) / 100, (b * 65 + 255 * 35) / 100),
+            TFT_RGB565(r * 60 / 100, g * 60 / 100, b * 60 / 100),
+            TFT_RGB565(r * 65 / 100, g * 65 / 100, b * 65 / 100),
+            TFT_RGB565(r * 30 / 100, g * 30 / 100, b * 30 / 100)
+        };
+        palette = &custom;
+    }
     char date[20], clock[16];
     calendar_text(model, utc, date, sizeof(date), clock, sizeof(clock), false);
     centered(54, 180, &g_am_font_body, palette->label, "日期/时间");
@@ -497,6 +516,44 @@ static void session_directory_text(const char *project, char display[65])
     display[length] = 0;
 }
 
+static void session_dots(const am_model_t *model, const am_session_t *current, int64_t now)
+{
+    int count = 0;
+    for (int i = 0; i < AM_MAX_SESSIONS; ++i) {
+        if (am_session_displayable(&model->sessions[i])) {
+            count++;
+        }
+    }
+    if (count == 0) {
+        return;
+    }
+    /* Center occupied fixed positions; an even count favors the adjacent upper position. */
+    static const int s_positions[AM_MAX_SESSIONS][2] = {
+        {26, 174}, {33, 183}, {40, 192}, {48, 200}, {57, 207},
+        {189, 203}, {180, 210}, {171, 215}
+    };
+    int left_count = count < 5 ? count : 5;
+    int left_start = (5 - left_count) / 2;
+    int right_start = (3 - (count - left_count)) / 2;
+    int index = 0;
+    float breath = (1.0f - cosf((float)(now % 1600000) * (6.283185307f / 1600000.0f))) * 0.5f;
+    for (int i = 0; i < AM_MAX_SESSIONS; ++i) {
+        const am_session_t *entry = &model->sessions[i];
+        if (!am_session_displayable(entry)) {
+            continue;
+        }
+        int position = index < left_count ? left_start + index : 5 + right_start + index - left_count;
+        int x = s_positions[position][0];
+        int y = s_positions[position][1];
+        struct am_status_animation animation = {0};
+        struct am_status_visual visual = am_status_select(&animation, entry, model->remote_generation, now);
+        /* Integer-radius discs stay larger than their neighbors throughout the breathing cycle. */
+        int radius = entry == current ? 4 + (breath >= 0.5f) : 3;
+        am_scene_disc(&s_scene, x, y, radius, visual.color);
+        index++;
+    }
+}
+
 static void session_page(const am_model_t *model, const am_session_t *session, const struct am_ui_selection *selection,
                          int64_t now, uint32_t generation, int64_t utc)
 {
@@ -529,12 +586,7 @@ static void session_page(const am_model_t *model, const am_session_t *session, c
                                 state == AM_STATUS_STALE ? &g_am_font_session_state_long : &g_am_font_session_state_mid;
     am_scene_status(&s_scene, &visual);
     am_scene_text(&s_scene, 84, 86 + (56 - font->height) / 2, 131, font, visual.color, s_labels[state], 0);
-    if (selection->count > 1) {
-        for (int i = 0; i < selection->count; ++i) {
-            am_scene_disc(&s_scene, 120 + i * 10 - (selection->count - 1) * 5, 200,
-                          i == selection->current ? 3 : 2, i == selection->current ? visual.color : TFT_RGB565(74, 74, 74));
-        }
-    }
+    session_dots(model, session, now);
     char identity[32];
     snprintf(identity, sizeof(identity), "%s·%s", session->host_label, session->session_short_name);
     int pill_width = am_text_width(&g_am_font_session_identity, identity) + 16;
