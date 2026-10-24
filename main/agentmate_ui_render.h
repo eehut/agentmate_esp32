@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-25 1.6      Codex         Expose antialiased session arcs with static selection glow.
 # 2026-10-12 1.5      Codex         Expose smooth curved headers and a common black background.
 # 2026-10-11 1.4      Codex         Expose Session split panels and background selection.
 #
@@ -42,7 +43,9 @@
 #define AM_UI_BG TFT_COLOR_BLACK
 #define AM_UI_OPS 48
 
-enum am_op_kind { AM_OP_TEXT, AM_OP_RECT, AM_OP_DISC, AM_OP_MASK, AM_OP_BITMAP, AM_OP_STATUS_FRAME, AM_OP_PROGRESS, AM_OP_PANEL, AM_OP_CAP };
+enum am_op_kind {
+    AM_OP_TEXT, AM_OP_RECT, AM_OP_DISC, AM_OP_MASK, AM_OP_BITMAP, AM_OP_STATUS_FRAME, AM_OP_PROGRESS, AM_OP_PANEL, AM_OP_CAP, AM_OP_ARC
+};
 struct am_ui_op {
     enum am_op_kind kind;
     int16_t x, y, width, height;
@@ -53,6 +56,8 @@ struct am_ui_op {
     uint8_t split_y;
     uint8_t border_width;
     uint8_t animation_frame;
+    uint16_t arc_angle;
+    bool arc_selected;
     enum am_status_kind status_kind;
     const struct am_font *font;
     const struct am_image *image;
@@ -75,6 +80,7 @@ void am_scene_text(struct am_ui_scene *scene, int x, int y, int width, const str
 void am_scene_rect(struct am_ui_scene *scene, int x, int y, int width, int height, uint16_t color, int radius);
 void am_scene_panel(struct am_ui_scene *scene, int x, int y, int width, int height, int split_y, uint16_t upper, uint16_t lower);
 void am_scene_cap(struct am_ui_scene *scene, int height, int radius_x, int radius_y, uint16_t color, int border_width);
+void am_scene_session_arc(struct am_ui_scene *scene, int position, uint16_t color, bool selected);
 void am_scene_disc(struct am_ui_scene *scene, int x, int y, int radius, uint16_t color);
 void am_scene_progress(struct am_ui_scene *scene, int x, int y, int width, int height, uint16_t color, uint16_t track_color,
                    unsigned remaining_bp);

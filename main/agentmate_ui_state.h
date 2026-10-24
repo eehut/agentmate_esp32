@@ -82,7 +82,7 @@ struct am_ui_schedule {
     int64_t detail_updated_us;
     int64_t detail_elapsed_us[AM_MAX_SESSIONS];
     char detail_keys[AM_MAX_SESSIONS][9];
-    bool idle_usage_supported;
+    bool idle_usage_available;
     uint32_t attention_sequence;
     uint32_t remote_generation;
 };

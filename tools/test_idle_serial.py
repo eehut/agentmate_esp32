@@ -68,16 +68,21 @@ def main():
             offset = int(datetime.now().astimezone().utcoffset().total_seconds() / 60)
             expect_ok(port, f'AT+TIME={int(time.time()*1000)},{offset}')
             wait_page(port, 4, 0)
-            def usage(batch):
+            def usage(batch, used="4200", weekly=None):
                 expect_ok(port, f'AT+USAGEBEGIN={epoch},codex,{batch}')
-                expect_ok(port, f'AT+USAGE={epoch},codex,l1,primary,-,0,18000,{int(time.time())},-')
+                expect_ok(port, f'AT+USAGE={epoch},codex,l1,primary,{used},0,18000,{int(time.time())},-')
+                value = used if weekly is None else weekly
+                expect_ok(port, f'AT+USAGE={epoch},codex,l1,secondary,{value},0,604800,{int(time.time())},-')
             usage(1)
             wait_page(port, 4, 0)  # Pending data cannot enable quota display.
             expect_error(port, f'AT+USAGE={epoch},codex,l1,primary,10001,0,18000,0,-', 'INVALID_ARG')
             expect_error(port, f'AT+USAGEEND={epoch},codex,1', 'BAD_STATE')
             wait_page(port, 4, 0)
-            usage(2)
+            usage(2, "-")
             expect_ok(port, f'AT+USAGEEND={epoch},codex,2')
+            wait_page(port, 4, 1)
+            usage(3, "-", "4200")
+            expect_ok(port, f'AT+USAGEEND={epoch},codex,3')
             first = wait_page(port, 3, 1)
             start = time.monotonic()
             previous = first['page']
@@ -85,7 +90,7 @@ def main():
             intervals = []
             last_sample = 0
             next_update = 1
-            batch = 3
+            batch = 4
             while time.monotonic() - start < 22:
                 elapsed = time.monotonic() - start
                 if elapsed >= next_update:
@@ -121,15 +126,22 @@ def main():
             expect_ok(port, f'AT+DELETE={epoch},s1')
             expect_ok(port, f'AT+USAGECLEAR={epoch},codex')
             wait_page(port, 4, 1, 11)
-            wait_page(port, 3, 1, 11)
+            cleared_at = time.monotonic()
+            while time.monotonic() - cleared_at < 11:
+                row = diagnostic(port)
+                assert row['page'] == 4 and row['usage_supported'] == 1, row
+                time.sleep(.2)
             hello(port)
             synchronize(port, secrets.token_hex(16))
             wait_page(port, 4, 0)
             expect_error(port, f'AT+USAGEBEGIN={epoch},codex,1', 'BAD_STATE')
             epoch = secrets.token_hex(16)
             synchronize(port, epoch)
-            usage(1)
+            usage(1, '-')
             expect_ok(port, f'AT+USAGEEND={epoch},codex,1')
+            wait_page(port, 4, 1)
+            usage(2)
+            expect_ok(port, f'AT+USAGEEND={epoch},codex,2')
             wait_page(port, 3, 1)
             synchronize(port, secrets.token_hex(16))
             wait_page(port, 4, 0)

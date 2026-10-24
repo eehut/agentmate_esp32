@@ -19,6 +19,7 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-25 1.6      Codex         Render static rounded session arcs with soft glow and a bright core.
 # 2026-10-12 1.5      Codex         Render cached antialiased curved headers and outlines.
 # 2026-10-11 1.4      Codex         Add Session panels, black background and mapped status borders.
 #
@@ -163,6 +164,29 @@ void am_scene_cap(struct am_ui_scene *scene, int height, int radius_x, int radiu
         op->radius = radius_x;
         op->split_y = radius_y;
         op->border_width = border_width;
+    }
+}
+
+void am_scene_session_arc(struct am_ui_scene *scene, int position, uint16_t color, bool selected)
+{
+    static const uint16_t s_angles[] = {154, 146, 138, 130, 122, 46, 54, 62};
+    if (position < 0 || position >= (int)(sizeof(s_angles) / sizeof(s_angles[0]))) {
+        return;
+    }
+    float half_span = selected ? 2.75f : 2.25f;
+    float start = (s_angles[position] - half_span) * (3.141592654f / 180.0f);
+    float end = (s_angles[position] + half_span) * (3.141592654f / 180.0f);
+    float x1 = 120 + 108 * cosf(start), y1 = 120 + 108 * sinf(start);
+    float x2 = 120 + 108 * cosf(end), y2 = 120 + 108 * sinf(end);
+    float padding = selected ? 6.0f : 2.0f;
+    int x = (int)floorf(fminf(x1, x2) - padding);
+    int y = (int)floorf(fminf(y1, y2) - padding);
+    int right = (int)ceilf(fmaxf(x1, x2) + padding);
+    int bottom = (int)ceilf(fmaxf(y1, y2) + padding);
+    struct am_ui_op *op = new_op(scene, AM_OP_ARC, x, y, right - x + 1, bottom - y + 1, color);
+    if (op) {
+        op->arc_angle = s_angles[position];
+        op->arc_selected = selected;
     }
 }
 
@@ -341,6 +365,15 @@ static void paint_op(const struct am_ui_op *op, int bx, int by, int width, int h
     int end_x = op->x + op->width < bx + width ? op->x + op->width : bx + width;
     const struct cap_edges *edges = op->kind == AM_OP_CAP ? cap_geometry(op) : NULL;
     int filled_width = op->kind == AM_OP_PROGRESS ? (op->width * op->remaining_bp + 5000) / 10000 : 0;
+    float arc_cos = 0, arc_sin = 0, arc_end_x = 0, arc_end_y = 0;
+    if (op->kind == AM_OP_ARC) {
+        float angle = op->arc_angle * (3.141592654f / 180.0f);
+        float half_span = (op->arc_selected ? 2.75f : 2.25f) * (3.141592654f / 180.0f);
+        arc_cos = cosf(angle);
+        arc_sin = sinf(angle);
+        arc_end_x = 108 * cosf(half_span);
+        arc_end_y = 108 * sinf(half_span);
+    }
     for (int y = start_y; y < end_y; ++y) {
         for (int x = start_x; x < end_x; ++x) {
             unsigned alpha = opacity;
@@ -356,6 +389,27 @@ static void paint_op(const struct am_ui_op *op, int bx, int by, int width, int h
             } else if (op->kind == AM_OP_STATUS_FRAME) {
                 alpha = am_status_border_alpha(op->status_kind, op->animation_frame,
                                                dx * AM_STATUS_WIDTH / op->width, dy * AM_STATUS_HEIGHT / op->height) * opacity / 255;
+            } else if (op->kind == AM_OP_ARC) {
+                float px = x - 120.0f, py = y - 120.0f;
+                float radial = px * arc_cos + py * arc_sin;
+                float tangent = fabsf(py * arc_cos - px * arc_sin);
+                float distance;
+                if (tangent * arc_end_x <= radial * arc_end_y) {
+                    distance = fabsf(sqrtf(px * px + py * py) - 108);
+                } else {
+                    float dx = radial - arc_end_x, dy = tangent - arc_end_y;
+                    distance = sqrtf(dx * dx + dy * dy);
+                }
+                float coverage = fminf(1, fmaxf(0, (op->arc_selected ? 3.0f : 2.0f) - distance));
+                if (op->arc_selected) {
+                    float glow = fmaxf(0, 1 - distance / 6);
+                    coverage += (1 - coverage) * glow * glow * (85.0f / 255.0f);
+                    if (distance < 3) {
+                        unsigned white = 64 + (unsigned)(90 * fmaxf(0, 1 - distance / 1.2f));
+                        color = blend(op->color, TFT_COLOR_WHITE, white);
+                    }
+                }
+                alpha = (unsigned)(coverage * opacity + 0.5f);
             } else if (op->kind == AM_OP_DISC) {
                 int radius = op->width / 2;
                 int cx = dx - radius;

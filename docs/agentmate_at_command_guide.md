@@ -218,7 +218,7 @@ AT+USAGE=629d8a7097154fb0a3e5d74ea00665c1,codex,l1,secondary,1800,1790859600,604
 OK
 ```
 
-未知百分比不代表窗口消失：若窗口时长已知，即使 `used_bp=-` 仍保留 `window_seconds` 和可获得的 `reset_at`／偏移。设备只展示 Codex 的 18000／604800 秒窗口，同一 metric 的两档配对；按 metric 字典序选择第一组，同档多条按 window_key 字典序选择第一条。显示剩余值 `10000-used_bp`，一位小数，未知显示「用量未知」。成功发布任一 Codex 目标窗口后，本次连接支持待机用量显示，无任务或结果时与日期时间每 10 秒轮播；不依赖 Session 或最近活动。
+未知百分比不代表窗口记录消失：若窗口时长已知，即使 `used_bp=-` 仍保留 `window_seconds` 和可获得的 `reset_at`／偏移，但该窗口不参与界面展示。设备只展示 Codex 的 18000／604800 秒窗口，且 `used_bp` 必须在 0～10000（含边界）；仅在有效读数中按 metric 字典序选择第一组，同组同档按 window_key 字典序选择第一条。显示剩余值 `10000-used_bp`。至少一档有效时，无任务或结果才与日期时间每 10 秒轮播；只有一档有效则只显示该档，两档均未知或被清除时立即返回时间页并跳过用量页。恢复有效数据后重新开始用量页的 10 秒展示。`usage_supported` 仅保留连接内历史支持信息，不再作为选页条件；不依赖 Session 或最近活动。
 
 ### 用量批次：USAGEBEGIN／USAGEEND
 
@@ -241,7 +241,7 @@ OK
 
 ## 14. `AT+USAGECLEAR`：清除 provider 用量
 
-**格式**：`AT+USAGECLEAR=<epoch>,<provider>`。设备清空指定 provider 的全部用量窗口记录并返回 `OK`；原来为空时也返回 `OK`。该 provider 的采集失败、`available=false` 或确实没有可发送记录时使用；正常刷新使用批次替换。它会丢弃当前未提交批次。它不改变会话表、其他 provider 的用量或亮度配置。本次连接已支持用量时保留支持标记，清除后继续轮播未知用量与日期时间；新 HELLO、新 epoch、断线或重启重置标记。
+**格式**：`AT+USAGECLEAR=<epoch>,<provider>`。设备清空指定 provider 的全部用量窗口记录并返回 `OK`；原来为空时也返回 `OK`。该 provider 的采集失败、`available=false` 或确实没有可发送记录时使用；正常刷新使用批次替换。它会丢弃当前未提交批次。它不改变会话表、其他 provider 的用量或亮度配置。本次连接已支持用量时保留历史支持标记，但清除后不再展示空用量页；只有恢复有效读数才重新参与待机轮播。新 HELLO、新 epoch、断线或重启重置标记。
 
 ```text
 AT+USAGECLEAR=629d8a7097154fb0a3e5d74ea00665c1,codex

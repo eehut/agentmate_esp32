@@ -19,6 +19,8 @@
 #####################################################################################
 #
 # Revision History:
+# 2026-10-25 4.8      Codex         Replace session dots with static glowing selection arcs.
+# 2026-10-24 4.7      Codex         Render indicators exclusively from the current rotation selection.
 # 2026-10-24 4.6      Codex         Exclude inactive sessions from indicator counts and positions.
 # 2026-10-24 4.5      Codex         Center session indicators within fixed left and right arc positions.
 # 2026-10-24 4.4      Codex         Render custom RGB standby clock palettes.
@@ -516,41 +518,22 @@ static void session_directory_text(const char *project, char display[65])
     display[length] = 0;
 }
 
-static void session_dots(const am_model_t *model, const am_session_t *current, int64_t now)
+static void session_indicators(const am_model_t *model, const struct am_ui_selection *selection, int64_t now)
 {
-    int count = 0;
-    for (int i = 0; i < AM_MAX_SESSIONS; ++i) {
-        if (am_session_displayable(&model->sessions[i])) {
-            count++;
-        }
-    }
+    int count = selection->count;
     if (count == 0) {
         return;
     }
     /* Center occupied fixed positions; an even count favors the adjacent upper position. */
-    static const int s_positions[AM_MAX_SESSIONS][2] = {
-        {26, 174}, {33, 183}, {40, 192}, {48, 200}, {57, 207},
-        {189, 203}, {180, 210}, {171, 215}
-    };
     int left_count = count < 5 ? count : 5;
     int left_start = (5 - left_count) / 2;
     int right_start = (3 - (count - left_count)) / 2;
-    int index = 0;
-    float breath = (1.0f - cosf((float)(now % 1600000) * (6.283185307f / 1600000.0f))) * 0.5f;
-    for (int i = 0; i < AM_MAX_SESSIONS; ++i) {
-        const am_session_t *entry = &model->sessions[i];
-        if (!am_session_displayable(entry)) {
-            continue;
-        }
+    for (int index = 0; index < count; ++index) {
+        const am_session_t *entry = &model->sessions[selection->slots[index]];
         int position = index < left_count ? left_start + index : 5 + right_start + index - left_count;
-        int x = s_positions[position][0];
-        int y = s_positions[position][1];
         struct am_status_animation animation = {0};
         struct am_status_visual visual = am_status_select(&animation, entry, model->remote_generation, now);
-        /* Integer-radius discs stay larger than their neighbors throughout the breathing cycle. */
-        int radius = entry == current ? 4 + (breath >= 0.5f) : 3;
-        am_scene_disc(&s_scene, x, y, radius, visual.color);
-        index++;
+        am_scene_session_arc(&s_scene, position, visual.color, index == selection->current);
     }
 }
 
@@ -586,7 +569,7 @@ static void session_page(const am_model_t *model, const am_session_t *session, c
                                 state == AM_STATUS_STALE ? &g_am_font_session_state_long : &g_am_font_session_state_mid;
     am_scene_status(&s_scene, &visual);
     am_scene_text(&s_scene, 84, 86 + (56 - font->height) / 2, 131, font, visual.color, s_labels[state], 0);
-    session_dots(model, session, now);
+    session_indicators(model, selection, now);
     char identity[32];
     snprintf(identity, sizeof(identity), "%s·%s", session->host_label, session->session_short_name);
     int pill_width = am_text_width(&g_am_font_session_identity, identity) + 16;
