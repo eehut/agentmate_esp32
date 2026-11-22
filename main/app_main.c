@@ -28,8 +28,8 @@
 #####################################################################################
 */
 
-#include "agentmate_app.h"
-#include "agentmate_ota.h"
+#include "app.h"
+#include "ota.h"
 
 #include "driver/gpio.h"
 #include "esp_log.h"

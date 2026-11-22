@@ -28,7 +28,7 @@
 #####################################################################################
 */
 
-#include "agentmate_usage.h"
+#include "usage.h"
 
 #include <stdio.h>
 #include <string.h>

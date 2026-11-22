@@ -61,9 +61,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "agentmate_text.h"
-#include "agentmate_usage.h"
-#include "../main/agentmate_ui.c"
+#include "text.h"
+#include "usage.h"
+#include "../main/ui.c"
 
 static uint16_t s_screen[240 * 240];
 static rgb_led_color_t s_ring[16];

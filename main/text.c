@@ -28,7 +28,7 @@
 #####################################################################################
 */
 
-#include "agentmate_text.h"
+#include "text.h"
 #include <string.h>
 
 #include <stddef.h>

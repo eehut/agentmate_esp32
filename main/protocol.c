@@ -46,11 +46,11 @@
 #####################################################################################
 */
 
-#include "agentmate_app.h"
-#include "agentmate_ota.h"
-#include "agentmate_usage.h"
-#include "agentmate_ui_state.h"
-#include "agentmate_text.h"
+#include "app.h"
+#include "ota.h"
+#include "usage.h"
+#include "ui_state.h"
+#include "text.h"
 
 #include <errno.h>
 #include <inttypes.h>

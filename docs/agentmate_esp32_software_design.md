@@ -185,7 +185,7 @@ Codex 会话进度条回归：`python3 tools/test_ui_host.py` 检查整数舍入
 
 ## 10. 串口 OTA 实现（v2.1，2026-10-12）
 
-新增 `agentmate_ota` 管理 Flash 写入、SHA-256、镜像身份校验、提交和启动确认；独立的 `agentmate_xmodem` 使用固定缓冲实现 XMODEM-CRC／1K，便于主机回归。UART0 仍只由协议任务拥有：OTA 命令在业务模型锁外执行，BEGIN 返回 OK 后剩余输入直接交给二进制接收器，直至结束清理后再恢复行协议。Flash 擦写、UART 等待及完整镜像校验不持有 `model_lock`；进度发布短暂加锁，UI 按原有快照和 `display_lock` 渲染。RX 缓冲为 4096 字节。
+新增 `ota` 管理 Flash 写入、SHA-256、镜像身份校验、提交和启动确认；独立的 `xmodem` 使用固定缓冲实现 XMODEM-CRC／1K，便于主机回归。UART0 仍只由协议任务拥有：OTA 命令在业务模型锁外执行，BEGIN 返回 OK 后剩余输入直接交给二进制接收器，直至结束清理后再恢复行协议。Flash 擦写、UART 等待及完整镜像校验不持有 `model_lock`；进度发布短暂加锁，UI 按原有快照和 `display_lock` 渲染。RX 缓冲为 4096 字节。
 
 OTA 状态 `IDLE / RECEIVING / VERIFYING / READY / FAILED`、目标版本、实际字节进度和错误保存在内存模型，不持久化。只写非运行槽；校验成功后仍不修改启动分区，必须显式 COMMIT。ABORT、取消、错误或超时释放接收句柄和哈希上下文，备用槽残留不影响当前运行镜像；失电后从零重新上传。分区容量与边界不变，不升级 NVS、字库、bootloader 和分区表。
 

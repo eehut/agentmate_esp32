@@ -31,7 +31,7 @@
 #include <setjmp.h>
 #include <stdio.h>
 #include <string.h>
-#include "../main/agentmate_ota.c"
+#include "../main/ota.c"
 
 static am_app_t s_app;
 static int64_t s_now = 1;

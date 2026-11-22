@@ -30,7 +30,7 @@
 #ifndef AGENTMATE_OTA_H
 #define AGENTMATE_OTA_H
 
-#include "agentmate_app.h"
+#include "app.h"
 #include <stddef.h>
 
 /* These functions belong exclusively to the UART protocol task. No model lock may be held. */

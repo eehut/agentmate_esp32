@@ -27,7 +27,7 @@
 #####################################################################################
 */
 
-#include "agentmate_xmodem.h"
+#include "xmodem.h"
 
 #include <assert.h>
 #include <stdio.h>

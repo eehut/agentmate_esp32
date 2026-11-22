@@ -34,8 +34,8 @@
 #####################################################################################
 */
 
-#include "agentmate_ui_render.h"
-#include "agentmate_text.h"
+#include "ui_render.h"
+#include "text.h"
 
 #include <string.h>
 #include <math.h>

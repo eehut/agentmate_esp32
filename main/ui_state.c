@@ -37,7 +37,7 @@
 #####################################################################################
 */
 
-#include "agentmate_ui_state.h"
+#include "ui_state.h"
 
 #include <string.h>
 

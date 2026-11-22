@@ -36,9 +36,9 @@
 #ifndef AGENTMATE_UI_RENDER_H
 #define AGENTMATE_UI_RENDER_H
 
-#include "agentmate_app.h"
-#include "agentmate_ui_assets.h"
-#include "agentmate_status.h"
+#include "app.h"
+#include "ui_assets.h"
+#include "status.h"
 
 #define AM_UI_BG TFT_COLOR_BLACK
 #define AM_UI_OPS 48

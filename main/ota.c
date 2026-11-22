@@ -27,8 +27,8 @@
 #####################################################################################
 */
 
-#include "agentmate_ota.h"
-#include "agentmate_xmodem.h"
+#include "ota.h"
+#include "xmodem.h"
 
 #include <stdio.h>
 #include <string.h>

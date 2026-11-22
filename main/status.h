@@ -13,7 +13,7 @@
 #
 #####################################################################################
 #
-# Description: AgentMate atomic account usage updates
+# Description: AgentMate animated session status border
 # Author: Liu Chuansen <liuchuansen@outlook.com>
 #
 #####################################################################################
@@ -22,23 +22,48 @@
 #
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
-# 2026-10-03 1.0      Codex         Created atomic account usage updates.
+# 2026-10-03 1.0      Codex         Created continuously animated status borders.
 #
 #####################################################################################
 */
 
-#ifndef AGENTMATE_USAGE_H
-#define AGENTMATE_USAGE_H
+#ifndef AGENTMATE_STATUS_H
+#define AGENTMATE_STATUS_H
 
-#include "agentmate_app.h"
+#include "app.h"
 
-enum am_usage_error { AM_USAGE_OK, AM_USAGE_BAD_STATE, AM_USAGE_CAPACITY };
+#define AM_STATUS_WIDTH 143
+#define AM_STATUS_HEIGHT 48
+#define AM_STATUS_TICK_US 100000LL
 
-/* Caller holds model_lock. Pending batches never change the published model. */
-enum am_usage_error am_usage_begin(am_app_t *app, const char *provider, uint64_t id, int64_t now);
-enum am_usage_error am_usage_write(am_app_t *app, const am_usage_t *entry);
-enum am_usage_error am_usage_end(am_app_t *app, const char *provider, uint64_t id);
-void am_usage_clear(am_app_t *app, const char *provider);
-void am_usage_expire(am_app_t *app, int64_t now);
+enum am_status_kind {
+    AM_STATUS_WORKING,
+    AM_STATUS_THINKING,
+    AM_STATUS_INPUT,
+    AM_STATUS_PERMISSION,
+    AM_STATUS_STALE,
+    AM_STATUS_SUCCESS,
+    AM_STATUS_FAILED,
+    AM_STATUS_CANCELED,
+};
+
+struct am_status_animation {
+    bool initialized;
+    enum am_status_kind kind;
+    char key[9];
+    uint32_t generation;
+    int64_t started_us;
+};
+
+struct am_status_visual {
+    enum am_status_kind kind;
+    uint16_t color;
+    uint8_t frame;
+};
+
+void am_status_prepare(void);
+struct am_status_visual am_status_select(struct am_status_animation *animation, const am_session_t *session,
+                                        uint32_t generation, int64_t now);
+unsigned am_status_border_alpha(enum am_status_kind kind, unsigned frame, int x, int y);
 
 #endif

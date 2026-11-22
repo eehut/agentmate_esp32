@@ -61,7 +61,7 @@
 #####################################################################################
 */
 
-#include "agentmate_app.h"
+#include "app.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -74,10 +74,10 @@
 #include "freertos/task.h"
 #include "lcd_fonts.h"
 #include "provider_icons.h"
-#include "agentmate_ui_state.h"
-#include "agentmate_led.h"
-#include "agentmate_ui_render.h"
-#include "agentmate_text.h"
+#include "ui_state.h"
+#include "led.h"
+#include "ui_render.h"
+#include "text.h"
 
 #define FG TFT_RGB565(234, 240, 249)
 #define UI_SIZE 240

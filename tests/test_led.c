@@ -28,7 +28,7 @@
 #####################################################################################
 */
 
-#include "agentmate_led.h"
+#include "led.h"
 
 #include <assert.h>
 #include <stdio.h>

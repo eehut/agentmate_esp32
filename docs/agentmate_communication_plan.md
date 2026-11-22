@@ -199,7 +199,7 @@ OK
 
 现有本机网页面板增加设备卡片：显示型号、设备 ID 后八位、配对倒计时、连接/认证状态、容量和最后心跳；用户在对应卡片输入恰好四位的码，窗口失效后可点“重新显示配对码”。服务端增加 `GET /v1/devices`、`POST /v1/devices/{device_id}/pair`（JSON `{"code":"0042"}`）及 `POST /v1/devices/{device_id}/pair/retry`。写接口接受请求后返回 `202`，设备管理器串行执行 AT 命令，网页轮询 `GET /v1/devices` 读取最终配对状态或错误；格式不合法返回 `400`，设备离线返回 `503`，窗口失效、冷却或同一设备已有配对提交在处理时返回 `409`。API 不返回 pin 或长期密钥；`pair/retry` 不得绕过设备冷却。配对写接口仅接受来自本机回环地址且通过 Host/Origin 同源校验的请求；即使 daemon 的其他接口通过 `-listen` 暴露到非回环地址，配对写接口也不开放给远程客户端。这里的 Web 是现有本机服务页面，不新增账号登录、云服务或设备网页配置。
 
-固件使用 `agentmate_protocol` 和 `agentmate_ui` 模块：固定行缓冲、严格参数解析、四位码窗口与重试限制、认证、固定会话表、每条 seen 标记、查询、删除、provider 用量表、心跳超时及英文界面。设备 NVS 保存 `device_id`、当前 `server_id`、长期密钥、亮度和旋转角度；不保存四位码、窗口或会话。现有通用 `tcp_server` 不参与首版 USB 通信。
+固件使用 `protocol` 和 `ui` 模块：固定行缓冲、严格参数解析、四位码窗口与重试限制、认证、固定会话表、每条 seen 标记、查询、删除、provider 用量表、心跳超时及英文界面。设备 NVS 保存 `device_id`、当前 `server_id`、长期密钥、亮度和旋转角度；不保存四位码、窗口或会话。现有通用 `tcp_server` 不参与首版 USB 通信。
 
 以后若使用 Wi‑Fi，设备可通过 mDNS 广播 `_agentmate._tcp.local`，TXT 包含 `proto=1`、`id=<device_id>`、`model=agentmate_esp32c3`；服务端浏览并主动连接。mDNS 只负责发现，不证明身份。同一设备同时有 USB 与 Wi‑Fi 时默认优先 USB。TCP 可以复用 AT 行协议，但 HMAC 握手不加密后续消息，也不保护明文免遭篡改；无线正式版必须加 TLS 并校验设备证书或已配对公钥，明文仅用于可信开发局域网调试。
 

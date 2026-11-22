@@ -303,7 +303,7 @@
         <li>固定：当前时间、目录名、左侧 Agent 图标与分割线、右上主状态、会话名。右下内容轮换时这些元素不移位。</li>
         <li>ESP32-C3 目录仅显示可打印 ASCII，中文、emoji 及其他非 ASCII 字符各替换为一个 ?；固定中文状态文案保留。主状态内部为黑色，仅保留文字和固件边框动效。</li>
         <li>第一行是时钟，只显示时和分，中间冒号每秒闪一次。它不随工作时长冻结。</li>
-        <li>等待输入和需要批准的边框复用 <code>main/agentmate_status.c</code> 的双脉冲、周向柔光、边缘透明度算法：每 100ms 一帧，20 帧一周期。保留固件 143×48 的原始几何，显示时映射到本稿的状态块；不使用旋转锥形高光替代。柔光颜色分别为 <code>#FFB02E</code> 和 <code>#FF5F7A</code>。</li>
+        <li>等待输入和需要批准的边框复用 <code>main/status.c</code> 的双脉冲、周向柔光、边缘透明度算法：每 100ms 一帧，20 帧一周期。保留固件 143×48 的原始几何，显示时映射到本稿的状态块；不使用旋转锥形高光替代。柔光颜色分别为 <code>#FFB02E</code> 和 <code>#FF5F7A</code>。</li>
         <li>第四行顺序是工作时长 10 秒、有效 agent 用量 3 秒、有效上下文 3 秒。未知、未获取、窗口无效的读数不参与轮换。只有一档有效 agent 用量时，仅显示该档单块面板；0%／100% 都是有效值。没有有效用量时，停在工作时长。</li>
         <li>上下文左侧为 67×42px 的 CTX 面板，尺寸结构与 agent 用量一致，配色独立：上方 CTX 标题 11px，下方百分比 22px。两块上下文面板共用深蓝青主题。右侧 token 面板为 64×42px，与 CTX 面板间隔 6px，整体居中紧凑排列。token 面板两行各高 21px，共用一组外轮廓圆角，上半已用数值底色 #224657、文字 #E8F3FA，下半总量底色 #152E3D、文字 #AAC6D7；CTX 标题同用 #224657，百分比区域同用 #152E3D，标题文字 #C1D9E7。百分比按已用比例上色：低于 50% 绿，50–79% 琥珀，达到 80% 珊瑚。右侧两行是已用和总量，文本右对齐，总量不加斜杠。千位用大写 <code>K</code>；百万位用 <code>M</code>，数值保留 3 位有效数字，例如 <code>1.23M</code>、<code>12.3M</code>、<code>123M</code>。已用和总量各自选择单位；超出三位百万空间显示 &gt;999M；未知上下文直接跳过；有效的 0% 正常显示。</li>
         <li>agent 用量是剩余比例，颜色仍是 ≥50% 绿、≥20% 琥珀、低于 20% 珊瑚。两档同时显示时，左侧标题 <code>5H</code>、右侧标题 <code>WEEK</code>。用量区为 139×42px，两个独立圆角面板间隔 5px，两档统一使用深紫面板底色 <code>#2C223B</code>，标题带为 <code>#453254</code>，标题文字 <code>#DECDEB</code>。标题 11px，下方百分比 22px。只有 WEEK 或只有 5H 时，单面板保持 67×42px，居中显示在用量区；标题 11px、百分比 22px，均与双档相同。展示窗口由实际数据决定。未知档不参与显示，独立用量页仍按原规则显示未知占位。</li>
@@ -1073,7 +1073,7 @@ document.getElementById('board').innerHTML = allSections.map(s =>
   `<section id="${s.id}" style="--accent:${s.color}"><div class="sec-head"><span class="sec-num">${s.n}</span><h2>${s.title}</h2><p>${s.subtitle}</p></div><div class="grid">${s.tiles.map(t => t.type ? otherPages.tile(t) : tile(t)).join('')}</div></section>`
 ).join('');
 const rings = [...document.querySelectorAll('.led-ring')];
-// Port of main/agentmate_status.c geometry, pulse table and alpha math.
+// Port of main/status.c geometry, pulse table and alpha math.
 // Preserve the firmware's 143×48 geometry and 100ms tick; scale only for this layout.
 const firmwareGeometry = new Uint16Array(143 * 48);
 firmwareGeometry.fill(65535);

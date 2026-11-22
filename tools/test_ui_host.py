@@ -18,7 +18,7 @@ def main():
          '-D_POSIX_C_SOURCE=200809L',f'-DAM_SOFTWARE_VERSION="v{version}"',
          '-DCONFIG_LCD_FONT_ASCII_10X18=1','-DCONFIG_LCD_FONT_SUN_ASCII_12X22=1','-DCONFIG_LCD_FONT_TER_ASCII_16X32=1',
          '-I'+str(ROOT/'tests/stubs'),'-I'+str(ROOT/'main'),'-I'+str(fonts),
-         str(ROOT/'tests/test_ui.c'), str(ROOT/'tests/test_led.c'),*[str(ROOT/'main'/f) for f in ['agentmate_status.c','agentmate_led.c','agentmate_usage.c','agentmate_text.c','agentmate_ui_state.c','agentmate_ui_render.c','agentmate_ui_assets.c']],
+         str(ROOT/'tests/test_ui.c'), str(ROOT/'tests/test_led.c'),*[str(ROOT/'main'/f) for f in ['status.c','led.c','usage.c','text.c','ui_state.c','ui_render.c','ui_assets.c']],
          str(fonts/'lcd_fonts.c'),
          '-lm','-o',str(out/'test_ui')]
     subprocess.run(cmd,check=True,cwd=ROOT); subprocess.run([str(out/'test_ui'),str(out)],check=True)

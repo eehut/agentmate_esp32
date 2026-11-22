@@ -3,12 +3,12 @@
 ## 项目概况
 
 - 本仓库是 AgentMate 的 ESP32-C3 设备固件，使用 ESP-IDF 构建。当前原型通过 CH340 桥接 UART0 接收电脑端 AgentMate 服务发送的 AT 指令，在 240×240 GC9A01 圆形 TFT 和 16 颗 RGB LED 灯环上显示会话、用量与提醒。设备不直接采集 Codex 或 Claude Code 数据。
-- 当前应用入口是 `main/app_main.c`；`main/agentmate_protocol.c` 负责 UART0 AT、产测模式、NVS 和状态更新，`main/agentmate_ui.c` 负责屏幕与灯环显示，`main/agentmate_app.h` 定义共享数据结构与模块接口。配对认证留待二期。修改并发访问时注意 `model_lock` 和 `display_lock` 的使用。
+- 当前应用入口是 `main/app_main.c`；`main/protocol.c` 负责 UART0 AT、产测模式、NVS 和状态更新，`main/ui.c` 负责屏幕与灯环显示，`main/app.h` 定义共享数据结构与模块接口。配对认证留待二期。修改并发访问时注意 `model_lock` 和 `display_lock` 的使用。
 - `components/` 是独立 Git 子模块，提供 TFT、字体、LED 等驱动与通用组件；`main/CMakeLists.txt` 列出本应用实际依赖的组件。修改组件前先确认变更属于子模块，避免把应用逻辑放进通用驱动。
 
 ## 文档与协议依据
 
-- `docs/agentmate_at_command_guide.md` 是 AT 指令的字段、顺序、响应和错误码依据；更改协议时同步检查该文档及 `main/agentmate_protocol.c`。
+- `docs/agentmate_at_command_guide.md` 是 AT 指令的字段、顺序、响应和错误码依据；更改协议时同步检查该文档及 `main/protocol.c`。
 - `docs/agentmate_esp32_software_design.md` 说明设备侧状态模型、显示和异常恢复；`docs/agentmate_prd.md` 说明产品范围；`docs/agentmate_communication_plan.md` 说明电脑服务与设备的通信方案。设计文档包含规划与验收内容，判断当前已实现行为时以源码和构建配置为准。
 - `docs/hardware_connection.md` 记录原型接线。当前 `app_main.c` 使用 GPIO1 驱动灯环，GPIO6/7/10/3/4/5 分别连接 TFT 的 SCLK/MOSI/CS/DC/RST/背光；GPIO18/19 留给原生 USB。改动引脚时同时核对实际硬件和该文档。
 - UART0 AT 通道不能混入普通运行期日志。当前 `sdkconfig.defaults` 关闭控制台与 bootloader 常规日志；应用诊断通过可开关的 `+LOG:` AT 行上报。ROM 复位字节仍可能出现在串口，服务端发现前应清空旧输入。

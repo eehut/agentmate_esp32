@@ -36,7 +36,7 @@
 #ifndef AGENTMATE_UI_STATE_H
 #define AGENTMATE_UI_STATE_H
 
-#include "agentmate_app.h"
+#include "app.h"
 
 enum am_page {
     AM_PAGE_CONNECT,

@@ -13,7 +13,7 @@
 #
 #####################################################################################
 #
-# Description: AgentMate continuous LED arcs and deterministic state animation
+# Description: AgentMate atomic account usage updates
 # Author: Liu Chuansen <liuchuansen@outlook.com>
 #
 #####################################################################################
@@ -22,45 +22,23 @@
 #
 # Date       Version  Author       Description
 # ---------- -------- ------------ -----------------------------------------------
-# 2026-10-03 1.0      Codex         Created selected-session LED animations.
-# 2026-10-03 1.1      Codex         Redesigned patterns for discrete DIY light points.
+# 2026-10-03 1.0      Codex         Created atomic account usage updates.
 #
 #####################################################################################
 */
 
-#ifndef AGENTMATE_LED_H
-#define AGENTMATE_LED_H
+#ifndef AGENTMATE_USAGE_H
+#define AGENTMATE_USAGE_H
 
-#include "agentmate_ui_state.h"
+#include "app.h"
 
-enum am_led_mode {
-    AM_LED_OFF,
-    AM_LED_DISCONNECTED,
-    AM_LED_CONNECTING,
-    AM_LED_PERMISSION,
-    AM_LED_WORKING,
-    AM_LED_THINKING,
-    AM_LED_STALE,
-    AM_LED_SUCCESS,
-    AM_LED_INPUT,
-    AM_LED_FAILED,
-    AM_LED_CANCELED,
-};
+enum am_usage_error { AM_USAGE_OK, AM_USAGE_BAD_STATE, AM_USAGE_CAPACITY };
 
-struct am_led_effect {
-    enum am_led_mode mode;
-    rgb_led_color_t color;
-    uint32_t generation;
-    char key[9];
-};
-
-struct am_led_state {
-    bool initialized;
-    struct am_led_effect effect;
-    int64_t started_us;
-};
-
-struct am_led_effect am_led_select(const am_model_t *model, const struct am_ui_selection *selection);
-void am_led_frame(struct am_led_state *state, const struct am_led_effect *effect, int64_t now, rgb_led_color_t colors[16]);
+/* Caller holds model_lock. Pending batches never change the published model. */
+enum am_usage_error am_usage_begin(am_app_t *app, const char *provider, uint64_t id, int64_t now);
+enum am_usage_error am_usage_write(am_app_t *app, const am_usage_t *entry);
+enum am_usage_error am_usage_end(am_app_t *app, const char *provider, uint64_t id);
+void am_usage_clear(am_app_t *app, const char *provider);
+void am_usage_expire(am_app_t *app, int64_t now);
 
 #endif
